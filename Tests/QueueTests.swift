@@ -58,6 +58,8 @@ final class DownloadValidationTests: XCTestCase {
         XCTAssertFalse(DownloadStore.validResponse("application/vnd.apple.mpegurl", expected: mp4))
         let hls = try XCTUnwrap(DirectMedia(source: "https://example.com/master.m3u8", contentType: "application/vnd.apple.mpegurl", encrypted: false))
         XCTAssertFalse(DownloadStore.supports(hls))
+        let http = try XCTUnwrap(DirectMedia(source: "http://example.com/video.mp4", contentType: "video/mp4", encrypted: false))
+        XCTAssertFalse(DownloadStore.supports(http)) // Native ATS remains enforced.
     }
     func testFilenameCannotEscapeDownloadDirectory() {
         let name = DownloadStore.filename(title: "../../secret/Hello:Film", type: "video/mp4", source: URL(string: "https://example.com/path")!)

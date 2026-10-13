@@ -16,7 +16,7 @@ Die Liste enthält Wünsche sowie Beschwerden über eine andere App. Daraus folg
 | Auto-PiP beim Verlassen | opt-in, nur laufendes Video, kein Timerstop/Cast, keine Änderung von Mute/Volume | best effort; Programmatic-PiP/User-Gesture-/Background-Regeln von iOS |
 | Shorts abschalten | opt-in DOM-Ausblendung plus echte YouTube-Route-/SPA-Sperre neu | konservative bekannte Elemente; unbekannte Layouts können weitere Kurzvideo-Kacheln zeigen |
 | Links im Hintergrund | WK-Link-Longpress und Bibliothekskontextmenü neu | Auswahl bleibt erhalten; neue Hintergrund-Tabs verlangen Medien-Useraktion |
-| Downloads | direkte Audio-/Videodateien: Cancel/Retry/Share/Delete, sichere Dateinamen, Status/MIME-Prüfung neu | keine Login-Cookies, DRM/blob/MSE, HLS/DASH-Playlist-Extraktion; foreground, kein garantierter Stop/Kill-Resume |
+| Downloads | direkte HTTPS-Audio-/Videodateien: Cancel/Retry/Share/Delete, sichere Dateinamen, Status/MIME-Prüfung neu | keine Login-Cookies, DRM/blob/MSE, HLS/DASH-Playlist-Extraktion; foreground, kein garantierter Stop/Kill-Resume |
 | SponsorBlock | bereits vorhanden: Kategorien, iframe/SPA, Allowlist, Skip/Undo | Communitydaten und Dienstverfügbarkeit |
 | Werbung / Abos / Restore-Käufe | Netzwerkfilter bereits vorhanden; keine Abos oder In-App-Käufe in diesem Projekt | keine Restore-Purchases-Funktion nötig; kein Versprechen für vollständige Werbefreiheit |
 | Cast nur Audio / Duration / TV / Mac | echte Session/Remote Controls, Status/Fehler, MIME/currentSrc, Position/Dauer vorhanden | Receiver/Codec/Netz/DRM/Berechtigung prüfen; keine native Mac-App, Mac-Routen nur soweit angeboten |
@@ -32,6 +32,7 @@ Die Liste enthält Wünsche sowie Beschwerden über eine andere App. Daraus folg
 - Manuelles Pause/Stop und Audio-Routenunterbrechungen setzen die Autoplay-Sperre und verhindern unerwartetes Queue-Fortsetzen. Queue-Ende wird nur im verwalteten Tab verarbeitet; bei Cast werden Browserqueue-Next/Previous deaktiviert.
 - Downloads verschieben URLSession-Tempdateien noch im Callback nach UUID-Staging. Attempt-IDs verhindern alte Cancel/Retry-Callbacks; MIME/Status und sichere Namen verhindern Login-HTML und Pfad-Traversal als vermeintlichen Download. Kein FileTimestamp-API-Aufruf nur für Größenmessung.
 - Hintergrund-Tabs wechseln die Auswahl nicht und verlangen eine Player-Useraktion. Die Bridge durchsucht nicht bei jedem State/Tick das gesamte Dokument; Mutationen ergänzen den Node-Cache, entfernte Elemente werden bereinigt. Sichtbare offene Shadow Roots erhalten eine seltene Nachsuche.
+- ATS bleibt für native Requests aktiv. HTTP wird nur in WebKit erlaubt; Downloadoptionen werden deshalb nur für HTTPS-Dateien angeboten, ohne bekannten HTTP-ATS-Fehlschlag.
 - In-App-Datenschutztext wurde auf gewählte Suchmaschine, mehrere Quellen, Queue und ausdrücklich gespeicherte Downloads aktualisiert.
 
 ## Validierung

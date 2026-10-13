@@ -20,7 +20,7 @@ Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und F
 
 Im Menü erreichbar: lokale URL-/Favoriten-Queue mit vollständigem Shuffle und Repeat Aus/Ein/Alle, Next/Previous über RemoteCommands; Hintergrund-Linköffnung per Longpress. Playeroptionen bieten getrenntes Vollbild/PiP, Geschwindigkeit, verfügbare HTML-Untertitel-/Audiospuren und Buffering-/Fehleranzeige. Auto-PiP, Shorts-Ausblenden und Original-Audio sind optionale Einstellungen. Kein interner YouTube-API-Zugriff oder erfundener 1080p-Schalter.
 
-Direkte Audio-/Videodateien lassen sich ausdrücklich herunterladen, abbrechen, erneut laden, teilen und löschen. Der Vordergrunddownload nutzt keine Browser-Cookies, prüft HTTP/MIME, lehnt Streaming-Manifeste ab und persistiert keine Quell-URL. Downloads aus privaten Tabs sind bewusst gespeicherte Dateien. Keine Stream-/DRM-Extraktion und kein garantierter Hintergrunddownload.
+Direkte HTTPS-Audio-/Videodateien lassen sich ausdrücklich herunterladen, abbrechen, erneut laden, teilen und löschen. Der Vordergrunddownload nutzt keine Browser-Cookies, prüft HTTP/MIME, lehnt Streaming-Manifeste ab und persistiert keine Quell-URL. Downloads aus privaten Tabs sind bewusst gespeicherte Dateien. Keine Stream-/DRM-Extraktion und kein garantierter Hintergrunddownload.
 
 Die Bridge verwaltet Medien über Mutationserfassung und cached Nodes; offene Shadow Roots werden sichtbar höchstens alle 15 Sekunden zusätzlich gesucht. Nicht sichtbare Frames senden nur alle fünf Sekunden einen Heartbeat. Diese DOM-/Nachrichtenreduktion wurde im Harness geprüft; tatsächliche CPU/Batterie/CarPlay/TV/Rotation bleiben Gerätetests. Vergleich und kurzer Funktionsaudit: [VIDEO-LITE-COMPARISON.md](Docs/VIDEO-LITE-COMPARISON.md).
 

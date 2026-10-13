@@ -44,11 +44,12 @@ final class DownloadStore: ObservableObject {
         reloadFiles()
     }
     static func supports(_ media: DirectMedia) -> Bool {
+        guard media.url.scheme?.lowercased() == "https" else { return false }
         let type = media.contentType.lowercased()
         return (type.hasPrefix("video/") || type.hasPrefix("audio/")) && !type.contains("mpegurl") && !type.contains("dash")
     }
     func start(_ media: DirectMedia, title: String) {
-        guard Self.supports(media) else { error = "Nur direkte Audio-/Videodateien. HLS-/DASH-Playlists werden nicht als Offlinevideo gespeichert."; return }
+        guard Self.supports(media) else { error = "Nur direkte HTTPS-Audio-/Videodateien. HLS-/DASH-Playlists werden nicht als Offlinevideo gespeichert."; return }
         let job = DownloadJob(id: UUID(), media: media, title: String(title.prefix(100)))
         jobs.insert(job, at: 0); begin(job)
     }

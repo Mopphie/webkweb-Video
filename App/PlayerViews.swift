@@ -123,7 +123,7 @@ struct DownloadsView: View {
                         }.swipeActions { Button("Löschen", role: .destructive) { store.delete(file) } }
                     }
                 }
-                Section { Text("Nur ausdrücklich gespeicherte direkte Dateien ohne Browser-Cookies/DRM. Keine HLS-/DASH-Playlists oder YouTube-Extraktion. Vordergrunddownload: iOS kann beim Appwechsel unterbrechen; erneuter Versuch startet neu. Quelldaten bleiben nur bis Prozessende im Arbeitsspeicher.").font(.caption).foregroundStyle(.secondary) }
+                Section { Text("Nur ausdrücklich gespeicherte direkte HTTPS-Dateien ohne Browser-Cookies/DRM. Keine HLS-/DASH-Playlists oder YouTube-Extraktion. Vordergrunddownload: iOS kann beim Appwechsel unterbrechen; erneuter Versuch startet neu. Quelldaten bleiben nur bis Prozessende im Arbeitsspeicher.").font(.caption).foregroundStyle(.secondary) }
             }.navigationTitle("Downloads")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
                 .alert("Download", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("OK") { store.error = nil } } message: { Text(store.error ?? "") }
