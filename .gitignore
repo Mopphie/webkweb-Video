@@ -9,3 +9,4 @@ WebKWeb.xcworkspace/
 Pods/
 *.xcresult/
 .env
+__pycache__/

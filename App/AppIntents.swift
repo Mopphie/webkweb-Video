@@ -11,42 +11,23 @@ enum BrowserCommand {
 @MainActor
 final class IntentRouter: ObservableObject {
     static let shared = IntentRouter()
-    @Published var command: BrowserCommand?
+    @Published private(set) var revision: UInt = 0
+    private var queue: [BrowserCommand] = []
+    func send(_ command: BrowserCommand) { queue.append(command); revision &+= 1 }
+    func drain() -> [BrowserCommand] { let pending = queue; queue.removeAll(); return pending }
     private init() {}
 }
 
 struct OpenWebPageIntent: AppIntent {
     static var title: LocalizedStringResource = "Webseite oder Suche öffnen"
-    static var description = IntentDescription("Öffnet eine Adresse oder Google-Suche in WebKWeb.")
+    static var description = IntentDescription("Öffnet eine Adresse oder Suche mit deiner gewählten Suchmaschine in WebKWeb.")
     static var openAppWhenRun = true
     @Parameter(title: "Adresse oder Suchbegriff") var address: String
 
     func perform() async throws -> some IntentResult {
-        await MainActor.run { IntentRouter.shared.command = .open(address) }
+        await MainActor.run { IntentRouter.shared.send(.open(address)) }
         return .result()
     }
-}
-
-struct FavoriteEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Favorit"
-    static var defaultQuery = FavoriteQuery()
-    let id: String
-    let title: String
-    let address: String
-    var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(title)") }
-
-    init(_ favorite: FavoriteSnapshot) {
-        id = favorite.id
-        title = favorite.title
-        address = favorite.address
-    }
-}
-
-struct FavoriteQuery: EntityQuery {
-    func entities(for identifiers: [String]) async throws -> [FavoriteEntity] {
-        FavoriteStorage.read().filter { identifiers.contains($0.id) }.map(FavoriteEntity.init)
-    }
-    func suggestedEntities() async throws -> [FavoriteEntity] { FavoriteStorage.read().map(FavoriteEntity.init) }
 }
 
 struct OpenFavoriteIntent: AppIntent {
@@ -54,7 +35,7 @@ struct OpenFavoriteIntent: AppIntent {
     static var openAppWhenRun = true
     @Parameter(title: "Favorit") var favorite: FavoriteEntity
     func perform() async throws -> some IntentResult {
-        await MainActor.run { IntentRouter.shared.command = .open(favorite.address) }
+        await MainActor.run { IntentRouter.shared.send(.open(favorite.address)) }
         return .result()
     }
 }
@@ -67,7 +48,7 @@ struct StartSleepTimerIntent: AppIntent {
         guard (1...1440).contains(minutes) else {
             return .result(dialog: "Wähle zwischen 1 und 1440 Minuten.")
         }
-        await MainActor.run { IntentRouter.shared.command = .sleep(minutes) }
+        await MainActor.run { IntentRouter.shared.send(.sleep(minutes)) }
         return .result(dialog: "Sleep-Timer für \(minutes) Minuten gestartet.")
     }
 }
@@ -76,7 +57,7 @@ struct PausePlaybackIntent: AppIntent {
     static var title: LocalizedStringResource = "Wiedergabe pausieren"
     static var openAppWhenRun = true
     func perform() async throws -> some IntentResult {
-        await MainActor.run { IntentRouter.shared.command = .pause }
+        await MainActor.run { IntentRouter.shared.send(.pause) }
         return .result()
     }
 }

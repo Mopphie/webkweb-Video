@@ -1,31 +1,31 @@
 # Datenschutzhinweise für WebKWeb
 
-Stand: 13. Oktober 2026. Diese Fassung beschreibt die Entwicklungsversion. Verantwortlicher und Kontaktadresse müssen vom Betreiber vor einer öffentlichen Veröffentlichung ergänzt werden; dieser Repository-Text ist noch keine veröffentlichte Policy-URL.
+Stand: 13. Oktober 2026. Entwicklungsversion. Öffentliche Policy-/Support-URL und echter Verantwortlicher/Kontakt sind noch offen; die App bietet Konfigurationsfelder. Dieser Repository-Text ist keine bereits veröffentlichte Policy-URL.
 
-## Lokale Daten
+## Lokale Daten und optionale iCloud-Synchronisierung
 
-WebKWeb speichert Titel, vollständige Adressen und Besuchszeitpunkte für Verlauf und Favoriten lokal mit SwiftData. Der Verlauf ist auf 500 nicht favorisierte Seiten begrenzt; Favoriten werden nicht automatisch gelöscht. Vollständige URLs können Suchbegriffe, Video-IDs und andere URL-Parameter enthalten. Favoriten werden zusätzlich im lokalen App-Group-Speicher abgelegt, damit WidgetKit und Siri/Kurzbefehle sie lesen können. Es gibt keinen aktiven CloudKit-/iCloud-Sync.
+SwiftData speichert Titel, vollständige Adressen und Besuchszeitpunkte für Verlauf/Favoriten. Nicht favorisierte Historie ist auf 500 Einträge begrenzt und kann abgeschaltet werden. Favoriten lassen sich bearbeiten, sortieren und löschen. Vollständige URLs können Suchbegriffe, Video-IDs und Parameter enthalten. Benutzername/Passwort werden nicht gespeichert. Normale Tabs und Zeit-/Anzahl-Timer werden separat lokal wiederhergestellt; Tab-Restore lässt sich abschalten und ist unabhängig von History-off.
 
-Die Bibliothek bietet Löschen einzelner Einträge, Entfernen von Favoriten und Löschen des nicht favorisierten Verlaufs. Cookies, Cache und andere WebKit-Website-Daten werden separat über Einstellungen → Cookies & Website-Daten löschen entfernt. Beim Deinstallieren der App werden deren lokale App-Daten entfernt; die systemseitige Aufbewahrung geteilter Container hängt davon ab, ob weitere zugehörige Erweiterungen/Apps vorhanden sind.
+Private Tabs verwenden einen nicht persistenten WebKit-Speicher. Sie erscheinen weder im Verlauf noch im Session-/Timer-Snapshot. Ein bewusst aus einem privaten Tab gespeicherter Favorit wird in die normale Favoritenbibliothek übernommen. Private Titel erscheinen nicht in System-Medienmetadaten. Privates Browsen verbirgt Netzwerkanfragen nicht vor Webseiten, Netzbetreibern oder optionalen Filtern/SponsorBlock-Diensten.
+
+Favoriten werden zusätzlich im lokalen App-Group-Container abgelegt, damit WidgetKit und Siri/Kurzbefehle sie lesen können. Widgetauswahl speichert Favoritenreferenzen. iCloud ist standardmäßig aus und nur mit tatsächlich provisioniertem Container verfügbar. Nach opt-in und Neustart synchronisiert SwiftData Verlauf und Favoriten mit Apples privater CloudKit-Datenbank des angemeldeten iCloud-Kontos. Private Tabs, WebKit-Cookies, Browsersitzungen und Timer werden nicht synchronisiert. Abschalten entfernt nicht automatisch bereits in iCloud vorhandene Daten; Löschungen bei aktivem Sync werden synchronisiert. Apples Regeln und iCloud-Aufbewahrung gelten zusätzlich.
+
+Die Bibliothek löscht einzelne Einträge oder nicht favorisierten Verlauf. Website-Daten-Löschen stoppt ausstehende Navigationen, schließt die aktiven Dokumente und löscht danach Cookies/Cache/weitere WebKit-Daten; Verlauf/Favoriten werden gesondert gelöscht. Ein Abbruch wird gemeldet. Deinstallation entfernt lokale App-Daten; geteilter Container und iCloud unterliegen zusätzlicher Systemaufbewahrung.
 
 ## Netzwerkanfragen
 
-Besuchte Webseiten und deren eingebundene Dienste erhalten normale Browseranfragen, insbesondere IP-Adresse, mobile Safari-Kennung und gegebenenfalls eigene Cookies. Inhalte und Datenschutzregeln dieser Webseiten liegen bei deren Betreibern. Netzwerkfilter reduzieren bestimmte Anfragen, blockieren aber nicht alle Werbung oder Tracking.
+Besuchte Webseiten und deren Dienste erhalten normale Browseranfragen: IP-Adresse, gewählte Safari-Kennung, gegebenenfalls Cookies und Inhalte. Webseite und Netzbetreiber können diese Daten unabhängig verarbeiten. HTTP-Adressen können unverschlüsselt geladen werden. Suchen werden an den gewählten Anbieter Google, DuckDuckGo oder Bing gesendet. Zugangsdaten enthaltende URL-Eingaben werden weder geladen noch gesucht.
 
-Wenn eine Eingabe als Suchbegriff aufgelöst wird, wird sie in einer Google-Suche als Query übermittelt. Direkte HTTP-Adressen können im WebView unverschlüsselt übertragen werden; die nativen Listen- und SponsorBlock-Abfragen verwenden HTTPS.
+Bei aktivem Filter lädt die App aktivierte Listen beim Start/Vordergrundwechsel höchstens täglich sowie nach Quellenänderungen oder manuellem Update. Presets sind AdGuard DNS (`adguardteam.github.io`), HaGeZi und StevenBlack (`raw.githubusercontent.com`); eigene HTTPS-Quellen oder lokale Textdateien sind möglich. Listenhosts sehen IP-Adresse und technische Anfrageinformationen, erhalten aber keinen Verlauf/Favoriten. Download-Sitzungen sind ephemer und cookie-frei. Eingelesene Quelltexte, Imports und kompilierte Regeln werden lokal gecached. Bei deaktiviertem Filter findet kein automatisches tägliches Update statt; ausdrücklich angeforderte Updates/Quellenänderungen können laden.
 
-Bei aktivem Netzwerkfilter lädt WebKWeb die AdGuard DNS-Liste von `adguardteam.github.io` höchstens einmal pro Tag beim Öffnen der App sowie bei manuellem Update. Der Host kann die IP-Adresse und normale technische Anfragedaten sehen. Verlauf/Favoriten werden nicht an diesen Host gesendet. Unterstützte Regeln werden lokal zu einer WebKit Content Rule List kompiliert und von WebKit gespeichert. Bei deaktiviertem Filter findet kein automatisches Listenupdate statt; ein ausdrücklich manuell gewähltes Update kann weiterhin laden.
+SponsorBlock ist standardmäßig aus. Aktivierung sendet YouTube-Video-ID und ausgewählte Kategorien an `sponsor.ajay.app`, auch für eingebettete Player. Seiten-Ausnahmen und Abschalten beenden weitere Abfragen/Skips. Native ephemere Anfragen übertragen keine WebKit-Cookies; der Dienst sieht IP-Adresse und kann eigene Anfragedaten speichern. Segmente liegen kurz im Arbeitsspeicher. Drittanbieterinformationen: https://sponsor.ajay.app/privacy.
 
-SponsorBlock ist standardmäßig ausgeschaltet. Nach Aktivierung übermittelt WebKWeb die ID eines geöffneten YouTube-Videos und die gewünschten Segmentkategorien an `sponsor.ajay.app`. Die ephemere native Sitzung sendet keine WebKit-Cookies; der Dienst sieht die IP-Adresse. Segmente werden kurzzeitig im Arbeitsspeicher gecached. Beim Abschalten werden weitere Abfragen und Skips beendet. Über die Speicherung bereits übermittelter Anfragen entscheidet der Drittanbieter. Dessen Informationen: https://sponsor.ajay.app/privacy.
+Das App-Privacy-Manifest deklariert optionale Browsing-History-Übermittlung für SponsorBlock zur App-Funktion, ohne appseitige Identitätsverknüpfung oder Tracking. Das ersetzt nicht die Release-Datenschutzauskunft einschließlich optionaler SDKs und CloudKit.
 
-Die App-Privacy-Datei deklariert diese optionale Übermittlung als Browsing History für App-Funktionalität, ohne appseitige Verknüpfung mit einer Identität oder Nutzung für Tracking. Das ist kein Ersatz für die vor Veröffentlichung zu prüfende App-Store-Datenschutzauskunft einschließlich sämtlicher Drittanbieter.
+## AirPlay, Cast und Systemfunktionen
 
-## AirPlay und optionales Cast
+AirPlay nutzt iOS-Systemrouten. Ein optionaler Google-Cast-SDK-Build fragt lokalen Netzwerkzugriff ab und sucht Receiver. Direkter Medienlink, Titel und Startposition werden an das ausgewählte Gerät übertragen; der Receiver lädt selbst. Browser-Cookies, DRM-Lizenzen und Login-Header werden nicht übernommen. Für Google Cast und Receiver gelten deren eigene Datenschutzinformationen. Standardbuilds enthalten kein Cast SDK und suchen keine Cast-Geräte.
 
-AirPlay verwendet die iOS-Systemfunktionen und die gewählte Wiedergaberoute. Ein Build mit dem Google Cast SDK sucht nach Geräten im lokalen Netzwerk und fragt die entsprechende iOS-Berechtigung ab. Beim Übertragen werden direkter Medienlink, Titel und Startposition an das gewählte Gerät übermittelt. Der Receiver ruft die Quelle selbst ab. Browser-Cookies, DRM-Lizenzen und Login-Header werden nicht übertragen. Für Google Cast und den Receiver gelten deren eigene Datenschutzinformationen.
+UserDefaults speichert Optionen, Updatezeit, normale Session/Timer und den Favoriten-Snapshot. Required-Reason-Erklärungen CA92.1/1C8F.1 stehen in App-/Widget-Manifesten. Now Playing zeigt Wiedergabeinformationen und verarbeitet öffentliche Remote-Befehle; AVAudioSession konfiguriert Wiedergabe, garantiert aber keine dauerhafte WebKit-Hintergrundausführung.
 
-Der Standardbuild enthält kein Cast SDK und startet keine Cast-Gerätesuche. Es gibt keinen eigenen Analytics-Dienst, keinen Werbe-SDK und keine appseitige Cross-App-Tracking-ID. Webseiten können unabhängig davon eigene Datenverarbeitung betreiben.
-
-## Verwendete System-APIs
-
-`UserDefaults` speichert Einstellungen und Updatezeit sowie Favoriten im geteilten lokalen App-Group-Container. Die Required-Reason-Erklärungen CA92.1 und 1C8F.1 stehen in den Privacy-Manifesten von App und Widget. AVAudioSession und Audio-Hintergrundmodus konfigurieren Wiedergabe; WebKit und iOS können sie im Hintergrund anhalten.
+Kein eigener Analytics-Dienst, Werbe-SDK oder appseitige Cross-App-Tracking-ID. Webseiten und optionale Drittdienste können eigene Verarbeitung betreiben.

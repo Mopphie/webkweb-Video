@@ -11,7 +11,9 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(result.host, "www.google.com")
         XCTAssertEqual(URLComponents(url: result, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, query)
         XCTAssertEqual(AddressResolver.resolve("javascript:alert(1)")?.host, "www.google.com")
-        XCTAssertEqual(AddressResolver.resolve("https://user:secret@example.com")?.host, "www.google.com")
+        XCTAssertNil(AddressResolver.resolve("https://user:secret@example.com"))
+        XCTAssertEqual(AddressResolver.resolve("http://intranet/video")?.host, "intranet")
+        XCTAssertEqual(AddressResolver.resolve("cats", engine: .duckDuckGo)?.host, "duckduckgo.com")
     }
 
     func testWidgetDeepLinkRoundTrip() {
@@ -51,13 +53,13 @@ final class CoreTests: XCTestCase {
         ||-invalid.example^
         """
         let converted = try DomainFilterConverter.convert(text)
-        XCTAssertEqual(converted.domainCount, 2)
-        XCTAssertEqual(converted.skippedCount, 4)
+        XCTAssertEqual(converted.domainCount, 6)
+        XCTAssertEqual(converted.skippedCount, 3)
         XCTAssertTrue(converted.json.contains("ads\\\\.example"))
         XCTAssertTrue(converted.json.contains("tracker"))
         XCTAssertTrue(converted.json.contains("pagead"))
         let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(converted.json.utf8)) as? [[String: Any]])
-        XCTAssertEqual(rules.count, 5)
+        XCTAssertEqual(rules.count, 9)
         let allow = try XCTUnwrap(rules.last?["action"] as? [String: String])
         XCTAssertEqual(allow["type"], "ignore-previous-rules")
         let tracker = try XCTUnwrap(rules.first { rule in
@@ -87,7 +89,65 @@ final class CoreTests: XCTestCase {
         @@/\\.(gif|jpe?g|png|webp)#(\\/?.+)?(\\/(ad)s?\\/|\\/ad-)/
         """)
         let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(result.json.utf8)) as? [[String: Any]])
-        XCTAssertEqual(rules.filter { ($0["action"] as? [String: String])?["type"] == "ignore-previous-rules" }.count, 8)
+        XCTAssertEqual(rules.filter { ($0["action"] as? [String: String])?["type"] == "ignore-previous-rules" }.count, 12)
+    }
+
+    func testExceptionCannotBypassHostBlockThroughQueryString() throws {
+        let report = try DomainFilterConverter.convert("||ads.example.com^\n@@||allowed.example.org^")
+        let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(report.json.utf8)) as? [[String: Any]])
+        let exception = try XCTUnwrap(rules.last?["trigger"] as? [String: Any])
+        let regex = try NSRegularExpression(pattern: XCTUnwrap(exception["url-filter"] as? String))
+        let url = "https://ads.example.com/ad?next=https://allowed.example.org"
+        XCTAssertNil(regex.firstMatch(in: url, range: NSRange(url.startIndex..., in: url)))
+        let allowed = "https://sub.allowed.example.org/script.js"
+        XCTAssertNotNil(regex.firstMatch(in: allowed, range: NSRange(allowed.startIndex..., in: allowed)))
+        let credentialSpoof = "https://allowed.example.org:password@ads.example.com/ad"
+        XCTAssertNil(regex.firstMatch(in: credentialSpoof, range: NSRange(credentialSpoof.startIndex..., in: credentialSpoof)))
+    }
+
+    func testLargeListKeepsEveryDomainAndRepeatsExceptionsAcrossChunks() throws {
+        let domains = (0...40_000).map { "||a\($0).example^" }.joined(separator: "\n")
+        let report = try DomainFilterConverter.convert(domains + "\n@@||allowed.example.org^")
+        XCTAssertEqual(report.domainCount, 40_004)
+        XCTAssertEqual(report.jsons.count, 2)
+        XCTAssertTrue(report.jsons.joined().contains("doubleclick"))
+        XCTAssertTrue(report.jsons.joined().contains("googlesyndication"))
+        XCTAssertTrue(report.jsons.joined().contains("googleadservices"))
+        for json in report.jsons {
+            let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]])
+            XCTAssertLessThan(rules.count, 50_000)
+            XCTAssertEqual((rules.last?["action"] as? [String: String])?["type"], "ignore-previous-rules")
+        }
+    }
+
+    func testHostsListAndScopedNetworkRules() throws {
+        let report = try DomainFilterConverter.convert("0.0.0.0 ads.example.com\n127.0.0.1 localhost\n@@||allowed.example.org^$script,third-party,domain=example.net")
+        XCTAssertEqual(report.domainCount, 4)
+        let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(report.json.utf8)) as? [[String: Any]])
+        let trigger = try XCTUnwrap(rules.last?["trigger"] as? [String: Any])
+        XCTAssertEqual(trigger["resource-type"] as? [String], ["script"])
+        XCTAssertEqual(trigger["load-type"] as? [String], ["third-party"])
+        XCTAssertEqual(trigger["if-domain"] as? [String], ["example.net", "*.example.net"])
+        XCTAssertThrowsError(try DomainFilterConverter.convert("@@||allowed.example.org^$domain=example.net:443"))
+    }
+
+    func testPreferencesRoundTripAndCloudDefaults() throws {
+        var options = BrowserPreferences()
+        options.gestures = true; options.history = false; options.searchEngine = .bing
+        options.allowlist = ["example.com"]; options.categories = ["intro"]
+        XCTAssertEqual(try JSONDecoder().decode(BrowserPreferences.self, from: JSONEncoder().encode(options)), options)
+        XCTAssertFalse(BrowserPreferences().cloudSync)
+    }
+
+    func testCurrentVideoSleepRejectsOtherMediaAndPersistsDeadline() throws {
+        let tab = UUID(); var plan = SleepPlan()
+        plan.arm(videos: 1, tabID: tab, mediaID: "primary")
+        XCTAssertFalse(plan.ended(in: tab, eventID: "a", mediaID: "incidental"))
+        XCTAssertTrue(plan.ended(in: tab, eventID: "b", mediaID: "primary"))
+        plan.arm(seconds: 91, now: Date(timeIntervalSince1970: 1000))
+        let restored = try JSONDecoder().decode(SleepPlan.self, from: JSONEncoder().encode(plan))
+        XCTAssertEqual(restored.deadline, plan.deadline)
+        XCTAssertTrue(restored.hasExpired(at: Date(timeIntervalSince1970: 1091)))
     }
 
     func testSponsorSegmentRejectsBadBoundsAndCategories() {

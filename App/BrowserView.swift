@@ -17,6 +17,11 @@ struct BrowserView: View {
     @ObservedObject private var router = IntentRouter.shared
     @State private var sheet: BrowserSheet?
     @State private var persistenceError: String?
+    @State private var promptText = ""
+
+    private var favoriteDigest: [String] {
+        pages.filter(\.favorite).map { "\($0.identifier)|\($0.title)|\($0.address)|\($0.favoriteOrder)" }.sorted()
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,37 +45,51 @@ struct BrowserView: View {
         }
         .task {
             browser.onVisit = recordVisit
+            normalizeSavedPages()
             syncFavorites()
             if browser.blockingEnabled { await RuleStore.shared.refreshIfNeeded() }
         }
+        .onChange(of: favoriteDigest) { _, _ in syncFavorites() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { browser.enforceSleepDeadline() }
+            if phase == .active { Task { await browser.foreground() } }
+            else { browser.persistSession() }
         }
-        .onReceive(router.$command) { command in
-            guard let command else { return }
-            router.command = nil
-            switch command {
-            case .open(let address): browser.open(address)
-            case .sleep(let minutes): browser.sleep(minutes: minutes)
-            case .pause: browser.pauseAll()
+        .onReceive(router.$revision) { _ in
+            for command in router.drain() {
+                switch command {
+                case .open(let address): browser.open(address)
+                case .sleep(let minutes): browser.sleep(minutes: minutes)
+                case .pause: browser.pauseAll(blockAutoplay: true)
+                }
             }
         }
-        .alert("WebKWeb", isPresented: Binding(get: { browser.notice != nil || persistenceError != nil },
-            set: { if !$0 { browser.notice = nil; persistenceError = nil } })) {
-            Button("OK") { browser.notice = nil; persistenceError = nil }
-        } message: { Text(persistenceError ?? browser.notice ?? "") }
-        .alert("Webseite", isPresented: Binding(get: { browser.confirm != nil }, set: { value in
-            if !value, let confirm = browser.confirm { browser.confirm = nil; confirm.completion(false) }
-        })) {
-            Button("Abbrechen", role: .cancel) { completeConfirmation(false) }
-            Button("OK") { completeConfirmation(true) }
-        } message: { Text(browser.confirm?.message ?? "") }
+        .onChange(of: browser.dialog?.id) { _, _ in promptText = browser.dialog?.defaultText ?? "" }
+        .alert(browser.dialog == nil ? "WebKWeb" : "Webseite", isPresented: Binding(
+            get: { browser.dialog != nil || browser.notice != nil || persistenceError != nil },
+            set: { shown in
+                if !shown {
+                    let id = browser.dialog?.id
+                    DispatchQueue.main.async {
+                        if let id, browser.dialog?.id == id { browser.completeDialog(nil) }
+                        else if id == nil { browser.notice = nil; persistenceError = nil }
+                    }
+                }
+            })) {
+                if let dialog = browser.dialog {
+                    if dialog.kind == .prompt { TextField("Eingabe", text: $promptText) }
+                    if dialog.kind != .alert { Button("Abbrechen", role: .cancel) { browser.completeDialog(nil) } }
+                    Button("OK") { browser.completeDialog(dialog.kind == .prompt ? promptText : "true") }
+                } else { Button("OK") { browser.notice = nil; persistenceError = nil } }
+            } message: { Text(browser.dialog?.message ?? persistenceError ?? browser.notice ?? "") }
     }
 
-    private func completeConfirmation(_ accepted: Bool) {
-        let confirmation = browser.confirm
-        browser.confirm = nil
-        confirmation?.completion(accepted)
+    private func normalizeSavedPages() {
+        var seen = Set<String>()
+        for (index, page) in pages.enumerated() {
+            if page.identifier.isEmpty || !seen.insert(page.identifier).inserted { page.identifier = UUID().uuidString; seen.insert(page.identifier) }
+            if page.favoriteOrder == 0 { page.favoriteOrder = Double(index + 1) }
+        }
+        try? context.save()
     }
 
     private func recordVisit(_ title: String, _ address: String) {
@@ -78,7 +97,7 @@ struct BrowserView: View {
             var request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.address == address })
             request.fetchLimit = 1
             if let existing = try context.fetch(request).first {
-                existing.title = title
+                if !existing.customTitle { existing.title = title }
                 existing.visitedAt = .now
             } else {
                 context.insert(SavedPage(title: title, address: address))
@@ -88,6 +107,7 @@ struct BrowserView: View {
                 sortBy: [SortDescriptor(\SavedPage.visitedAt, order: .reverse)]))
             for old in history.dropFirst(500) { context.delete(old) }
             try context.save()
+            syncFavorites()
         } catch { persistenceError = "Verlauf konnte nicht gespeichert werden: \(error.localizedDescription)" }
     }
 
@@ -98,8 +118,13 @@ struct BrowserView: View {
             let address = tab.address
             var request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.address == address })
             request.fetchLimit = 1
-            if let existing = try context.fetch(request).first { existing.favorite.toggle() }
-            else { context.insert(SavedPage(title: tab.title, address: address, favorite: true)) }
+            if let existing = try context.fetch(request).first {
+                existing.favorite.toggle(); if existing.favorite { existing.favoriteOrder = (pages.filter(\.favorite).map(\.favoriteOrder).max() ?? 0) + 1 }
+            }
+            else {
+                let page = SavedPage(title: tab.title, address: address, favorite: true)
+                page.favoriteOrder = (pages.filter(\.favorite).map(\.favoriteOrder).max() ?? 0) + 1; context.insert(page)
+            }
             saveAndSync()
         } catch { persistenceError = error.localizedDescription }
     }
@@ -111,9 +136,9 @@ struct BrowserView: View {
 
     private func syncFavorites() {
         let request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.favorite },
-            sortBy: [SortDescriptor(\SavedPage.visitedAt, order: .reverse)])
+            sortBy: [SortDescriptor(\SavedPage.favoriteOrder), SortDescriptor(\SavedPage.visitedAt, order: .reverse)])
         guard let favorites = try? context.fetch(request) else { return }
-        FavoriteStorage.write(favorites.map { FavoriteSnapshot(id: $0.address, title: $0.title, address: $0.address) })
+        FavoriteStorage.write(favorites.map { FavoriteSnapshot(id: $0.identifier, title: $0.title, address: $0.address) })
         WidgetCenter.shared.reloadTimelines(ofKind: "WebKWebFavorites")
     }
 }
@@ -134,6 +159,7 @@ private struct BrowserScreen: View {
     @FocusState private var editing: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var dynamicType
+    @ObservedObject private var cast = CastService.shared
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
     private var isHome: Bool { tab.address.isEmpty && !tab.loading }
     private var shortcutSize: CGFloat { min(iconSize, dynamicType.isAccessibilitySize ? 84 : 64) }
@@ -154,11 +180,11 @@ private struct BrowserScreen: View {
                     ContentUnavailableView {
                         Label("Seite nicht geladen", systemImage: "wifi.exclamationmark")
                     } description: { Text(error) } actions: {
-                        Button("Erneut laden") { tab.webView.reload() }.buttonStyle(.borderedProminent)
+                        Button("Erneut laden") { tab.reload() }.buttonStyle(.borderedProminent)
                     }.background(.background)
                 }
             }
-            if tab.hasMedia { mediaControls }
+            if tab.hasMedia || cast.isControllingMedia { mediaControls }
             if browser.sleepPlan.isActive { timerStatus }
             bottomBar
         }
@@ -171,7 +197,7 @@ private struct BrowserScreen: View {
 
     private var addressBar: some View {
         HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.65)).accessibilityHidden(true)
+            Image(systemName: tab.isPrivate ? "hand.raised" : "magnifyingglass").foregroundStyle(.white.opacity(0.65)).accessibilityHidden(true)
             TextField("Suchen oder Adresse", text: $draft)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.webSearch)
                 .submitLabel(.go).focused($editing)
@@ -181,7 +207,7 @@ private struct BrowserScreen: View {
                 Button { draft = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .accessibilityLabel("Eingabe löschen").frame(minWidth: 28, minHeight: 28)
             } else if !isHome {
-                Button { tab.loading ? tab.webView.stopLoading() : tab.webView.reload() } label: {
+                Button { tab.loading ? tab.webView.stopLoading() : tab.reload() } label: {
                     Image(systemName: tab.loading ? "xmark" : "arrow.clockwise")
                 }.accessibilityLabel(tab.loading ? "Laden stoppen" : "Neu laden").frame(minWidth: 28, minHeight: 28)
             } else if !draft.isEmpty {
@@ -254,22 +280,47 @@ private struct BrowserScreen: View {
 
     private var mediaControls: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 18) {
-                Button { browser.seek(-10) } label: { Image(systemName: "gobackward.10") }.accessibilityLabel("10 Sekunden zurück")
-                Button { browser.togglePlayback() } label: { Image(systemName: tab.playing ? "pause.fill" : "play.fill") }
-                    .accessibilityLabel(tab.playing ? "Pausieren" : "Abspielen")
-                Button { browser.seek(10) } label: { Image(systemName: "goforward.10") }.accessibilityLabel("10 Sekunden vor")
-                Spacer(minLength: 0)
-                Text(time(tab.playbackTime)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip") }.accessibilityLabel("Bild-in-Bild")
-                AirPlayControl().frame(width: 30, height: 30).accessibilityLabel("AirPlay-Auswahl")
-                Button(action: showCast) { Image(systemName: "tv") }.accessibilityLabel("Cast-Optionen")
+            ViewThatFits(in: .horizontal) {
+                if !dynamicType.isAccessibilitySize {
+                    HStack(spacing: 8) { playbackButtons; playbackPosition; Spacer(minLength: 0); routeButtons }
+                }
+                VStack(spacing: 4) {
+                    HStack(spacing: 8) { playbackButtons; Spacer(minLength: 0); playbackPosition }
+                    HStack(spacing: 8) { Spacer(); routeButtons; Spacer() }
+                }
             }.font(.title3)
-            NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke")
-            if !tab.sponsorStatus.isEmpty { Text(tab.sponsorStatus).font(.caption).foregroundStyle(.secondary) }
+            if cast.isControllingMedia { Button("Cast-Steuerung") { cast.showControls() } }
+            else { NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke") }
+            if browser.sponsorBlockEnabled && !cast.isControllingMedia {
+                HStack {
+                    Button("Skip", systemImage: "forward.end") { tab.runMedia("globalThis.__webkweb?.skip()") }
+                    Button("Zurück", systemImage: "arrow.uturn.backward") { tab.runMedia("globalThis.__webkweb?.undoSkip()") }.disabled(!tab.canUndoSkip)
+                }.font(.caption)
+            }
             if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
         }.padding(.horizontal, 18).padding(.vertical, 10)
             .browserGlass(radius: 22).padding(.horizontal, 8)
+    }
+
+    private var playbackButtons: some View {
+        Group {
+            Button { browser.seek(-10) } label: { Image(systemName: "gobackward.10").frame(width: 44, height: 44) }.accessibilityLabel("10 Sekunden zurück")
+            Button { browser.togglePlayback() } label: {
+                Image(systemName: (cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "pause.fill" : "play.fill").frame(width: 44, height: 44)
+            }.accessibilityLabel((cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "Pausieren" : "Abspielen")
+            Button { browser.seek(10) } label: { Image(systemName: "goforward.10").frame(width: 44, height: 44) }.accessibilityLabel("10 Sekunden vor")
+        }
+    }
+    private var playbackPosition: some View {
+        Text(time(cast.isControllingMedia ? cast.elapsed : tab.playbackTime)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+    }
+    private var routeButtons: some View {
+        Group {
+            Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip").frame(width: 44, height: 44) }
+                .disabled(cast.isControllingMedia).accessibilityLabel("Bild-in-Bild")
+            AirPlayControl().frame(width: 44, height: 44).accessibilityLabel("AirPlay-Auswahl")
+            Button(action: showCast) { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("Cast-Optionen")
+        }
     }
 
     private var timerStatus: some View {
@@ -322,11 +373,22 @@ private struct BrowserScreen: View {
     private var browserMenu: some View {
         Menu {
             Button("Neuer Tab", systemImage: "plus") { browser.addTab() }
+            Button("Privater Tab", systemImage: "hand.raised") { browser.addTab(isPrivate: true) }
             Button("Favoriten", systemImage: "star", action: showLibrary)
             Button("Verlauf", systemImage: "clock.arrow.circlepath", action: showHistory)
             Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
             Button("Einstellungen", systemImage: "gear", action: showSettings)
             Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
+            if let host = URL(string: tab.address)?.host {
+                Button(browser.shouldBlock(URL(string: tab.address)) ? "Filter für diese Seite aus" : "Filter für diese Seite ein", systemImage: "shield") {
+                    if let allowed = browser.options.allowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.allowlist.removeAll { $0 == allowed } } else { browser.options.allowlist.append(host) }
+                }
+            }
+            if let host = URL(string: tab.address)?.host {
+                Button(browser.shouldSponsor(URL(string: tab.address), page: URL(string: tab.address)) ? "SponsorBlock hier aus" : "SponsorBlock hier ein", systemImage: "forward.end") {
+                    if let allowed = browser.options.sponsorAllowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.sponsorAllowlist.removeAll { $0 == allowed } } else { browser.options.sponsorAllowlist.append(host) }
+                }
+            }
             if let url = URL(string: tab.address) { ShareLink(item: url) }
             Button("Alles pausieren", systemImage: "pause.circle") { browser.pauseAll() }
         } label: { Image(systemName: "ellipsis").frame(width: 48, height: 48).browserGlass(radius: 24) }

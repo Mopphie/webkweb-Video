@@ -2,10 +2,7 @@ import SwiftUI
 import SwiftData
 import WebKit
 
-enum LibrarySection: String, CaseIterable {
-    case favorites = "Favoriten"
-    case history = "Verlauf"
-}
+enum LibrarySection: String, CaseIterable { case favorites = "Favoriten", history = "Verlauf" }
 
 @MainActor
 struct LibraryView: View {
@@ -18,24 +15,24 @@ struct LibraryView: View {
     @State private var selectedSection: LibrarySection = .favorites
     @State private var search = ""
     @State private var clearHistory = false
-
+    @State private var editingPage: SavedPage?
+    private var favorites: [SavedPage] { pages.filter(\.favorite).sorted { $0.favoriteOrder < $1.favoriteOrder } }
     private var filtered: [SavedPage] {
-        pages.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) }
+        (selectedSection == .favorites ? favorites : pages.filter { !$0.favorite }).filter {
+            search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search)
+        }
     }
-
     var body: some View {
         NavigationStack {
             List {
-                if selectedSection == .favorites { Section("Favoriten") {
-                    let favorites = filtered.filter(\.favorite)
-                    if favorites.isEmpty { Text("Speichere eine Seite mit dem Stern.").foregroundStyle(.secondary) }
-                    ForEach(favorites) { page in row(page) }
-                } }
-                if selectedSection == .history { Section("Verlauf") {
-                    let history = filtered.filter { !$0.favorite }
-                    if history.isEmpty { Text("Noch keine besuchten Seiten.").foregroundStyle(.secondary) }
-                    ForEach(history) { page in row(page) }
-                } }
+                ForEach(filtered) { page in row(page) }
+                    .onMove { from, to in
+                        guard selectedSection == .favorites, search.isEmpty else { return }
+                        var ordered = favorites; ordered.move(fromOffsets: from, toOffset: to)
+                        for (index, page) in ordered.enumerated() { page.favoriteOrder = Double(index + 1) }
+                        didChange()
+                    }
+                if filtered.isEmpty { Text(selectedSection == .favorites ? "Noch keine Favoriten." : "Noch kein Verlauf.").foregroundStyle(.secondary) }
             }
             .safeAreaInset(edge: .top) {
                 Picker("Gespeicherte Seiten", selection: $selectedSection) {
@@ -47,17 +44,17 @@ struct LibraryView: View {
             .navigationTitle("Deine Seiten")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) { Button("Verlauf löschen", systemImage: "trash") { clearHistory = true } }
-            }
-            .confirmationDialog("Verlauf löschen? Favoriten bleiben gespeichert.", isPresented: $clearHistory, titleVisibility: .visible) {
-                Button("Verlauf löschen", role: .destructive) {
-                    for page in pages where !page.favorite { context.delete(page) }
-                    didChange()
+                ToolbarItem(placement: .primaryAction) {
+                    if selectedSection == .favorites && search.isEmpty { EditButton() }
+                    else { Button("Verlauf löschen", systemImage: "trash") { clearHistory = true } }
                 }
             }
+            .confirmationDialog("Verlauf löschen? Favoriten bleiben.", isPresented: $clearHistory, titleVisibility: .visible) {
+                Button("Verlauf löschen", role: .destructive) { for page in pages where !page.favorite { context.delete(page) }; didChange() }
+            }
+            .sheet(item: $editingPage) { page in FavoriteEditor(page: page, didSave: didChange) }
         }
     }
-
     private func row(_ page: SavedPage) -> some View {
         Button { open(page.address) } label: {
             VStack(alignment: .leading, spacing: 4) {
@@ -67,11 +64,44 @@ struct LibraryView: View {
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) { context.delete(page); didChange() } label: { Label("Löschen", systemImage: "trash") }
+            if page.favorite { Button { editingPage = page } label: { Label("Bearbeiten", systemImage: "pencil") }.tint(.blue) }
         }
         .swipeActions(edge: .leading) {
-            Button { page.favorite.toggle(); didChange() } label: {
-                Label(page.favorite ? "Entfernen" : "Favorit", systemImage: page.favorite ? "star.slash" : "star")
-            }.tint(.orange)
+            Button {
+                page.favorite.toggle()
+                if page.favorite { page.favoriteOrder = (favorites.map(\.favoriteOrder).max() ?? 0) + 1 }
+                didChange()
+            } label: { Label(page.favorite ? "Entfernen" : "Favorit", systemImage: page.favorite ? "star.slash" : "star") }.tint(.orange)
+        }
+    }
+}
+
+@MainActor
+private struct FavoriteEditor: View {
+    let page: SavedPage
+    let didSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var address = ""
+    @State private var error: String?
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Titel", text: $title)
+                TextField("Adresse", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                if let error { Text(error).foregroundStyle(.red) }
+            }.navigationTitle("Favorit bearbeiten")
+                .onAppear { title = page.title; address = page.address }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Speichern") {
+                            guard let url = AddressResolver.directURL(address) else { error = "HTTP(S)-Adresse ohne Zugangsdaten erforderlich."; return }
+                            page.title = title.isEmpty ? (url.host ?? "Favorit") : title
+                            page.address = url.absoluteString; page.customTitle = !title.isEmpty; didSave(); dismiss()
+                        }
+                    }
+                }
         }
     }
 }
@@ -97,7 +127,10 @@ struct TabsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Neuer Tab", systemImage: "plus") { browser.addTab(); dismiss() }
+                    Menu {
+                        Button("Neuer Tab", systemImage: "plus") { browser.addTab(); dismiss() }
+                        Button("Privater Tab", systemImage: "hand.raised") { browser.addTab(isPrivate: true); dismiss() }
+                    } label: { Image(systemName: "plus") }
                 }
             }
         }
@@ -129,31 +162,31 @@ struct SleepTimerView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
     @State private var mode = 0
+    @State private var hours = 0
     @State private var minutes = 30
+    @State private var seconds = 0
     @State private var videos = 1
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("Pause nach", selection: $mode) {
-                        Text("Dauer").tag(0)
-                        Text("Videos").tag(1)
-                    }.pickerStyle(.segmented)
-                    if mode == 0 { Stepper("\(minutes) Minuten", value: $minutes, in: 5...240, step: 5) }
-                    else { Stepper("\(videos) Video(s)", value: $videos, in: 1...20) }
-                    Button("Timer starten") {
-                        if mode == 0 { browser.sleep(minutes: minutes) } else { browser.sleep(videos: videos) }
-                        dismiss()
-                    }.buttonStyle(.borderedProminent)
-                } footer: {
-                    Text("Videozählung gilt für den beim Start gewählten Tab und HTML-Medien mit ended-Ereignis. Bei Live-Streams und Cast wird nicht gezählt. Eine pausierte oder von iOS angehaltene App kann den Timer erst beim Fortsetzen ausführen.")
+                Picker("Pause nach", selection: $mode) {
+                    Text("Dauer").tag(0); Text("Videos").tag(1); Text("Aktuelles Video").tag(2)
                 }
-                if browser.sleepPlan.isActive {
-                    Section { Button("Aktuellen Timer abbrechen", role: .destructive) { browser.cancelSleep(); dismiss() } }
-                }
-            }
-            .navigationTitle("Sleep-Timer")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
+                if mode == 0 {
+                    Stepper("\(hours) Stunden", value: $hours, in: 0...23)
+                    Stepper("\(minutes) Minuten", value: $minutes, in: 0...59)
+                    Stepper("\(seconds) Sekunden", value: $seconds, in: 0...59)
+                } else if mode == 1 { Stepper("\(videos) Videos", value: $videos, in: 1...100) }
+                Button("Timer starten") {
+                    if mode == 0 { browser.sleep(seconds: hours * 3600 + minutes * 60 + seconds) }
+                    else { browser.sleep(videos: mode == 2 ? 1 : videos, currentVideoOnly: mode == 2) }
+                    dismiss()
+                }.disabled(mode == 0 ? (hours * 3600 + minutes * 60 + seconds == 0) : (browser.current.activeMediaKind != "video" || CastService.shared.isControllingMedia))
+                Text("Nur der primäre Webseiten-Videoplayer zählt. Kein Live-/Cast-Zähler. Zeit-Timer bleibt nach Neustart erhalten; private Tab-Zähler werden nicht gespeichert. Ende-des-aktuellen-Videos wird nach Neustart verworfen. Eine suspendierte App kann erst beim Fortsetzen pausieren.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if browser.sleepPlan.isActive { Button("Timer abbrechen", role: .destructive) { browser.cancelSleep(); dismiss() } }
+            }.navigationTitle("Sleep-Timer")
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
         }
     }
 }
@@ -164,58 +197,82 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var rules = RuleStore.shared
     @State private var clearWebsiteData = false
-    @State private var clearing = false
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
-                    Text(rules.status).font(.caption).foregroundStyle(.secondary)
-                    if let date = rules.lastUpdate { LabeledContent("Letztes Update", value: date.formatted(date: .abbreviated, time: .shortened)) }
-                    Button(rules.refreshing ? "Wird aktualisiert …" : "Filterliste aktualisieren") {
-                        Task { await rules.refreshIfNeeded(force: true) }
-                    }.disabled(rules.refreshing)
-                } header: { Text("Filter") } footer: {
-                    Text("AdGuard DNS-Liste: sichere Domainregeln und bestimmte YouTube-pagead-Endpunkte. Nicht alle Anzeigen lassen sich filtern. Falls eine Seite nicht funktioniert, deaktiviere den Filter und lade sie erneut.")
-                }
-                Section {
-                    Toggle("SponsorBlock", isOn: $browser.sponsorBlockEnabled)
-                } header: { Text("YouTube-Segmente") } footer: {
-                    Text("Überspringt gemeldete Sponsor-, Intro-, Outro- und Eigenwerbungssegmente. Bei Aktivierung erhält sponsor.ajay.app die Video-ID und deine IP-Adresse. Einträge stammen aus der Community und können fehlen oder falsch sein.")
-                }
-                Section {
-                    Toggle("Gestenfläche zum Spulen", isOn: $browser.gesturesEnabled)
-                    Text("Doppelt links/rechts tippen: ±10 Sekunden. Horizontal wischen: weiter spulen. Die Lautstärke nutzt den nativen iOS-Regler.")
-                        .font(.caption).foregroundStyle(.secondary)
-                } header: { Text("Player") } footer: {
-                    Text("Die App verwendet eine mobile Safari-Kennung. Inline-Wiedergabe, Autoplay, AirPlay und Bild-in-Bild benötigen Unterstützung durch Webseite und iOS. AVAudioSession ist für Wiedergabe eingerichtet; WebKit kann Audio im Hintergrund dennoch anhalten.")
-                }
-                Section {
-                    Button(clearing ? "Wird gelöscht …" : "Cookies & Website-Daten löschen", role: .destructive) { clearWebsiteData = true }.disabled(clearing)
-                    NavigationLink("Datenschutz") { PrivacyView() }
-                    LabeledContent("iCloud-Sync", value: "Nicht aktiviert")
-                } header: { Text("Daten") } footer: {
-                    Text("Verlauf und Favoriten bleiben auf diesem Gerät. Widgets und Siri lesen nur deine lokal gespeicherten Favoriten.")
-                }
-                Section {
-                    Text("WebKWeb 0.1 · iOS 17+").font(.footnote)
-                    Text("Ein Browser mit nativen Videofunktionen. Keine Verbindung zu YouTube, AdGuard oder SponsorBlock; keine Zusage werbefreier Wiedergabe oder einer App-Store-Zulassung.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("Einstellungen")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
-            .confirmationDialog("Website-Daten löschen? Du wirst auf Webseiten abgemeldet.", isPresented: $clearWebsiteData, titleVisibility: .visible) {
-                Button("Cookies & Website-Daten löschen", role: .destructive) {
-                    clearing = true
-                    browser.pauseAll()
-                    for tab in browser.tabs { tab.webView.stopLoading() }
-                    WKWebsiteDataStore.default().removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {
-                        Task { @MainActor in clearing = false }
+                Section("Browser") {
+                    Picker("Suchmaschine", selection: $browser.options.searchEngine) {
+                        ForEach(SearchEngine.allCases) { Text($0.title).tag($0) }
                     }
+                    Toggle("Desktop-Kennung", isOn: $browser.options.desktop)
+                    LabeledContent("Seitenzoom", value: "\(Int(browser.options.zoom * 100)) %")
+                    Slider(value: $browser.options.zoom, in: 0.5...2, step: 0.1)
+                    Button("Aktuelle Seite neu laden") { browser.current.reload() }.disabled(browser.current.address.isEmpty)
+                    Toggle("Gestenfläche zum Spulen", isOn: $browser.gesturesEnabled)
                 }
-            }
+                Section("Netzwerkfilter") {
+                    Toggle("Filter aktiv", isOn: $browser.blockingEnabled)
+                    Text(rules.status).font(.caption).foregroundStyle(.secondary)
+                    NavigationLink("Filterquellen & Import") { FilterSourcesView() }
+                    NavigationLink("Erlaubte Webseiten") { FilterAllowlistView() }
+                    Button(rules.refreshing ? "Wird aktualisiert …" : "Jetzt aktualisieren") { Task { await rules.refreshIfNeeded(force: true) } }.disabled(rules.refreshing)
+                    if let date = rules.lastUpdate { Text(date.formatted()).font(.caption).foregroundStyle(.secondary) }
+                }
+                Section("SponsorBlock") {
+                    Toggle("Segmente überspringen", isOn: $browser.sponsorBlockEnabled)
+                    NavigationLink("Auf Webseiten deaktivieren") { FilterAllowlistView(sponsor: true) }
+                    ForEach(SponsorSegment.categories, id: \.self) { category in
+                        Toggle(SponsorCategoryLabels.title(category), isOn: Binding(
+                            get: { browser.options.categories.contains(category) },
+                            set: { enabled in if enabled { browser.options.categories.insert(category) } else { browser.options.categories.remove(category) } }))
+                    }
+                    Text("Bei Aktivierung erhält sponsor.ajay.app die YouTube-Video-ID und IP-Adresse. Kategorien gelten auch für YouTube-Frames. Skip und Zurück stehen im Player bereit.").font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Lokale Daten") {
+                    Toggle("Verlauf speichern", isOn: $browser.options.history)
+                    Toggle("Normale Tabs wiederherstellen", isOn: $browser.options.restoreTabs)
+                    Text("Private Tabs verwenden einen separaten flüchtigen Webspeicher; kein Verlauf und keine Wiederherstellung. Manuell gespeicherte Favoriten bleiben erhalten. Privat bedeutet keine Anonymität im Netz.").font(.caption).foregroundStyle(.secondary)
+                    Button(browser.wipingData ? "Wird gelöscht …" : "Website-Daten löschen", role: .destructive) { clearWebsiteData = true }.disabled(browser.wipingData)
+                }
+                Section("iCloud") {
+                    Toggle("Verlauf & Favoriten synchronisieren", isOn: $browser.options.cloudSync).disabled(ReleaseConfiguration.cloudContainer == nil && !browser.options.cloudSync)
+                    Text(ReleaseConfiguration.cloudContainer == nil ? "Noch nicht provisioniert. Der Entwickler muss eine echte CloudKit-Container-ID mit dem lokalen Konfigurationsskript und Apple-Capabilities hinterlegen." : "Änderung gilt nach App-Neustart. SwiftData nutzt denselben lokalen Store; iCloud synchronisiert Verlauf/Favoriten, keine privaten Tabs.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Datenschutz & Support") {
+                    NavigationLink("Datenschutz") { PrivacyView() }
+                    NavigationLink("Veröffentlichungsangaben") { ReleaseDetailsView() }
+                    if let url = ReleaseConfiguration.publicURL(browser.options.privacyURL) { Link("Öffentliche Datenschutzerklärung", destination: url) }
+                    if let url = ReleaseConfiguration.publicURL(browser.options.supportURL) { Link("Support", destination: url) }
+                }
+                Section {
+                    Text("Autoplay, PiP, AirPlay, Hintergrundaudio und Clock-Stop hängen von iOS und Webseite ab. Keine Zusage für werbefreies YouTube oder App-Store-Zulassung.").font(.caption).foregroundStyle(.secondary)
+                }
+            }.navigationTitle("Einstellungen")
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
+                .confirmationDialog("Alle aktiven Seiten schließen und Website-Daten löschen?", isPresented: $clearWebsiteData, titleVisibility: .visible) {
+                    Button("Schließen & löschen", role: .destructive) { Task { await browser.wipeWebsiteData() } }
+                }
         }
+    }
+}
+
+enum SponsorCategoryLabels {
+    static func title(_ value: String) -> String {
+        ["sponsor": "Sponsor", "intro": "Intro", "outro": "Outro", "selfpromo": "Eigenwerbung"][value] ?? value
+    }
+}
+
+@MainActor
+private struct ReleaseDetailsView: View {
+    @EnvironmentObject private var browser: BrowserModel
+    var body: some View {
+        Form {
+            TextField("Datenschutz-URL (HTTPS)", text: $browser.options.privacyURL).textInputAutocapitalization(.never).autocorrectionDisabled()
+            TextField("Support-URL (HTTPS)", text: $browser.options.supportURL).textInputAutocapitalization(.never).autocorrectionDisabled()
+            TextField("Verantwortlicher & Kontakt", text: $browser.options.operatorContact, axis: .vertical)
+            Text("Diese Angaben sind noch offen. Erst echte öffentlich erreichbare URLs und Betreiberangaben hinterlegen; keine Platzhalter als Release-Angaben veröffentlichen.").font(.caption).foregroundStyle(.secondary)
+        }.navigationTitle("Veröffentlichung")
     }
 }
 
@@ -237,9 +294,7 @@ struct CastView: View {
                     HStack { Text("Cast-Gerät wählen"); Spacer(); CastDeviceButton().frame(width: 40, height: 40) }
                     Button("Direkten Medienlink übertragen") {
                         guard let media = tab.directMedia else { return }
-                        if cast.load(media, title: tab.title, at: tab.playbackTime) {
-                            tab.run("globalThis.__webkweb?.pause()", allFrames: true)
-                        }
+                        _ = cast.load(media, title: tab.title, at: tab.playbackTime)
                     }.disabled(tab.directMedia == nil)
                     #else
                     Text("Google Cast ist eine optionale Build-Erweiterung und in diesem Standardbuild nicht enthalten.")
@@ -247,6 +302,11 @@ struct CastView: View {
                     if let media = tab.directMedia { Text(media.url.host ?? "Medienlink").font(.caption).foregroundStyle(.secondary) }
                     else { Text("Kein übertragbarer direkter HTTP(S)-Medienlink erkannt.").font(.caption).foregroundStyle(.secondary) }
                     if !cast.status.isEmpty { Text(cast.status).font(.caption) }
+                    if cast.isControllingMedia {
+                        Button(cast.isPlaying ? "Cast pausieren" : "Cast abspielen") { browser.togglePlayback() }
+                        Button("Cast-Steuerung öffnen") { cast.showControls() }
+                        Button("Cast trennen") { cast.disconnect() }
+                    }
                 }
                 Section {
                     Text("Der Cast-Empfänger muss den Link selbst ohne Browser-Cookies, Login, DRM oder spezielle Header laden können. blob:-URLs und verschlüsselte Medien werden abgelehnt. YouTube-MSE-Player werden nicht durch einen YouTube-Watch-Link ersetzt. Live-Streams, Receiver-Codec-Support und CORS können die Wiedergabe begrenzen.")
@@ -265,7 +325,7 @@ struct PrivacyView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Datenschutz").font(.largeTitle.bold())
-                Text("WebKWeb speichert Verlauf und Favoriten lokal mit SwiftData. Die letzten 500 nicht favorisierten Seiten werden behalten. Favoriten werden zusätzlich im lokalen App-Group-Speicher für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst und keinen aktiven iCloud-Sync.")
+                Text("WebKWeb speichert Verlauf und Favoriten lokal mit SwiftData. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich im lokalen App-Group-Speicher für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Optionaler iCloud-Sync benötigt einen provisionierten Build und explizite Aktivierung.")
                 Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Eine Google-Suche übermittelt den eingegebenen Suchbegriff an Google. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
                 Text("Bei eingeschaltetem Netzwerkfilter wird höchstens einmal täglich sowie auf manuelle Anforderung die AdGuard DNS-Liste von adguardteam.github.io geladen. Der Server erhält eine normale Netzwerkanfrage. Die Liste wird lokal zu WebKit-Regeln kompiliert; dein Verlauf wird nicht an AdGuard gesendet.")
                 Text("SponsorBlock ist zunächst ausgeschaltet. Nach Aktivierung werden YouTube-Video-IDs an sponsor.ajay.app übermittelt, ohne Browser-Cookies. Der Dienst sieht dabei deine IP-Adresse. Abschalten beendet weitere Abfragen; bereits gesendete Anfragen lassen sich nicht zurückholen.")

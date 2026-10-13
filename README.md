@@ -1,23 +1,24 @@
 # WebKWeb
 
-Nativer Video-Browser für iPhone und iPad, geschrieben mit SwiftUI, WKWebView und SwiftData. Mindestversion: iOS/iPadOS 17. Die Bedienoberfläche ist deutsch. Dieses Repository ist eine Entwicklungsversion, kein bereits geprüfter App-Store-Release.
+Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Entwicklungsversion mit noch ausstehenden Apple-Build- und Gerätetests.
 
-Die schwarze Startseite konzentriert sich auf eine Suchpille, vier Seitenlinks (YouTube, Twitch, TikTok, Rumble) und vier Aktionen (Favoriten, Verlauf, Timer, Einstellungen). Suchfeld und Browser-Steuerung verwenden Liquid Glass mit dem iOS-26-SDK/Swift-Compiler 6.2 oder neuer. Auf iOS 17–25 beziehungsweise mit Xcode 16 dient Systemmaterial mit dezentem Randlicht als Fallback. „Transparenz reduzieren“ verwendet deckende Flächen; große Bedienungshilfen-Schrift stellt die Iconreihen auf zwei Spalten um. Alle Startseiten-Icons werden lokal gezeichnet.
+Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und Favoriten/Verlauf/Timer/Einstellungen. Lokale Icons erzeugen keine Favicon-Anfragen. Mit iOS-26-SDK/Compiler 6.2 nutzt die Oberfläche Liquid Glass, sonst Systemmaterial. Transparenz reduzieren, große Schrift und iPad erhalten eigene Layoutanpassungen.
 
-## Enthalten
+## Funktionen
 
-- URL oder Suchbegriff in einer Adresszeile; Suchbegriffe öffnen Google. `canOpenURL` prüft die aufgelöste HTTP(S)-Adresse. Tabs, Zurück/Vorwärts, Teilen, Fehleranzeige und eine zusätzliche Tab-Leiste auf dem iPad.
-- Mobiler Safari-User-Agent, Inline-Wiedergabe, Autoplay-Konfiguration, Bild-in-Bild und AirPlay. Eine isolierte JavaScript-Welt erfasst HTML-Medien auch in eingebetteten Frames. Play/Pause und Seek bedienen den aktiven Medienframe; Lautstärke nutzt `MPVolumeView`.
-- WebKit-Netzwerkfilter mit eingebauten Basisregeln, YouTube-`pagead`-/Ad-Statistik-Endpunkten und täglichen Updates aus der AdGuard DNS-Liste. Der Konverter unterstützt einen konservativen AdGuard/EasyList-Domainregeln-Teilumfang und respektiert Ausnahmen durch weniger Blockierung. Keine Scriptlets, kosmetischen Filter oder Umdeutung unbekannter Regeln.
-- SponsorBlock für Sponsor-, Intro-, Outro- und Eigenwerbungssegmente, einschließlich YouTube-SPA-Navigation. Anfangs ausgeschaltet; Aktivierung mit Datenschutzinfo in den Einstellungen. Die Abfrage läuft nativ, ohne Website-Cookies, nicht als Fetch im Seitenskript.
-- Sleep-Timer nach Minuten oder Anzahl beendeter Videos. Die Videozählung ist an den beim Start gewählten Tab gebunden; doppelte Ereignisse werden ignoriert. Nach Ablauf werden Pause und eine lokale Autoplay-Sperre gesetzt.
-- Lokaler Verlauf (maximal 500 nicht favorisierte Seiten), Favoriten, Löschfunktionen, Cookie-/Website-Daten-Löschung, Favoriten-Widget und vier App Intents für Siri/Kurzbefehle.
-- Optionales Google Cast SDK mit echter Geräteauswahl und `GCKRemoteMediaClient`-Load für direkte HTTP(S)-Medienlinks. Der Standardbuild benötigt keine Drittanbieter-SDKs.
-- Privacy-Manifeste, App-Group-Entitlements, App-Icon, XCTest-Tests, Node-Tests und ein lokales macOS-Prüfskript.
+- URL oder Suche mit Google, DuckDuckGo oder Bing; `canOpenURL`, Zurück/Vorwärts, Teilen, Popup-Tabs und normale Tab-Wiederherstellung. URLs mit Zugangsdaten werden nicht als Suchbegriff übertragen. Private Tabs verwenden einen eigenen nicht persistenten WebKit-Speicher und erscheinen weder im Verlauf noch im wiederhergestellten Zustand.
+- Mobiler oder Desktop-Safari-User-Agent und Seitenzoom. Inline/Autoplay/PiP/AirPlay sind konfiguriert. Eine isolierte Bridge steuert HTML-Medien auch in Frames und offenen Shadow Roots; native Play/Pause/Seek, Systemlautstärke und optionale Gestenfläche.
+- Mehrteilige WebKit-Netzwerkfilter ohne alphabetische Domainbegrenzung, unverlierbare Basisregeln und YouTube-Ad-Endpunkte. AdGuard DNS, HaGeZi und StevenBlack sind auswählbare Quellen; HTTPS-Quellen und Textimport, tägliche Vordergrund-/manuelle Updates, Quellcache, Diagnose und Seiten-Ausnahmen sind vorhanden. Unterstützte AdGuard/EasyList-Netzwerkregeln und Ausnahmen werden konservativ übersetzt; unbekannte Ausnahmen verwerfen die Quelle. Keine Scriptlets oder vollständige EasyList-Kompatibilität.
+- Optionales SponsorBlock: vier Kategorien, eingebettete YouTube-Player, SPA-Wechsel, Seiten-Ausnahmen sowie Skip und Rückgängig. Standardmäßig aus; native cookie-freie Abfragen.
+- Sleep-Timer mit freier Dauer bis 24 Stunden, Anzahl primärer Videos oder Ende des aktuellen Videos. Nach Ablauf verhindert eine lokale Sperre auch Autoplay neu eingefügter Player. Zeit-/Anzahlpläne normaler Tabs werden wiederhergestellt; ein Plan für den alten konkreten Player wird beim Neustart verworfen und gemeldet.
+- SwiftData-Verlauf mit abschaltbarer Aufzeichnung und maximal 500 nicht favorisierten Einträgen; Favoriten bearbeiten/sortieren. Geteilte Favoriten werden bei Besuchen, Bearbeitung und iCloud-Änderungen für Siri und das konfigurierbare Widget aktualisiert. Cookie-/Website-Daten-Löschen schließt vorher die aktiven Dokumente.
+- Vier App Intents/Siri-Kurzbefehle, Sperrbildschirm-Medienmetadaten, Remote Play/Pause/Stop/Seek und Audio-Unterbrechungsbehandlung. Private Seitentitel erscheinen nicht in Now Playing.
+- Echter optionaler Google-Cast-SDK-Build: Geräteauswahl, direkte Medienquelle mit passendem MIME-Typ, Receiver-Status, Fehler, Play/Pause/Seek/Trennen und Übergabe erst nach erfolgreicher Ladeanfrage. Standardbuild ohne Cast-Abhängigkeit.
+- Optionales CloudKit für Verlauf/Favoriten mit CloudKit-tauglichem Modell. Erst nach Konfiguration eines echten, provisionierten Containers aktivierbar; Umschalten gilt beim Neustart. Private Tabs und Browsersitzungen werden nicht synchronisiert.
 
 ## Auf dem Mac starten
 
-Voraussetzung: Xcode 16 oder neuer, Command Line Tools, XcodeGen und für die JS-Tests Node.js 18 oder neuer.
+Xcode 16+, XcodeGen und Node.js 18+:
 
 ```bash
 brew install xcodegen node
@@ -25,47 +26,41 @@ xcodegen generate
 open WebKWeb.xcodeproj
 ```
 
-In Xcode für **WebKWeb** und **FavoritesWidget** dasselbe Development Team auswählen. Beide Bundle-IDs sowie die App Group `group.de.mopphie.webkweb` müssen zum eigenen Apple-Developer-Konto passen. Falls du sie änderst, aktualisiere `project.yml`, beide Entitlements und `Shared/FavoriteSnapshot.swift`. Aktiviere die App Group für beide App-IDs im Developer-Portal. Simulator-Builds können ohne Signierung laufen; Widgets auf echten Geräten benötigen korrekt provisionierte App Groups.
+Für App und Widget dasselbe Development Team setzen. Bundle-IDs, beide Entitlements und `FavoriteStorage.groupID` müssen dieselbe provisionierte App Group verwenden; die voreingestellte Gruppe lautet `group.de.mopphie.webkweb`. Für echte Geräte braucht diese Gruppe die passende Portal-Konfiguration.
 
-Der XcodeGen-Quellplan ist `project.yml`; generierte Xcode-Projekte werden nicht eingecheckt. SwiftData verwendet explizit `.none` für CloudKit. iCloud-Synchronisierung ist noch nicht implementiert.
+Optionales Cast benötigt CocoaPods und den vorhandenen `Podfile`; [CAST.md](Docs/CAST.md) enthält den Workspace-Build. Für CloudKit eine bereits im eigenen Apple-Konto angelegte Container-ID konfigurieren:
+
+```bash
+./Scripts/configure-cloudkit.py --container DEINE_BEREITS_PROVISIONIERTE_ICLOUD_CONTAINER_ID
+xcodegen generate
+```
+
+Der Parameter muss eine echte `iCloud.*`-ID sein. Das Skript setzt Plist/Entitlements; iCloud-, Push- und App-Group-Capabilities sowie Signierung bleiben im Apple-Portal einzurichten. In den App-Einstellungen anschließend iCloud aktivieren und neu starten. Derselbe lokale SwiftData-Store wird verwendet; beim Ausfall startet die App lokal mit einer Meldung. Vor Produktivnutzung Migration und Zwei-Geräte-Sync prüfen.
 
 ## Lokal prüfen – keine GitHub Actions
 
-Es gibt **keinen GitHub-Actions-Workflow**. Pushes/PRs sollen keine Actions-Minuten verbrauchen. Checks werden nur lokal und bewusst ausgeführt.
+Es gibt keine Workflows. **GitHub Actions dürfen nur mit ausdrücklichem OK des Nutzers eingerichtet oder ausgeführt werden.**
 
 ```bash
 node --test Tests/playback.test.cjs
 ./Scripts/check-macos.sh
+./Scripts/check-macos.sh --cast
 ```
 
-Das macOS-Skript generiert das Xcode-Projekt, findet einen vorhandenen iPhone-Simulator und führt `xcodebuild test` aus. Einen Simulator kannst du ausdrücklich auswählen:
+Das macOS-Skript generiert das Projekt, wählt einen vorhandenen iPhone-Simulator und führt `xcodebuild test` aus. `--cast` installiert die Pods und prüft den Workspace. Ein Simulator lässt sich über `WEBKWEB_SIMULATOR_DESTINATION='platform=iOS Simulator,name=iPhone 16'` wählen. Nach erneuter Projektgenerierung einen bestehenden Cast-Workspace erneut mit `pod install` aktualisieren.
+
+Direkter Standardbuild:
 
 ```bash
-WEBKWEB_SIMULATOR_DESTINATION='platform=iOS Simulator,name=iPhone 16' ./Scripts/check-macos.sh
+xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Oder direkt:
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. In Linux wurden 22 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 21 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet Änderungen und Beweise zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
 
-```bash
-xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb \
-  -destination 'platform=iOS Simulator,name=iPhone 16' \
-  CODE_SIGNING_ALLOWED=NO test
-```
+## Grenzen und Datenschutz
 
-Die Simulatorbezeichnung muss auf deinem Mac vorhanden sein. Für iPad den vorhandenen iPad-Simulator wählen. Geräteprüfung und Release-Aufgaben stehen in [Docs/RELEASE.md](Docs/RELEASE.md).
+WebKit und Webseiten entscheiden über Autoplay, PiP, AirPlay, DRM und Hintergrundwiedergabe. `AVAudioSession.playback` und Audio-Hintergrundmodus garantieren keine dauerhaft laufende WKWebView. Während iOS die App suspendiert, kann ein Timer erst beim Fortsetzen pausieren. Die Clock-Aktion „Wiedergabe stoppen“ wird über öffentliche Remote-Stop-/Pause-Befehle behandelt, sofern iOS sie zustellt; keine garantierte Clock-Steuerung. Videozählung benötigt primäre HTML-video-Endereignisse und gilt weder für Audio/Live-Streams noch den Cast-Empfänger.
 
-## Grenzen
+Serverseitig in Streams eingefügte Werbung wird nicht zuverlässig entfernt. SponsorBlock-Daten können fehlen oder falsch sein. Cast braucht einen vom Empfänger erreichbaren HTTP(S)-Medienlink und passende Codecs; Cookies, besondere Header und DRM-Lizenzen werden nicht übertragen. `blob:`/MSE und YouTube-Watch-URLs sind keine direkten Dateien.
 
-WebKit und Webseiten entscheiden über Autoplay, PiP, AirPlay, Login, DRM und Hintergrundwiedergabe. `AVAudioSession.playback` und der Audio-Hintergrundmodus sind eingerichtet; sie garantieren keine dauerhaft laufende WKWebView im Hintergrund. Ein Sleep-Timer kann während einer von iOS suspendierten App erst beim Fortsetzen ausgeführt werden. Videozählung benötigt HTML-Medien-`ended`-Events und gilt nicht für Live-Streams oder den Cast-Empfänger.
-
-Netzwerkfilter können serverseitig in den Stream eingefügte Werbung nicht zuverlässig entfernen. Es gibt keine Zusage für werbefreies YouTube oder ein unverändertes YouTube-Verhalten. SponsorBlock-Communitydaten können fehlen oder ungenau sein.
-
-Cast braucht einen vom Empfänger erreichbaren direkten Medienlink, unterstützte Codecs und ggf. CORS. Browser-Cookies, Login-Tokens, DRM-Lizenzen und besondere Header werden nicht übertragen. `blob:`-/MSE-Player und YouTube-Watch-URLs sind keine direkt castbaren Dateien. Einrichtung: [Docs/CAST.md](Docs/CAST.md).
-
-Eine App-Store-Zulassung wird nicht zugesagt. Datenschutz, Signierung, Plattformbedingungen und tatsächliches Verhalten müssen vor einem Release geprüft werden.
-
-## Architektur und Datenschutz
-
-`BrowserModel` verwaltet Tabs und Timer; `BrowserTab` besitzt die WebKit-Delegates, Beobachter und Bridge während der gesamten Lebensdauer des Tabs. SwiftUI zeigt nur den jeweils ausgewählten WebView. `RuleStore` kompiliert und aktualisiert Content Rule Lists; `SponsorBlockService` lädt und cached Segmentdaten. `SavedPage` speichert lokale Daten mit SwiftData; App Group und Widget enthalten nur Favoriten-Snapshots.
-
-Datenschutzerklärung für die Entwicklungsversion: [PRIVACY.md](PRIVACY.md). Vor Veröffentlichung fehlen noch die öffentlich erreichbare Policy-URL und die Verantwortlichen-/Kontaktangaben.
+[PRIVACY.md](PRIVACY.md) beschreibt die Datenflüsse. Öffentliche Privacy-/Support-URL und echte Betreiber-/Kontaktangaben sind noch offen; Einstellungsfelder sind vorbereitet. Eine App-Store-Zulassung wird nicht zugesagt.
