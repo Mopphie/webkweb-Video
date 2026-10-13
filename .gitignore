@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+WebKWeb.xcodeproj/
+WebKWeb.xcworkspace/
+Pods/
+*.xcresult/
+.env
