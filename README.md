@@ -2,6 +2,8 @@
 
 Nativer Video-Browser für iPhone und iPad, geschrieben mit SwiftUI, WKWebView und SwiftData. Mindestversion: iOS/iPadOS 17. Die Bedienoberfläche ist deutsch. Dieses Repository ist eine Entwicklungsversion, kein bereits geprüfter App-Store-Release.
 
+Die schwarze Startseite konzentriert sich auf eine Suchpille, vier Seitenlinks (YouTube, Twitch, TikTok, Rumble) und vier Aktionen (Favoriten, Verlauf, Timer, Einstellungen). Suchfeld und Browser-Steuerung verwenden Liquid Glass mit dem iOS-26-SDK/Swift-Compiler 6.2 oder neuer. Auf iOS 17–25 beziehungsweise mit Xcode 16 dient Systemmaterial mit dezentem Randlicht als Fallback. „Transparenz reduzieren“ verwendet deckende Flächen; große Bedienungshilfen-Schrift stellt die Iconreihen auf zwei Spalten um. Alle Startseiten-Icons werden lokal gezeichnet.
+
 ## Enthalten
 
 - URL oder Suchbegriff in einer Adresszeile; Suchbegriffe öffnen Google. `canOpenURL` prüft die aufgelöste HTTP(S)-Adresse. Tabs, Zurück/Vorwärts, Teilen, Fehleranzeige und eine zusätzliche Tab-Leiste auf dem iPad.

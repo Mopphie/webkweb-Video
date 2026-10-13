@@ -4,7 +4,7 @@ import WidgetKit
 import WebKit
 
 private enum BrowserSheet: String, Identifiable {
-    case library, tabs, sleep, settings, cast
+    case library, history, tabs, sleep, settings, cast
     var id: String { rawValue }
 }
 
@@ -21,6 +21,7 @@ struct BrowserView: View {
     var body: some View {
         NavigationStack {
             BrowserScreen(tab: browser.current, showLibrary: { sheet = .library },
+                showHistory: { sheet = .history },
                 showTabs: { sheet = .tabs }, showSleep: { sheet = .sleep },
                 showSettings: { sheet = .settings }, showCast: { sheet = .cast },
                 favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == browser.current.address })
@@ -29,6 +30,7 @@ struct BrowserView: View {
                 .sheet(item: $sheet) { selected in
                     switch selected {
                     case .library: LibraryView(open: { address in browser.open(address); sheet = nil }, didChange: saveAndSync)
+                    case .history: LibraryView(open: { address in browser.open(address); sheet = nil }, didChange: saveAndSync, initialSection: .history)
                     case .tabs: TabsView()
                     case .sleep: SleepTimerView()
                     case .settings: SettingsView()
@@ -121,6 +123,7 @@ private struct BrowserScreen: View {
     @EnvironmentObject private var browser: BrowserModel
     @ObservedObject var tab: BrowserTab
     let showLibrary: () -> Void
+    let showHistory: () -> Void
     let showTabs: () -> Void
     let showSleep: () -> Void
     let showSettings: () -> Void
@@ -130,26 +133,23 @@ private struct BrowserScreen: View {
     @State private var draft = ""
     @FocusState private var editing: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
+    private var isHome: Bool { tab.address.isEmpty && !tab.loading }
+    private var shortcutSize: CGFloat { min(iconSize, dynamicType.isAccessibilitySize ? 84 : 64) }
+    private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicType.isAccessibilitySize ? 2 : 4) }
 
     var body: some View {
         VStack(spacing: 0) {
-            addressBar
-            if sizeClass == .regular {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(browser.tabs) { item in
-                            TabPill(tab: item, selected: item.id == browser.selectedID,
-                                select: { browser.selectedID = item.id }, close: { browser.close(item.id) })
-                        }
-                        Button { browser.addTab() } label: { Image(systemName: "plus") }.padding(10)
-                    }.padding(.horizontal)
-                }.padding(.bottom, 6)
+            if !isHome {
+                addressBar.padding(.horizontal, 12).padding(.vertical, 8)
+                if sizeClass == .regular { tabStrip }
+                ProgressView(value: tab.progress).progressViewStyle(.linear)
+                    .frame(height: 2).opacity(tab.loading ? 1 : 0)
             }
-            ProgressView(value: tab.progress).progressViewStyle(.linear)
-                .frame(height: 2).opacity(tab.loading ? 1 : 0)
             ZStack {
-                BrowserWebView(tab: tab)
-                if tab.address.isEmpty && !tab.loading { home }
+                if isHome { home }
+                else { BrowserWebView(tab: tab) }
                 if let error = tab.error {
                     ContentUnavailableView {
                         Label("Seite nicht geladen", systemImage: "wifi.exclamationmark")
@@ -162,60 +162,94 @@ private struct BrowserScreen: View {
             if browser.sleepPlan.isActive { timerStatus }
             bottomBar
         }
+        .background(Color.black.ignoresSafeArea())
+        .preferredColorScheme(.dark)
+        .tint(.white)
         .onAppear { draft = tab.address }
         .onChange(of: tab.address) { _, value in if !editing { draft = value } }
     }
 
     private var addressBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "globe").foregroundStyle(.teal).accessibilityHidden(true)
-            TextField("Adresse oder Google-Suche", text: $draft)
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.white.opacity(0.65)).accessibilityHidden(true)
+            TextField("Suchen oder Adresse", text: $draft)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.webSearch)
                 .submitLabel(.go).focused($editing)
-                .onSubmit { browser.open(draft); editing = false }
-                .accessibilityLabel("Adresse oder Google-Suche")
+                .onSubmit { openDraft() }
+                .accessibilityLabel("Suchen oder Adresse")
             if editing && !draft.isEmpty {
-                Button { draft = "" } label: { Image(systemName: "xmark.circle.fill") }.accessibilityLabel("Eingabe löschen")
-            } else if !tab.address.isEmpty {
+                Button { draft = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .accessibilityLabel("Eingabe löschen").frame(minWidth: 28, minHeight: 28)
+            } else if !isHome {
                 Button { tab.loading ? tab.webView.stopLoading() : tab.webView.reload() } label: {
                     Image(systemName: tab.loading ? "xmark" : "arrow.clockwise")
-                }.accessibilityLabel(tab.loading ? "Laden stoppen" : "Neu laden")
+                }.accessibilityLabel(tab.loading ? "Laden stoppen" : "Neu laden").frame(minWidth: 28, minHeight: 28)
+            } else if !draft.isEmpty {
+                Button(action: openDraft) { Image(systemName: "arrow.up.right") }
+                    .accessibilityLabel("Öffnen").frame(minWidth: 28, minHeight: 28)
             }
         }
-        .padding(12).background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 18).padding(.vertical, 14)
+        .frame(minHeight: 54).browserGlass()
     }
+
+    private func openDraft() { browser.open(draft); editing = false }
 
     private var home: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                Image(systemName: "play.rectangle.on.rectangle.fill").font(.system(size: 52))
-                    .foregroundStyle(.teal).padding(.top, 30)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Dein Web. Dein Player.").font(.largeTitle.bold())
-                    Text("Webseiten ansehen, Videos steuern und Favoriten behalten.").foregroundStyle(.secondary)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 28) {
+                    addressBar
+                    LazyVGrid(columns: columns, spacing: 24) {
+                        ForEach(HomeSite.allCases) { site in
+                            shortcut(site.title, action: { browser.open(site.address) }) { HomeSiteGlyph(site: site) }
+                        }
+                    }
+                    LazyVGrid(columns: columns, spacing: 24) {
+                        shortcut("Favoriten", symbol: "star", action: showLibrary)
+                        shortcut("Verlauf", symbol: "clock.arrow.circlepath", action: showHistory)
+                        shortcut("Timer", symbol: "moon.zzz", action: showSleep)
+                        shortcut("Einstellungen", symbol: "slider.horizontal.3", action: showSettings)
+                    }
                 }
-                HStack {
-                    quickLink("YouTube", icon: "play.rectangle", address: "https://m.youtube.com")
-                    quickLink("Google", icon: "magnifyingglass", address: "https://www.google.com")
-                }
-                Button(action: showLibrary) { Label("Favoriten & Verlauf", systemImage: "star") }
-                    .buttonStyle(.bordered).controlSize(.large)
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Inline-Video, Bild-in-Bild und AirPlay", systemImage: "pip")
-                    Label("Netzwerkfilter mit täglichen Listen-Updates", systemImage: "shield")
-                    Label("SponsorBlock nach Aktivierung in Einstellungen", systemImage: "forward.end")
-                }.font(.subheadline).foregroundStyle(.secondary)
-                Text("Autoplay, Bild-in-Bild und Hintergrundwiedergabe hängen von der Webseite und iOS ab.")
-                    .font(.footnote).foregroundStyle(.secondary)
-            }.frame(maxWidth: 640, alignment: .leading).padding(24).frame(maxWidth: .infinity)
-        }.background(.background)
+                .frame(maxWidth: 500)
+                .padding(.horizontal, 24)
+                .padding(.top, max(72, geometry.size.height * 0.28))
+                .padding(.bottom, 36)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .top)
+            }.scrollDismissesKeyboard(.interactively)
+        }
     }
 
-    private func quickLink(_ title: String, icon: String, address: String) -> some View {
-        Button { browser.open(address) } label: {
-            Label(title, systemImage: icon).frame(maxWidth: .infinity).padding(16)
-        }.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    private func shortcut<Icon: View>(_ title: String, action: @escaping () -> Void, @ViewBuilder icon: () -> Icon) -> some View {
+        Button(action: action) {
+            VStack(spacing: 9) {
+                icon().frame(width: shortcutSize, height: shortcutSize)
+                    .browserGlass(radius: shortcutSize / 2)
+                Text(title).font(.caption2).foregroundStyle(.white.opacity(0.72))
+                    .multilineTextAlignment(.center).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+            }.frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore).accessibilityLabel(title)
+    }
+
+    private func shortcut(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        shortcut(title, action: action) {
+            Image(systemName: symbol).font(.system(size: 23, weight: .medium)).foregroundStyle(.white.opacity(0.88))
+        }
+    }
+
+    private var tabStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(browser.tabs) { item in
+                    TabPill(tab: item, selected: item.id == browser.selectedID,
+                        select: { browser.selectedID = item.id }, close: { browser.close(item.id) })
+                }
+                Button { browser.addTab() } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+            }.padding(.horizontal, 12)
+        }.padding(.bottom, 8)
     }
 
     private var mediaControls: some View {
@@ -227,52 +261,76 @@ private struct BrowserScreen: View {
                 Button { browser.seek(10) } label: { Image(systemName: "goforward.10") }.accessibilityLabel("10 Sekunden vor")
                 Spacer(minLength: 0)
                 Text(time(tab.playbackTime)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip") }
-                    .accessibilityLabel("Bild-in-Bild")
+                Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip") }.accessibilityLabel("Bild-in-Bild")
                 AirPlayControl().frame(width: 30, height: 30).accessibilityLabel("AirPlay-Auswahl")
                 Button(action: showCast) { Image(systemName: "tv") }.accessibilityLabel("Cast-Optionen")
             }.font(.title3)
             NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke")
             if !tab.sponsorStatus.isEmpty { Text(tab.sponsorStatus).font(.caption).foregroundStyle(.secondary) }
             if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
-        }.padding(.horizontal, 18).padding(.vertical, 10).background(.bar)
+        }.padding(.horizontal, 18).padding(.vertical, 10)
+            .browserGlass(radius: 22).padding(.horizontal, 8)
     }
 
     private var timerStatus: some View {
         HStack {
             Image(systemName: "moon.zzz")
-            if let deadline = browser.sleepPlan.deadline {
-                Text("Pause in"); Text(deadline, style: .timer).monospacedDigit()
-            } else if let remaining = browser.sleepPlan.remainingVideos {
-                Text("Pause nach \(remaining) Video(s) im gewählten Tab")
-            }
+            if let deadline = browser.sleepPlan.deadline { Text(deadline, style: .timer).monospacedDigit() }
+            else if let remaining = browser.sleepPlan.remainingVideos { Text("\(remaining) Video(s)") }
             Spacer()
-            Button("Abbrechen") { browser.cancelSleep() }
-        }.font(.caption).padding(10).background(.teal.opacity(0.1))
+            Button { browser.cancelSleep() } label: { Image(systemName: "xmark") }.accessibilityLabel("Timer abbrechen")
+        }.font(.caption).padding(12).browserGlass(radius: 18).padding(.horizontal, 12).padding(.top, 8)
+            .accessibilityLabel("Sleep-Timer")
     }
 
     private var bottomBar: some View {
-        HStack {
-            Button { tab.webView.goBack() } label: { Image(systemName: "chevron.left") }.disabled(!tab.canGoBack).accessibilityLabel("Zurück")
-            Spacer()
-            Button { tab.webView.goForward() } label: { Image(systemName: "chevron.right") }.disabled(!tab.canGoForward).accessibilityLabel("Vorwärts")
-            Spacer()
-            Button(action: favorite) { Image(systemName: isFavorite ? "star.fill" : "star") }
-                .disabled(tab.address.isEmpty).accessibilityLabel(isFavorite ? "Favorit entfernen" : "Als Favorit speichern")
-            Spacer()
-            Button(action: showTabs) { Image(systemName: "square.on.square").overlay(alignment: .bottomTrailing) {
-                Text("\(browser.tabs.count)").font(.system(size: 9, weight: .bold)).offset(x: 5, y: 4)
-            } }.accessibilityLabel("\(browser.tabs.count) Tabs")
-            Spacer()
-            Menu {
-                Button("Neuer Tab", systemImage: "plus") { browser.addTab() }
-                Button("Favoriten & Verlauf", systemImage: "books.vertical", action: showLibrary)
-                Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
-                Button("Einstellungen", systemImage: "gear", action: showSettings)
-                if let url = URL(string: tab.address) { ShareLink(item: url) }
-                Button("Alles pausieren", systemImage: "pause.circle") { browser.pauseAll() }
-            } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Menü")
-        }.font(.title3).padding(.horizontal, 24).frame(height: 50).background(.bar)
+        HStack(spacing: isHome ? 12 : 8) {
+            if !isHome {
+                HStack(spacing: 2) {
+                    Button { tab.webView.goBack() } label: { Image(systemName: "chevron.left").frame(width: 44, height: 48) }
+                        .disabled(!tab.canGoBack).accessibilityLabel("Zurück")
+                    Button { tab.webView.goForward() } label: { Image(systemName: "chevron.right").frame(width: 44, height: 48) }
+                        .disabled(!tab.canGoForward).accessibilityLabel("Vorwärts")
+                }.browserGlass(radius: 24)
+                Button(action: favorite) { Image(systemName: isFavorite ? "star.fill" : "star").frame(width: 44, height: 48) }
+                    .browserGlass(radius: 24).accessibilityLabel(isFavorite ? "Favorit entfernen" : "Als Favorit speichern")
+                Spacer(minLength: 0)
+            } else {
+                Button { browser.blockingEnabled.toggle() } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: browser.blockingEnabled ? "shield.lefthalf.filled" : "shield")
+                        Circle().fill(browser.blockingEnabled ? Color.green.opacity(0.8) : Color.white.opacity(0.3)).frame(width: 5, height: 5)
+                    }.frame(width: 72, height: 48)
+                }.browserGlass(radius: 24).accessibilityLabel("Netzwerkfilter")
+                    .accessibilityValue(browser.blockingEnabled ? "Aktiv" : "Aus")
+                    .accessibilityHint("Doppeltippen schaltet den Filter um")
+            }
+            Button(action: showTabs) {
+                HStack(spacing: 7) {
+                    Image(systemName: "square.on.square")
+                    Text("\(browser.tabs.count)").font(.caption.monospacedDigit())
+                }.frame(width: isHome ? 72 : 64, height: 48)
+            }.browserGlass(radius: 24).accessibilityLabel("\(browser.tabs.count) Tabs")
+            browserMenu
+        }
+        .font(.system(size: 19, weight: .medium)).buttonStyle(.plain)
+        .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 8)
+        .frame(maxWidth: isHome ? 320 : 700)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var browserMenu: some View {
+        Menu {
+            Button("Neuer Tab", systemImage: "plus") { browser.addTab() }
+            Button("Favoriten", systemImage: "star", action: showLibrary)
+            Button("Verlauf", systemImage: "clock.arrow.circlepath", action: showHistory)
+            Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
+            Button("Einstellungen", systemImage: "gear", action: showSettings)
+            Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
+            if let url = URL(string: tab.address) { ShareLink(item: url) }
+            Button("Alles pausieren", systemImage: "pause.circle") { browser.pauseAll() }
+        } label: { Image(systemName: "ellipsis").frame(width: 48, height: 48).browserGlass(radius: 24) }
+        .accessibilityLabel("Menü")
     }
 
     private func time(_ value: Double) -> String {
@@ -290,8 +348,9 @@ private struct TabPill: View {
     var body: some View {
         HStack {
             Button(action: select) { Text(tab.title).lineLimit(1).frame(maxWidth: 180) }
-            Button(action: close) { Image(systemName: "xmark").font(.caption) }.accessibilityLabel("Tab schließen")
-        }.padding(10).background(selected ? Color.teal.opacity(0.15) : Color(.secondarySystemBackground),
-            in: RoundedRectangle(cornerRadius: 10))
+            Button(action: close) { Image(systemName: "xmark").font(.caption).frame(minWidth: 28, minHeight: 28) }
+                .accessibilityLabel("Tab schließen")
+        }.padding(10).browserGlass(radius: 18)
+            .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(selected ? 0.25 : 0), lineWidth: 1) }
     }
 }

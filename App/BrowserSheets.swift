@@ -2,6 +2,11 @@ import SwiftUI
 import SwiftData
 import WebKit
 
+enum LibrarySection: String, CaseIterable {
+    case favorites = "Favoriten"
+    case history = "Verlauf"
+}
+
 @MainActor
 struct LibraryView: View {
     @Environment(\.dismiss) private var dismiss
@@ -9,6 +14,8 @@ struct LibraryView: View {
     @Query(sort: \SavedPage.visitedAt, order: .reverse) private var pages: [SavedPage]
     let open: (String) -> Void
     let didChange: () -> Void
+    var initialSection: LibrarySection = .favorites
+    @State private var selectedSection: LibrarySection = .favorites
     @State private var search = ""
     @State private var clearHistory = false
 
@@ -19,17 +26,23 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Favoriten") {
+                if selectedSection == .favorites { Section("Favoriten") {
                     let favorites = filtered.filter(\.favorite)
                     if favorites.isEmpty { Text("Speichere eine Seite mit dem Stern.").foregroundStyle(.secondary) }
                     ForEach(favorites) { page in row(page) }
-                }
-                Section("Verlauf") {
+                } }
+                if selectedSection == .history { Section("Verlauf") {
                     let history = filtered.filter { !$0.favorite }
                     if history.isEmpty { Text("Noch keine besuchten Seiten.").foregroundStyle(.secondary) }
                     ForEach(history) { page in row(page) }
-                }
+                } }
             }
+            .safeAreaInset(edge: .top) {
+                Picker("Gespeicherte Seiten", selection: $selectedSection) {
+                    ForEach(LibrarySection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }.pickerStyle(.segmented).padding(.horizontal).padding(.vertical, 8)
+            }
+            .onAppear { selectedSection = initialSection }
             .searchable(text: $search, prompt: "Titel oder Adresse")
             .navigationTitle("Deine Seiten")
             .toolbar {
