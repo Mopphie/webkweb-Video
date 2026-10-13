@@ -4,7 +4,7 @@ import WidgetKit
 import WebKit
 
 private enum BrowserSheet: String, Identifiable {
-    case library, history, tabs, sleep, settings, cast, queue, player, downloads
+    case library, history, tabs, sleep, settings, cast, queue, player, downloads, address
     var id: String { rawValue }
 }
 
@@ -30,6 +30,7 @@ struct BrowserView: View {
                 showTabs: { sheet = .tabs }, showSleep: { sheet = .sleep },
                 showSettings: { sheet = .settings }, showCast: { sheet = .cast },
                 showQueue: { sheet = .queue }, showPlayer: { sheet = .player }, showDownloads: { sheet = .downloads },
+                showAddress: { sheet = .address },
                 favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == browser.current.address })
                 .id(browser.current.id)
                 .toolbar(.hidden, for: .navigationBar)
@@ -44,6 +45,7 @@ struct BrowserView: View {
                     case .queue: QueueView()
                     case .player: PlayerOptionsView(tab: browser.current)
                     case .downloads: DownloadsView()
+                    case .address: AddressEntryView().presentationDetents([.medium, .large])
                     }
                 }
         }
@@ -160,6 +162,7 @@ private struct BrowserScreen: View {
     let showQueue: () -> Void
     let showPlayer: () -> Void
     let showDownloads: () -> Void
+    let showAddress: () -> Void
     let favorite: () -> Void
     let isFavorite: Bool
     @State private var draft = ""
@@ -169,12 +172,13 @@ private struct BrowserScreen: View {
     @ObservedObject private var cast = CastService.shared
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
     private var isHome: Bool { tab.address.isEmpty && !tab.loading }
+    private var isWatch: Bool { YouTubeAddress.isWatchPage(URL(string: tab.address)) }
     private var shortcutSize: CGFloat { min(iconSize, dynamicType.isAccessibilitySize ? 84 : 64) }
     private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicType.isAccessibilitySize ? 2 : 4) }
 
     var body: some View {
         VStack(spacing: 0) {
-            if !isHome {
+            if !isHome && !isWatch {
                 addressBar.padding(.horizontal, 12).padding(.vertical, 8)
                 if sizeClass == .regular { tabStrip }
                 ProgressView(value: tab.progress).progressViewStyle(.linear)
@@ -182,7 +186,7 @@ private struct BrowserScreen: View {
             }
             ZStack {
                 if isHome { home }
-                else { BrowserWebView(tab: tab) }
+                else { BrowserWebView(tab: tab, watchPresentation: isWatch) }
                 if let error = tab.error {
                     ContentUnavailableView {
                         Label("Seite nicht geladen", systemImage: "wifi.exclamationmark")
@@ -191,9 +195,14 @@ private struct BrowserScreen: View {
                     }.background(.background)
                 }
             }
-            if tab.hasMedia || cast.isControllingMedia { mediaControls }
-            if browser.sleepPlan.isActive { timerStatus }
-            bottomBar
+            if !isWatch {
+                if tab.hasMedia || cast.isControllingMedia { mediaControls }
+                if browser.sleepPlan.isActive { timerStatus }
+                bottomBar
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if isWatch { browserMenu.padding(.trailing, 14).padding(.bottom, 18) }
         }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -390,6 +399,28 @@ private struct BrowserScreen: View {
 
     private var browserMenu: some View {
         Menu {
+            if isWatch {
+                Section("Navigation") {
+                    Button("Zurück", systemImage: "chevron.left") { tab.webView.goBack() }.disabled(!tab.canGoBack)
+                    Button("Vorwärts", systemImage: "chevron.right") { tab.webView.goForward() }.disabled(!tab.canGoForward)
+                    Button("Startseite", systemImage: "house") { browser.addTab() }
+                    Button("Tabs", systemImage: "square.on.square", action: showTabs)
+                    Button("Adresse oder Suche", systemImage: "magnifyingglass", action: showAddress)
+                    Button(tab.loading ? "Laden stoppen" : "Neu laden", systemImage: tab.loading ? "xmark" : "arrow.clockwise") { tab.loading ? tab.webView.stopLoading() : tab.reload() }
+                    Button(isFavorite ? "Favorit entfernen" : "Als Favorit speichern", systemImage: isFavorite ? "star.fill" : "star", action: favorite)
+                }
+                Section("Wiedergabe") {
+                    Button((cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "Pausieren" : "Abspielen", systemImage: (cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "pause" : "play") { browser.togglePlayback() }.disabled(!tab.hasMedia && !cast.isControllingMedia)
+                    Button("10 Sekunden zurück", systemImage: "gobackward.10") { browser.seek(-10) }.disabled(!tab.hasMedia && !cast.isControllingMedia)
+                    Button("10 Sekunden vor", systemImage: "goforward.10") { browser.seek(10) }.disabled(!tab.hasMedia && !cast.isControllingMedia)
+                    Button("Auf dem Fernseher", systemImage: "tv", action: showCast)
+                    if browser.sponsorBlockEnabled && !cast.isControllingMedia {
+                        Button("Segment überspringen", systemImage: "forward.end") { tab.runMedia("globalThis.__webkweb?.skip()") }
+                        Button("Skip rückgängig", systemImage: "arrow.uturn.backward") { tab.runMedia("globalThis.__webkweb?.undoSkip()") }.disabled(!tab.canUndoSkip)
+                    }
+                    if browser.sleepPlan.isActive { Button("Timer abbrechen", systemImage: "moon.zzz") { browser.cancelSleep() } }
+                }
+            }
             Button("Neuer Tab", systemImage: "plus") { browser.addTab() }
             Button("Privater Tab", systemImage: "hand.raised") { browser.addTab(isPrivate: true) }
             Button("Favoriten", systemImage: "star", action: showLibrary)
@@ -418,8 +449,14 @@ private struct BrowserScreen: View {
             }
             if let url = URL(string: tab.address) { ShareLink(item: url) }
             Button("Alles pausieren", systemImage: "pause.circle") { browser.pauseAll() }
-        } label: { Image(systemName: "ellipsis").frame(width: 48, height: 48).browserGlass(radius: 24) }
-        .accessibilityLabel("Menü")
+        } label: {
+            if isWatch {
+                Image(systemName: "ellipsis").font(.system(size: 21, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 44, height: 44).background(Color(red: 1, green: 0, blue: 0), in: Circle()).contentShape(Circle())
+            } else { Image(systemName: "ellipsis").frame(width: 48, height: 48).browserGlass(radius: 24) }
+        }
+        .buttonStyle(.plain).accessibilityLabel("Browsermenü")
+        .accessibilityHint("Navigation, Adresse, Tabs und Wiedergabeoptionen")
     }
 
     private func time(_ value: Double) -> String {

@@ -16,6 +16,12 @@ Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und F
 - Echter optionaler Google-Cast-SDK-Build: Geräteauswahl, direkte Medienquelle mit passendem MIME-Typ, Receiver-Status, Fehler, Play/Pause/Seek/Trennen und Übergabe erst nach erfolgreicher Ladeanfrage. Standardbuild ohne Cast-Abhängigkeit.
 - Optionales CloudKit für Verlauf/Favoriten mit CloudKit-tauglichem Modell. Erst nach Konfiguration eines echten, provisionierten Containers aktivierbar; Umschalten gilt beim Neustart. Private Tabs und Browsersitzungen werden nicht synchronisiert.
 
+## YouTube-Watch-Ansicht
+
+Auf echten YouTube-`/watch?v=...`-Seiten entfällt die App-Adress-/Tab-/Player-/Timer-/Fußleiste. Der echte WKWebView zeigt YouTubes Player, ein-/ausblendbare Controls, Titel, Kanal, Abos, Aktionen, Kommentare und Empfehlungen. Ein deckend roter 44-pt-Menübutton liegt unten rechts innerhalb der Safe Area (14 pt rechts/18 pt unten); Navigation, Adresse, Tabs und App-Funktionen liegen im Menü. Masthead und Playerrahmen werden über begrenzte öffentliche DOM/CSS-Anpassungen gestaltet; die App erzeugt keine eigenen YouTube-Inhaltskarten. Routewechsel per SPA/History/BFCache entfernen oder erneuern die Anpassung. Andere Webseiten behalten ihre Browseroberfläche. YouTube-Layout/A/B-Varianten und reale Apple-Darstellung müssen auf Geräten geprüft werden; keine pixelgenaue Zusage.
+
+HIG-/App-Review-Prüfung und konkrete offene Release-Bedingungen: [APP-REVIEW-DESIGN.md](Docs/APP-REVIEW-DESIGN.md). Öffentlich erreichbare Privacy-/Support-URL und Betreiberkontakt werden vor einem Release statisch über `WebKWebPrivacyURL`, `WebKWebSupportURL`, `WebKWebOperatorContact` in `App/Info.plist` hinterlegt; aktuell ausdrücklich leer. Diese Angaben sind nicht vom App-Endnutzer editierbar. Die In-App-Datenschutzhinweise bleiben verfügbar.
+
 ## Ergänzungen aus dem Video-Lite-Vergleich
 
 Im Menü erreichbar: lokale URL-/Favoriten-Queue mit vollständigem Shuffle und Repeat Aus/Ein/Alle, Next/Previous über RemoteCommands; Hintergrund-Linköffnung per Longpress. Playeroptionen bieten getrenntes Vollbild/PiP, Geschwindigkeit, verfügbare HTML-Untertitel-/Audiospuren und Buffering-/Fehleranzeige. Auto-PiP, Shorts-Ausblenden und Original-Audio sind optionale Einstellungen. Kein interner YouTube-API-Zugriff oder erfundener 1080p-Schalter.
@@ -50,7 +56,7 @@ Der Parameter muss eine echte `iCloud.*`-ID sein. Das Skript setzt Plist/Entitle
 Es gibt keine Workflows. **GitHub Actions dürfen nur mit ausdrücklichem OK des Nutzers eingerichtet oder ausgeführt werden.**
 
 ```bash
-node --test Tests/playback.test.cjs
+node --test Tests/*.test.cjs
 ./Scripts/check-macos.sh
 ./Scripts/check-macos.sh --cast
 ```
@@ -63,7 +69,7 @@ Direkter Standardbuild:
 xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. In Linux wurden 35 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 29 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet Änderungen und Beweise zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. In Linux wurden 42 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 30 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet Änderungen und Beweise zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
 
 ## Grenzen und Datenschutz
 
@@ -71,4 +77,4 @@ WebKit und Webseiten entscheiden über Autoplay, PiP, AirPlay, DRM und Hintergru
 
 Serverseitig in Streams eingefügte Werbung wird nicht zuverlässig entfernt. SponsorBlock-Daten können fehlen oder falsch sein. Cast braucht einen vom Empfänger erreichbaren HTTP(S)-Medienlink und passende Codecs; Cookies, besondere Header und DRM-Lizenzen werden nicht übertragen. `blob:`/MSE und YouTube-Watch-URLs sind keine direkten Dateien.
 
-[PRIVACY.md](PRIVACY.md) beschreibt die Datenflüsse. Öffentliche Privacy-/Support-URL und echte Betreiber-/Kontaktangaben sind noch offen; Einstellungsfelder sind vorbereitet. Eine App-Store-Zulassung wird nicht zugesagt.
+[PRIVACY.md](PRIVACY.md) beschreibt die Datenflüsse. Öffentliche Privacy-/Support-URL und echte Betreiber-/Kontaktangaben sind noch offen; statische Bundle-Felder in App/Info.plist sind vorbereitet. Eine App-Store-Zulassung wird nicht zugesagt.

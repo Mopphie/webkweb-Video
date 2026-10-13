@@ -56,6 +56,11 @@ enum AddressResolver {
 }
 
 enum YouTubeAddress {
+    static func isWatchPage(_ url: URL?) -> Bool {
+        guard let url, ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
+              url.path == "/watch", url.user == nil, url.password == nil else { return false }
+        return videoID(in: url) != nil
+    }
     static func videoID(in url: URL?) -> String? {
         guard let url, let host = url.host?.lowercased(),
               host == "youtube.com" || host.hasSuffix(".youtube.com"),

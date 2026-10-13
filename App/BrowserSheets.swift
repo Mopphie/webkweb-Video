@@ -5,6 +5,27 @@ import WebKit
 enum LibrarySection: String, CaseIterable { case favorites = "Favoriten", history = "Verlauf" }
 
 @MainActor
+struct AddressEntryView: View {
+    @EnvironmentObject private var browser: BrowserModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var address = ""
+    @FocusState private var focused: Bool
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Suchen oder Adresse", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .keyboardType(.webSearch).submitLabel(.go).focused($focused).onSubmit(open)
+                    .accessibilityLabel("Suchen oder Adresse")
+                Button("Öffnen", action: open).disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }.navigationTitle("Adresse")
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
+                .task { address = browser.current.address; focused = true }
+        }
+    }
+    private func open() { browser.open(address); dismiss() }
+}
+
+@MainActor
 struct LibraryView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
@@ -247,17 +268,17 @@ struct SettingsView: View {
                 }
                 Section("iCloud") {
                     Toggle("Verlauf & Favoriten synchronisieren", isOn: $browser.options.cloudSync).disabled(ReleaseConfiguration.cloudContainer == nil && !browser.options.cloudSync)
-                    Text(ReleaseConfiguration.cloudContainer == nil ? "Noch nicht provisioniert. Der Entwickler muss eine echte CloudKit-Container-ID mit dem lokalen Konfigurationsskript und Apple-Capabilities hinterlegen." : "Änderung gilt nach App-Neustart. SwiftData nutzt denselben lokalen Store; iCloud synchronisiert Verlauf/Favoriten, keine privaten Tabs.")
+                    Text(ReleaseConfiguration.cloudContainer == nil ? "iCloud ist in dieser Version nicht verfügbar." : "Änderung gilt nach App-Neustart. Verlauf und Favoriten werden synchronisiert; private Tabs bleiben lokal.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Datenschutz & Support") {
                     NavigationLink("Datenschutz") { PrivacyView() }
-                    NavigationLink("Veröffentlichungsangaben") { ReleaseDetailsView() }
-                    if let url = ReleaseConfiguration.publicURL(browser.options.privacyURL) { Link("Öffentliche Datenschutzerklärung", destination: url) }
-                    if let url = ReleaseConfiguration.publicURL(browser.options.supportURL) { Link("Support", destination: url) }
+                    if let url = ReleaseConfiguration.privacyURL { Link("Öffentliche Datenschutzerklärung", destination: url) }
+                    if let url = ReleaseConfiguration.supportURL { Link("Support", destination: url) }
+                    if !ReleaseConfiguration.operatorContact.isEmpty { Text(ReleaseConfiguration.operatorContact).font(.footnote) }
                 }
                 Section {
-                    Text("Autoplay, PiP, AirPlay, Hintergrundaudio und Clock-Stop hängen von iOS und Webseite ab. Keine Zusage für werbefreies YouTube oder App-Store-Zulassung.").font(.caption).foregroundStyle(.secondary)
+                    Text("Video-Funktionen hängen von iOS und dem Webseitenplayer ab.").font(.caption).foregroundStyle(.secondary)
                 }
             }.navigationTitle("Einstellungen")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
@@ -275,19 +296,6 @@ enum SponsorCategoryLabels {
 }
 
 @MainActor
-private struct ReleaseDetailsView: View {
-    @EnvironmentObject private var browser: BrowserModel
-    var body: some View {
-        Form {
-            TextField("Datenschutz-URL (HTTPS)", text: $browser.options.privacyURL).textInputAutocapitalization(.never).autocorrectionDisabled()
-            TextField("Support-URL (HTTPS)", text: $browser.options.supportURL).textInputAutocapitalization(.never).autocorrectionDisabled()
-            TextField("Verantwortlicher & Kontakt", text: $browser.options.operatorContact, axis: .vertical)
-            Text("Diese Angaben sind noch offen. Erst echte öffentlich erreichbare URLs und Betreiberangaben hinterlegen; keine Platzhalter als Release-Angaben veröffentlichen.").font(.caption).foregroundStyle(.secondary)
-        }.navigationTitle("Veröffentlichung")
-    }
-}
-
-@MainActor
 struct CastView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
@@ -297,18 +305,18 @@ struct CastView: View {
         NavigationStack {
             Form {
                 Section("AirPlay") {
-                    HStack { Text("Ausgabegerät wählen"); Spacer(); AirPlayControl().frame(width: 40, height: 40) }
+                    HStack { Text("Ausgabegerät wählen"); Spacer(); AirPlayControl().frame(width: 44, height: 44) }
                     Button("AirPlay für Webseitenvideo öffnen") { tab.runMedia("globalThis.__webkweb?.airplay()") }
                 }
                 Section("Google Cast") {
                     #if canImport(GoogleCast)
-                    HStack { Text("Cast-Gerät wählen"); Spacer(); CastDeviceButton().frame(width: 40, height: 40) }
+                    HStack { Text("Cast-Gerät wählen"); Spacer(); CastDeviceButton().frame(width: 44, height: 44) }
                     Button("Direkten Medienlink übertragen") {
                         guard let media = tab.directMedia else { return }
                         _ = cast.load(media, title: tab.title, at: tab.playbackTime)
                     }.disabled(tab.directMedia == nil)
                     #else
-                    Text("Google Cast ist eine optionale Build-Erweiterung und in diesem Standardbuild nicht enthalten.")
+                    Text("Google Cast ist in dieser Version nicht verfügbar.")
                     #endif
                     if let media = tab.directMedia { Text(media.url.host ?? "Medienlink").font(.caption).foregroundStyle(.secondary) }
                     else { Text("Kein übertragbarer direkter HTTP(S)-Medienlink erkannt.").font(.caption).foregroundStyle(.secondary) }
@@ -336,13 +344,13 @@ struct PrivacyView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Datenschutz").font(.largeTitle.bold())
-                Text("WebKWeb speichert Verlauf und Favoriten lokal mit SwiftData. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich im lokalen App-Group-Speicher für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Optionaler iCloud-Sync benötigt einen provisionierten Build und explizite Aktivierung.")
+                Text("WebKWeb speichert Verlauf und Favoriten lokal. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich lokal für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Verfügbares iCloud wird ausdrücklich aktiviert und synchronisiert Verlauf und Favoriten mit der privaten iCloud-Datenbank deines Apple-Kontos.")
                 Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Suchbegriffe gehen an die gewählte Suchmaschine Google, DuckDuckGo oder Bing. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
                 Text("Aktivierte Filterquellen werden täglich im Vordergrund sowie bei manuellen Updates oder Änderungen geladen. Presets sind AdGuard DNS, HaGeZi und StevenBlack; eigene Quellen und lokale Textimporte sind möglich. Verlauf und Favoriten werden nicht an die Listenhosts gesendet.")
-                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Ausdrücklich gespeicherte Downloads bleiben als Dateien erhalten, auch aus privaten Tabs; Quelldaten für Retry sind nur im Arbeitsspeicher. Downloads sind cookie-freie HTTP(S)-Anfragen ohne Loginübernahme.")
+                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Ausdrücklich gespeicherte Downloads bleiben als Dateien erhalten, auch aus privaten Tabs; Quelldaten für Retry sind nur im Arbeitsspeicher. Downloads sind cookie-freie HTTPS-Anfragen ohne Loginübernahme.")
                 Text("SponsorBlock ist zunächst ausgeschaltet. Nach Aktivierung werden YouTube-Video-IDs an sponsor.ajay.app übermittelt, ohne Browser-Cookies. Der Dienst sieht dabei deine IP-Adresse. Abschalten beendet weitere Abfragen; bereits gesendete Anfragen lassen sich nicht zurückholen.")
                 Text("AirPlay verwendet iOS. Ein optionaler Build mit dem Google Cast SDK sucht nach Geräten im lokalen Netzwerk und übermittelt den gewählten direkten Medienlink und Titel an den Empfänger. Die jeweiligen Geräte und Drittanbieter haben eigene Datenschutzregeln.")
-                Text("Diese Entwicklungsversion benötigt vor Veröffentlichung eine öffentlich erreichbare Datenschutzerklärung, eine Kontaktadresse des verantwortlichen Entwicklers und ausgefüllte App-Store-Datenschutzangaben.")
+                Text(ReleaseConfiguration.operatorContact.isEmpty ? "Anbieter- und Kontaktangaben sind noch nicht hinterlegt." : ReleaseConfiguration.operatorContact)
             }.padding(24).frame(maxWidth: 700, alignment: .leading).frame(maxWidth: .infinity)
         }.navigationTitle("Datenschutz").navigationBarTitleDisplayMode(.inline)
     }

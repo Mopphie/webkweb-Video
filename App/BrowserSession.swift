@@ -93,6 +93,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         if let url = Bundle.main.url(forResource: "Playback", withExtension: "js"), let source = try? String(contentsOf: url, encoding: .utf8) {
             config.userContentController.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: false, in: Self.world))
         }
+        if let url = Bundle.main.url(forResource: "WatchPresentation", withExtension: "js"), let source = try? String(contentsOf: url, encoding: .utf8) {
+            config.userContentController.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Self.world))
+        }
         webView = WKWebView(frame: .zero, configuration: config)
         super.init()
         webView.allowsBackForwardNavigationGestures = true
@@ -238,6 +241,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         case "dispose": removeFrame(documentID)
         case "navigation":
             frame.url = url; frame.sponsorID = nil; refreshSponsor(frame)
+            if message.frameInfo.isMainFrame { evaluate("globalThis.__webkwebWatch?.update()", frame: frame) }
             if message.frameInfo.isMainFrame, let url, ["https", "http"].contains(url.scheme ?? "") {
                 address = url.absoluteString; lastRequestedURL = url; scheduleVisit()
             }

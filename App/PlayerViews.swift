@@ -36,7 +36,8 @@ struct QueueView: View {
                     Button("Aktuelle Seite") { browser.enqueueCurrent() }.disabled(browser.current.isPrivate || browser.current.address.isEmpty)
                     HStack {
                         TextField("HTTP(S)-Adresse", text: $address).keyboardType(.URL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                        Button { browser.enqueue(address: address, title: URL(string: address)?.host ?? address); address = "" } label: { Image(systemName: "plus") }.disabled(AddressResolver.directURL(address) == nil)
+                        Button { browser.enqueue(address: address, title: URL(string: address)?.host ?? address); address = "" } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+                            .accessibilityLabel("Adresse zur Queue hinzufügen").disabled(AddressResolver.directURL(address) == nil)
                     }
                     ForEach(pages.filter(\.favorite)) { page in Button(page.title) { browser.enqueue(address: page.address, title: page.title) } }
                     Button("Alle Favoriten") {
@@ -75,6 +76,10 @@ struct PlayerOptionsView: View {
                     if tab.waiting { Label("Player lädt …", systemImage: "hourglass") }
                     if !tab.mediaError.isEmpty { Text(tab.mediaError).foregroundStyle(.red) }
                     Button("Wiedergabe erneut versuchen") { tab.runMedia("globalThis.__webkweb?.recover()") }.disabled(!tab.hasMedia || CastService.shared.isControllingMedia)
+                    if !cast.isControllingMedia {
+                        NativeVolumeControl().frame(minHeight: 44).accessibilityLabel("Systemlautstärke")
+                        if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
+                    }
                 }
                 Section("Untertitel") {
                     Picker("Spur", selection: Binding(get: { tab.captions.first(where: \.selected)?.id ?? -1 }, set: { tab.runMedia("globalThis.__webkweb?.setCaption(\($0))") })) {
@@ -89,7 +94,7 @@ struct PlayerOptionsView: View {
                         ForEach(tab.audioTracks) { Text($0.title).tag($0.id) }
                     }.disabled(tab.audioTracks.isEmpty || CastService.shared.isControllingMedia)
                     Toggle("Original bevorzugen", isOn: $browser.options.preferOriginalAudio)
-                    Text("Wirkt nur, wenn die öffentliche audioTracks-API eine Spur ausdrücklich als Original bezeichnet. Keine Änderung über interne YouTube-APIs.").font(.caption).foregroundStyle(.secondary)
+                    Text("Nur verfügbar, wenn der Webseitenplayer eine Originalspur anbietet.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
                     Text("Qualität wird vom Webseitenplayer gewählt. Cast und AirPlay behalten die aktuelle Quelle; 1080p lässt sich ohne passende Quelle nicht erzwingen. HTML-Untertitel können im nativen Vollbild erscheinen, Webseiten-Overlays möglicherweise nicht.").font(.caption).foregroundStyle(.secondary)
@@ -119,7 +124,7 @@ struct DownloadsView: View {
                     ForEach(store.files) { file in
                         HStack {
                             VStack(alignment: .leading) { Text(file.title).lineLimit(2); Text(ByteCountFormatter.string(fromByteCount: file.bytes, countStyle: .file)).font(.caption).foregroundStyle(.secondary) }
-                            Spacer(); ShareLink(item: file.url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel("Datei teilen")
+                            Spacer(); ShareLink(item: file.url) { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44) }.accessibilityLabel("Datei teilen")
                         }.swipeActions { Button("Löschen", role: .destructive) { store.delete(file) } }
                     }
                 }

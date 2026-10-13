@@ -16,7 +16,7 @@ if [[ "${1:-}" == "--cast" ]]; then
 elif [[ -f WebKWeb.xcworkspace/contents.xcworkspacedata ]]; then
   project_args=(-workspace WebKWeb.xcworkspace)
 fi
-node --test Tests/playback.test.cjs
+node --test Tests/*.test.cjs
 destination="${WEBKWEB_SIMULATOR_DESTINATION:-}"
 if [[ -z "$destination" ]]; then
   destination="$(xcrun simctl list devices available --json | python3 -c '

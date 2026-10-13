@@ -6,8 +6,15 @@ import AVKit
 @MainActor
 struct BrowserWebView: UIViewRepresentable {
     let tab: BrowserTab
-    func makeUIView(context: Context) -> WKWebView { tab.webView }
-    func updateUIView(_ view: WKWebView, context: Context) {}
+    var watchPresentation = false
+    func makeUIView(context: Context) -> WKWebView { configure(tab.webView); return tab.webView }
+    func updateUIView(_ view: WKWebView, context: Context) { configure(view) }
+    private func configure(_ view: WKWebView) {
+        view.isOpaque = !watchPresentation
+        view.backgroundColor = watchPresentation ? .black : .systemBackground
+        view.scrollView.backgroundColor = watchPresentation ? .black : .systemBackground
+        view.scrollView.contentInsetAdjustmentBehavior = watchPresentation ? .never : .automatic
+    }
 }
 
 @MainActor

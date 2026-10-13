@@ -1,6 +1,6 @@
 # Datenschutzhinweise für WebKWeb
 
-Stand: 13. Oktober 2026. Entwicklungsversion. Öffentliche Policy-/Support-URL und echter Verantwortlicher/Kontakt sind noch offen; die App bietet Konfigurationsfelder. Dieser Repository-Text ist keine bereits veröffentlichte Policy-URL.
+Stand: 13. Oktober 2026. Entwicklungsversion. Öffentliche Policy-/Support-URL und echter Verantwortlicher/Kontakt sind noch offen; die App hat leere statische Bundle-Felder für diese Angaben; Endnutzer können sie nicht ersetzen. Dieser Repository-Text ist keine bereits veröffentlichte Policy-URL.
 
 ## Lokale Daten und optionale iCloud-Synchronisierung
 

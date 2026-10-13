@@ -2,7 +2,7 @@
 
 ## Tatsächlicher Prüfstand
 
-Linux: 35 Node-Tests der originalen Playback.js, Syntaxparser für 23 Swift-Dateien, Plists/Manifest-/YAML-/Ressourcenstruktur und Shell-/Python-Syntax. 29 XCTest-Definitionen einschließlich Filterchunking/Ausnahmen, Datenlösch-Commit, privatem Store, Dialogqueue, Timer und Intent-Verteilung sind vorbereitet; sie wurden hier nicht ausgeführt. Swift-Typprüfung und Apple-SDK-/XcodeGen-Build sind offen. Cast SDK und CloudKit wurden nicht auf Apple-Plattformen getestet. [AUDIT-FIXES.md](AUDIT-FIXES.md) beschreibt die Zuordnung aller Auditbefunde.
+Linux: 42 Node-Tests der originalen Playback-/WatchPresentation-Skripte, Syntaxparser für 23 Swift-Dateien, Plists/Manifest-/YAML-/Ressourcenstruktur und Shell-/Python-Syntax. 30 XCTest-Definitionen einschließlich Filterchunking/Ausnahmen, Datenlösch-Commit, privatem Store, Dialogqueue, Timer und Intent-Verteilung sind vorbereitet; sie wurden hier nicht ausgeführt. Swift-Typprüfung und Apple-SDK-/XcodeGen-Build sind offen. Cast SDK und CloudKit wurden nicht auf Apple-Plattformen getestet. [AUDIT-FIXES.md](AUDIT-FIXES.md) beschreibt die Zuordnung aller Auditbefunde.
 
 **Keine Actions oder automatisch ausgelösten Workflows. Ohne ausdrückliches OK des Nutzers keine GitHub-Actions-Minuten.** Lokaler Einstieg: `./Scripts/check-macos.sh`, Cast: `./Scripts/check-macos.sh --cast`.
 
@@ -21,7 +21,7 @@ Linux: 35 Node-Tests der originalen Playback.js, Syntaxparser für 23 Swift-Date
 
 ## Noch offene Release-Angaben
 
-Öffentliche Datenschutzerklärungs-URL, Support-URL und echter Betreiber/Kontakt sind ausdrücklich noch offen. Konfigurationsfelder sind vorbereitet; keine Beispieldaten als echte Release-Angaben verwenden. Apple-Team, App-Group- und optional CloudKit-Provisionierung werden vom Betreiber vorgenommen.
+Öffentliche Datenschutzerklärungs-URL, Support-URL und echter Betreiber/Kontakt sind ausdrücklich noch offen. Die Bundle-Felder WebKWebPrivacyURL/WebKWebSupportURL/WebKWebOperatorContact in App/Info.plist sind vorbereitet; keine Beispieldaten als echte Release-Angaben verwenden. Apple-Team, App-Group- und optional CloudKit-Provisionierung werden vom Betreiber vorgenommen.
 
 Vor Veröffentlichung: App-Store-Datenschutzauskunft einschließlich optionalem SponsorBlock/Cast/iCloud mit dem finalen Build abgleichen, Signierung/Icons/Screenshots/Altersfreigabe prüfen und Dienstbedingungen/Rechte beachten. `ITSAppUsesNonExemptEncryption=false` setzt übliche ausgenommene System-/TLS-Verschlüsselung voraus. Keine Zugehörigkeit zu den verlinkten Diensten oder garantierte App-Store-Zulassung behaupten.
 

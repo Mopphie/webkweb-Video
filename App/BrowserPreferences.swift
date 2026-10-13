@@ -42,14 +42,11 @@ struct BrowserPreferences: Codable, Equatable {
     var sponsorAllowlist: [String] = []
     var sources = FilterSource.defaults
     var cloudSync = false
-    var privacyURL = ""
-    var supportURL = ""
-    var operatorContact = ""
 
     init() {}
     enum CodingKeys: String, CodingKey {
         case blocking, sponsorBlock, gestures, autoPiP, hideShorts, preferOriginalAudio, history, restoreTabs, desktop, zoom, searchEngine,
-             categories, allowlist, sponsorAllowlist, sources, cloudSync, privacyURL, supportURL, operatorContact
+             categories, allowlist, sponsorAllowlist, sources, cloudSync
     }
     init(from decoder: Decoder) throws {
         self.init()
@@ -70,9 +67,6 @@ struct BrowserPreferences: Codable, Equatable {
         sponsorAllowlist = try c.decodeIfPresent([String].self, forKey: .sponsorAllowlist) ?? sponsorAllowlist
         sources = try c.decodeIfPresent([FilterSource].self, forKey: .sources) ?? sources
         cloudSync = try c.decodeIfPresent(Bool.self, forKey: .cloudSync) ?? cloudSync
-        privacyURL = try c.decodeIfPresent(String.self, forKey: .privacyURL) ?? privacyURL
-        supportURL = try c.decodeIfPresent(String.self, forKey: .supportURL) ?? supportURL
-        operatorContact = try c.decodeIfPresent(String.self, forKey: .operatorContact) ?? operatorContact
     }
 }
 
@@ -101,6 +95,9 @@ struct BrowserSessionSnapshot: Codable {
 }
 
 enum ReleaseConfiguration {
+    static var privacyURL: URL? { publicURL(Bundle.main.object(forInfoDictionaryKey: "WebKWebPrivacyURL") as? String ?? "") }
+    static var supportURL: URL? { publicURL(Bundle.main.object(forInfoDictionaryKey: "WebKWebSupportURL") as? String ?? "") }
+    static var operatorContact: String { (Bundle.main.object(forInfoDictionaryKey: "WebKWebOperatorContact") as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines) }
     static var cloudContainer: String? {
         guard let value = Bundle.main.object(forInfoDictionaryKey: "WebKWebCloudKitContainer") as? String,
               value.hasPrefix("iCloud."), !value.contains("$(") else { return nil }

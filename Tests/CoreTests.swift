@@ -30,6 +30,15 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(YouTubeAddress.videoID(in: URL(string: "https://youtube.com/watch?v=too-short")))
         XCTAssertNil(YouTubeAddress.videoID(in: URL(string: "https://youtube.com/results?v=abcdefghijk")))
     }
+    func testWatchPresentationRouteBoundaries() {
+        for address in ["https://m.youtube.com/watch?v=abcdefghijk", "https://www.youtube.com/watch?t=10&v=abcde%66ghijk#comments", "http://youtube.com/watch?v=12345678901"] {
+            XCTAssertTrue(YouTubeAddress.isWatchPage(URL(string: address)), address)
+        }
+        for address in ["https://youtube.com.evil.example/watch?v=abcdefghijk", "https://notyoutube.com/watch?v=abcdefghijk", "https://user:password@youtube.com/watch?v=abcdefghijk", "ftp://youtube.com/watch?v=abcdefghijk", "https://youtube.com/watch?v=short", "https://youtube.com/results?v=abcdefghijk", "https://youtube.com/shorts/abcdefghijk", "https://youtube.com/embed/abcdefghijk"] {
+            XCTAssertFalse(YouTubeAddress.isWatchPage(URL(string: address)), address)
+        }
+        XCTAssertFalse(YouTubeAddress.isWatchPage(nil))
+    }
 
     func testCastAcceptsOnlyDirectNonDRMNetworkMedia() {
         XCTAssertNotNil(DirectMedia(source: "https://cdn.example.com/video.mp4", contentType: nil, encrypted: false))

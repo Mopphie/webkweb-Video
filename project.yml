@@ -55,7 +55,7 @@ targets:
     platform: iOS
     sources:
       - path: Tests
-        excludes: [playback.test.cjs]
+        excludes: ["*.test.cjs"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.mopphie.webkweb.tests

@@ -23,7 +23,7 @@ Die Liste enthält Wünsche sowie Beschwerden über eine andere App. Daraus folg
 | AirPlay / Autorotate / Regressionen | native Routen und Portrait/Landscape-Konfiguration vorhanden; bestehende Tests erweitert | tatsächliche Rotation/AirPlay-Hardware offen; kein Softwarebeweis für alle TV-Routen |
 | Grau / Crash / hohe CPU | DOM-Caching, Mutationserfassung und gedrosselte Heartbeats neu | weniger Abfragen im Harness bestätigt; reale CPU/Batterie/Crashes benötigen Instruments/Gerät |
 | YouTube-Login / Timeout | normaler WKWebView/Cookies, Fehleranzeige/Reload/private Store vorhanden | keine Umgehung von eingebettetem OAuth, Serverlimits oder Service-Login-Richtlinien |
-| Support | konfigurierbare echte Support-/Privacy-/Betreiberfelder vorhanden | öffentliche Angaben sind auf Nutzerwunsch noch offen |
+| Support | statische Support-/Privacy-/Betreiberfelder im App-Bundle vorhanden | öffentliche Angaben sind auf Nutzerwunsch noch offen |
 
 ## Im kurzen Audit korrigiert
 
@@ -37,9 +37,9 @@ Die Liste enthält Wünsche sowie Beschwerden über eine andere App. Daraus folg
 
 ## Validierung
 
-Ausgeführt in Linux: 35/35 Node-Tests mit originaler Playback.js, darunter primäre End-Reihenfolge, Audio/N-Video-Abgrenzung, Replay, Mute/Volume/Rate, Loop, Caption/AudioTrack-Auswahl, Auto-PiP-Gates, Shorts-Hostprüfung, Buffering und DOM-/Background-Abfragezahl. Das ist ein DOM-Harness, kein WebKit-/Geräte-Test. 23 Swift-Dateien syntaxgeprüft; Plists/Manifeste/YAML/Ressourcen/Shell/Python geprüft.
+Ausgeführt in Linux: 35/42 Node-Tests mit originaler Playback.js, darunter primäre End-Reihenfolge, Audio/N-Video-Abgrenzung, Replay, Mute/Volume/Rate, Loop, Caption/AudioTrack-Auswahl, Auto-PiP-Gates, Shorts-Hostprüfung, Buffering und DOM-/Background-Abfragezahl. Das ist ein DOM-Harness, kein WebKit-/Geräte-Test. 23 Swift-Dateien syntaxgeprüft; Plists/Manifeste/YAML/Ressourcen/Shell/Python geprüft.
 
-Vorbereitet, nicht hier ausgeführt: 29 XCTest-Definitionen einschließlich vollständiger Queue-Permutation/Repeat/Shuffle-off/Reorder/Persistenz sowie MIME-/Filename-Validierung. Mac-Prüfpfade bleiben `./Scripts/check-macos.sh` und `./Scripts/check-macos.sh --cast`.
+Vorbereitet, nicht hier ausgeführt: 30 XCTest-Definitionen einschließlich vollständiger Queue-Permutation/Repeat/Shuffle-off/Reorder/Persistenz sowie MIME-/Filename-Validierung. Mac-Prüfpfade bleiben `./Scripts/check-macos.sh` und `./Scripts/check-macos.sh --cast`.
 
 Offen: Swift-Typprüfung/XcodeGen/Apple-SDK, XCTest, Simulator-UI, echter Download-/Retry-/Suspend-Verlauf, Media/Background/PiP/AirPlay/Rotation/CarPlay-Befehle und Cast/TV sowie Instruments. Signierung/App Groups/CloudKit-Provisionierung und echte öffentliche Betreiberangaben bleiben extern erforderlich. Keine garantierte App-Store-Zulassung.
 
