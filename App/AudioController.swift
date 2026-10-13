@@ -26,6 +26,8 @@ final class AudioController {
         center.skipBackwardCommand.preferredIntervals = [10]
         center.skipForwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.seek(10) }; return .success }
         center.skipBackwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.seek(-10) }; return .success }
+        center.nextTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.nextQueue() }; return .success }
+        center.previousTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.previousQueue() }; return .success }
         tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
             Task { @MainActor in self?.interrupted(note) }
         })
@@ -46,6 +48,8 @@ final class AudioController {
         let cast = CastService.shared, hasContent = tab.hasMedia || cast.isControllingMedia
         let center = MPRemoteCommandCenter.shared()
         [center.playCommand, center.pauseCommand, center.stopCommand, center.togglePlayPauseCommand, center.skipForwardCommand, center.skipBackwardCommand].forEach { $0.isEnabled = hasContent }
+        center.nextTrackCommand.isEnabled = !cast.isControllingMedia && browser?.queueTabID != nil && browser?.queue.canNext == true
+        center.previousTrackCommand.isEnabled = !cast.isControllingMedia && browser?.queueTabID != nil && browser?.queue.canPrevious == true
         guard hasContent else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
         let playing = cast.isControllingMedia ? cast.isPlaying : tab.playing
         var data: [String: Any] = [MPMediaItemPropertyTitle: tab.isPrivate ? "Privater Player" : (cast.isControllingMedia ? cast.mediaTitle : tab.title),
@@ -57,7 +61,7 @@ final class AudioController {
     private func interrupted(_ note: Notification) {
         guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt, let type = AVAudioSession.InterruptionType(rawValue: raw), let browser else { return }
         if type == .began {
-            resumeAfterInterruption = browser.current.playing || CastService.shared.isPlaying
+            resumeAfterInterruption = browser.playbackTab.playing || CastService.shared.isPlaying
             interruptionDeadline = browser.sleepPlan.deadline
             browser.pauseAll(blockAutoplay: true); interruptionRevision = browser.commandRevision
         } else {

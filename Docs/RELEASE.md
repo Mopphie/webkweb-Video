@@ -2,7 +2,7 @@
 
 ## Tatsächlicher Prüfstand
 
-Linux: 22 Node-Tests der originalen Playback.js, Syntaxparser für 19 Swift-Dateien, Plists/Manifest-/YAML-/Ressourcenstruktur und Shell-/Python-Syntax. 21 XCTest-Definitionen einschließlich Filterchunking/Ausnahmen, Datenlösch-Commit, privatem Store, Dialogqueue, Timer und Intent-Verteilung sind vorbereitet; sie wurden hier nicht ausgeführt. Swift-Typprüfung und Apple-SDK-/XcodeGen-Build sind offen. Cast SDK und CloudKit wurden nicht auf Apple-Plattformen getestet. [AUDIT-FIXES.md](AUDIT-FIXES.md) beschreibt die Zuordnung aller Auditbefunde.
+Linux: 35 Node-Tests der originalen Playback.js, Syntaxparser für 23 Swift-Dateien, Plists/Manifest-/YAML-/Ressourcenstruktur und Shell-/Python-Syntax. 29 XCTest-Definitionen einschließlich Filterchunking/Ausnahmen, Datenlösch-Commit, privatem Store, Dialogqueue, Timer und Intent-Verteilung sind vorbereitet; sie wurden hier nicht ausgeführt. Swift-Typprüfung und Apple-SDK-/XcodeGen-Build sind offen. Cast SDK und CloudKit wurden nicht auf Apple-Plattformen getestet. [AUDIT-FIXES.md](AUDIT-FIXES.md) beschreibt die Zuordnung aller Auditbefunde.
 
 **Keine Actions oder automatisch ausgelösten Workflows. Ohne ausdrückliches OK des Nutzers keine GitHub-Actions-Minuten.** Lokaler Einstieg: `./Scripts/check-macos.sh`, Cast: `./Scripts/check-macos.sh --cast`.
 

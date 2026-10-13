@@ -3,6 +3,9 @@
   if (globalThis.__webkweb) return;
   const documentID = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const attached = new WeakMap();
+  const knownMedia = new Set(), observedRoots = new WeakSet();
+  let background = false, autoPiP = false, preferOriginal = false, hideShorts = false, queueManaged = false;
+  let lastDiscovery = 0, lastHeartbeat = 0, lastState = 0, lastSignature = "";
   let serial = 0, sponsorEnabled = false, categories = ["sponsor", "intro", "outro", "selfpromo"];
   let segmentID = null, segments = [], lastAddress = "", stopped = false, selected = null;
   let interactionAt = 0, lastPrimary = null, undo = null, ignoredSegment = null;
@@ -16,15 +19,22 @@
     return /^[\w-]{11}$/.test(id || "") ? id : null;
   };
   const isAd = () => Boolean(document.querySelector(".ad-showing,.ad-interrupting"));
+  function discover(root) {
+    if (root?.tagName === "VIDEO" || root?.tagName === "AUDIO") knownMedia.add(root);
+    root?.querySelectorAll?.("video,audio").forEach(v => knownMedia.add(v));
+    root?.querySelectorAll?.("*").forEach(node => { if (node.shadowRoot) discover(node.shadowRoot); });
+    if (root && (root === document || root.nodeType === 11) && !observedRoots.has(root) && typeof MutationObserver !== "undefined") {
+      observedRoots.add(root);
+      new MutationObserver(records => {
+        if (!records) discover(root); // Also supports the small test DOM harness.
+        else records.forEach(record => record.addedNodes?.forEach(node => discover(node)));
+        attach();
+      }).observe(root, {childList: true, subtree: true});
+    }
+  }
   function nodes() {
-    const result = [];
-    const scan = root => {
-      root.querySelectorAll("video,audio").forEach(v => result.push(v));
-      // Open shadow roots are accessible; closed roots remain a platform boundary.
-      root.querySelectorAll("*").forEach(node => { if (node.shadowRoot) scan(node.shadowRoot); });
-    };
-    scan(document);
-    return result;
+    knownMedia.forEach(v => { if (v.isConnected === false) { knownMedia.delete(v); if (v === selected) selected = null; } });
+    return [...knownMedia];
   }
   const area = v => {
     const r = v.getBoundingClientRect?.();
@@ -33,6 +43,9 @@
   };
   function media() {
     const all = nodes();
+    // Browsers may fire pause/timeupdate before ended. Retain the old primary
+    // until its ended event is acknowledged, rather than selecting a loop/ad.
+    if (lastPrimary && all.includes(lastPrimary) && lastPrimary.ended && !entry(lastPrimary)?.ended) return lastPrimary;
     if (selected && all.includes(selected) && selected.currentSrc && !selected.ended) return selected;
     const videos = all.filter(v => v.tagName === "VIDEO" && v.currentSrc);
     const playable = videos.filter(v => !v.ended);
@@ -43,12 +56,18 @@
     const e = attached.get(v);
     if (!e) return null;
     const sourceKey = (v.currentSrc || "") + ":" + (videoID() || "");
-    if (sourceKey !== e.sourceKey) { e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; }
+    if (sourceKey !== e.sourceKey) { e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false; e.originalLoop = null; }
     return e;
   }
   const mediaID = v => { const e = entry(v); return e ? `${documentID}:${e.id}:${e.cycle}` : ""; };
-  const state = () => {
+  const tracks = (list, audio = false) => Array.from(list || []).slice(0, 100).map((track, id) => ({id,
+    title: track.label || track.language || `Spur ${id + 1}`, selected: audio ? Boolean(track.enabled) : track.mode === "showing"}));
+  const state = (force = true) => {
     const v = media(); lastPrimary = v;
+    if (queueManaged && v) { const e = entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); v.loop = false; }
+    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.encrypted, entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
+    const now = Date.now(); if (!force && signature === lastSignature && now - lastState < 1000) return;
+    lastState = now; lastSignature = signature;
     let mime = "";
     if (v) {
       const match = [...v.querySelectorAll("source")].find(s => {
@@ -61,7 +80,11 @@
       source: v?.currentSrc || "", contentType: mime, encrypted: v ? Boolean(entry(v)?.encrypted || v.mediaKeys) : false,
       mediaID: v ? mediaID(v) : "", mediaKind: v?.tagName === "VIDEO" ? "video" : "audio",
       priority: v ? (v.tagName === "VIDEO" ? 1000000 : 0) + area(v) : 0,
-      interactionAt, videoID: videoID() || "", canUndo: Boolean(undo)});
+      interactionAt, videoID: videoID() || "", canUndo: Boolean(undo),
+      captions: tracks(v?.textTracks), audioTracks: tracks(v?.audioTracks, true),
+      rate: v?.playbackRate || 1, width: v?.videoWidth || 0, height: v?.videoHeight || 0,
+      muted: Boolean(v?.muted), waiting: Boolean(entry(v)?.waiting),
+      mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };
   const seek = seconds => {
     const v = media();
@@ -79,11 +102,11 @@
   };
   function attach() {
     nodes().forEach(v => {
+      if (stopped && !v.paused) v.pause();
       if (attached.has(v)) return;
-      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, encrypted: false});
+      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, encrypted: false, waiting: false});
       entry(v);
       // A new element may already have started before its play listener exists.
-      if (stopped && !v.paused) v.pause();
       v.addEventListener("encrypted", () => { entry(v).encrypted = true; state(); });
       v.addEventListener("play", () => {
         if (stopped) { v.pause(); return; }
@@ -91,7 +114,17 @@
         state();
       });
       v.addEventListener("pause", state);
-      v.addEventListener("loadedmetadata", () => { entry(v); state(); });
+      v.addEventListener("loadedmetadata", () => { entry(v); applyOriginal(v); state(); });
+      v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
+      v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
+      v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("error", state);
+      v.addEventListener("ratechange", state);
+      v.addEventListener("volumechange", state);
+      v.textTracks?.addEventListener?.("change", state);
+      v.audioTracks?.addEventListener?.("change", state);
+      v.audioTracks?.addEventListener?.("addtrack", () => { applyOriginal(v); state(); });
+      applyOriginal(v);
       v.addEventListener("timeupdate", () => {
         if (!sponsorEnabled || segmentID !== videoID() || v !== media() || v.tagName !== "VIDEO" || v.paused || v.seeking || isAd()) return;
         if (ignoredSegment && v.currentTime >= ignoredSegment.segment[1]) ignoredSegment = null;
@@ -100,9 +133,10 @@
       });
       v.addEventListener("ended", () => {
         const e = entry(v);
-        if (e.ended || isAd() || v.tagName !== "VIDEO" || v !== lastPrimary) return;
+        if (e.ended || isAd() || v !== lastPrimary) return;
         const id = mediaID(v); e.ended = true;
-        post("ended", {eventID: id, mediaID: id, mediaKind: "video", primary: true}); state();
+        if (v.tagName === "VIDEO") post("ended", {eventID: id, mediaID: id, mediaKind: "video", primary: true});
+        post("queueended", {eventID: id, mediaID: id, mediaKind: v.tagName === "VIDEO" ? "video" : "audio", primary: true}); state();
       });
     });
   }
@@ -112,6 +146,23 @@
     if (v) { selected = v; interactionAt = Date.now(); state(); }
   };
   document.addEventListener("pointerdown", choose, true);
+  function applyOriginal(v) {
+    if (!preferOriginal || !v.audioTracks) return;
+    const list = Array.from(v.audioTracks), original = list.find(t => /\boriginal(?:ton| audio)?\b/i.test(t.label || ""));
+    if (original) list.forEach(t => { t.enabled = t === original; });
+  }
+  function shortsPolicy() {
+    const youtube = /(^|\.)youtube\.com$/.test(location.hostname);
+    let style = document.getElementById?.("webkweb-shorts-policy");
+    if (hideShorts && youtube && !style && document.createElement && document.head) {
+      style = document.createElement("style"); style.id = "webkweb-shorts-policy";
+      style.textContent = 'ytd-reel-shelf-renderer,ytd-reel-video-renderer,ytm-reel-shelf-renderer,a[href^="/shorts/"],a[href*="youtube.com/shorts/"]{display:none!important}';
+      document.head.appendChild(style);
+    } else if (!hideShorts || !youtube) style?.remove();
+    if (hideShorts && youtube && location.pathname.startsWith("/shorts/")) {
+      post("notice", {text: "Shorts sind ausgeschaltet."}); location.replace?.("https://m.youtube.com/");
+    }
+  }
   globalThis.__webkweb = {
     setSponsorBlock(enabled, chosenCategories = categories) {
       sponsorEnabled = Boolean(enabled); categories = chosenCategories;
@@ -128,6 +179,38 @@
     resume() { stopped = false; const v = media(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
     toggle() { const v = media(); if (v) v.paused ? this.resume() : this.pause(); },
     seek,
+    setOptions(options = {}) {
+      autoPiP = Boolean(options.autoPiP); preferOriginal = Boolean(options.preferOriginal); hideShorts = Boolean(options.hideShorts);
+      nodes().forEach(applyOriginal); shortsPolicy();
+    },
+    setBackground(value) { background = Boolean(value); },
+    setQueueManaged(value) {
+      queueManaged = Boolean(value);
+      if (queueManaged) { const v = media(), e = v && entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); if (v) v.loop = false; }
+      else nodes().forEach(v => { const e = entry(v); if (e?.originalLoop != null) { v.loop = e.originalLoop; e.originalLoop = null; } });
+    },
+    restart() { const v = media(); if (v) { v.currentTime = 0; this.resume(); } },
+    setRate(value) { const v = media(); if (v && Number.isFinite(value) && value >= 0.25 && value <= 3) { v.playbackRate = value; state(); } },
+    setCaption(id) { const v = media(); if (!v) return; Array.from(v.textTracks || []).forEach((t, index) => { t.mode = index === id ? "showing" : "disabled"; }); state(); },
+    setAudio(id) {
+      const v = media(), list = Array.from(v?.audioTracks || []);
+      if (!list.some((_, index) => index === id)) return;
+      list.forEach((t, index) => { t.enabled = index === id; }); state();
+    },
+    recover() { const v = media(); if (!v) return; if (stopped) return post("notice", {text: "Wiedergabe ist gestoppt. Tippe auf Play."}); this.resume(); },
+    fullscreen() {
+      const v = media(); if (!v || v.tagName !== "VIDEO") return;
+      try {
+        if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+        else if (v.requestFullscreen) v.requestFullscreen().catch(() => post("notice", {text: "Vollbild ist hier nicht verfügbar."}));
+        else post("notice", {text: "Dieser Player unterstützt kein Vollbild."});
+      } catch (_) { post("notice", {text: "Tippe für Vollbild auf den Webseitenplayer."}); }
+    },
+    autoPiP() {
+      const v = media();
+      if (!autoPiP || stopped || !v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
+      try { this.pip(); } catch (_) {} // User gesture / background timing remains iOS-dependent.
+    },
     skip() {
       const v = media(); if (!v || isAd()) return;
       const match = segments.find(s => s.segment[1] > v.currentTime);
@@ -139,29 +222,35 @@
     },
     pip() {
       const v = media(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
-      if (v.webkitSupportsPresentationMode?.("picture-in-picture")) v.webkitSetPresentationMode("picture-in-picture");
-      else if (v.requestPictureInPicture) v.requestPictureInPicture().catch(() => post("notice", {text: "Bild-in-Bild ist hier nicht verfügbar."}));
-      else post("notice", {text: "Dieser Player unterstützt kein Bild-in-Bild."});
+      try {
+        if (v.webkitSupportsPresentationMode?.("picture-in-picture")) v.webkitSetPresentationMode("picture-in-picture");
+        else if (v.requestPictureInPicture) v.requestPictureInPicture().catch(() => post("notice", {text: "Bild-in-Bild ist hier nicht verfügbar."}));
+        else post("notice", {text: "Dieser Player unterstützt kein Bild-in-Bild."});
+      } catch (_) { post("notice", {text: "Tippe für Bild-in-Bild auf den Webseitenplayer."}); }
     },
     airplay() { const v = media(); if (v?.webkitShowPlaybackTargetPicker) v.webkitShowPlaybackTargetPicker(); else post("notice", {text: "Nutze AirPlay im Kontrollzentrum."}); },
     state
   };
   const tick = () => {
+    const now = Date.now(), hidden = background || document.hidden;
+    if (hidden && now - lastHeartbeat < 5000) return;
+    lastHeartbeat = now;
     if (lastAddress !== location.href) {
       const oldID = lastAddress ? (() => { try { const u = new URL(lastAddress); return u.searchParams.get("v") || u.pathname.split("/").at(-1); } catch (_) { return null; } })() : null;
       lastAddress = location.href;
       if (segmentID !== videoID() || oldID !== videoID()) { segments = []; segmentID = null; undo = null; ignoredSegment = null; }
       post("navigation", {videoID: videoID() || ""});
+      shortsPolicy();
     }
+    if (!hidden && now - lastDiscovery >= 15000) { discover(document); lastDiscovery = now; }
     attach();
     if (stopped) nodes().forEach(v => { if (!v.paused) v.pause(); });
-    state();
+    state(false);
   };
-  post("ready"); tick();
+  discover(document); lastDiscovery = Date.now(); post("ready"); tick();
   setInterval(tick, 1000);
-  if (typeof MutationObserver !== "undefined") new MutationObserver(attach).observe(document, {childList: true, subtree: true});
   window.addEventListener?.("pagehide", () => post("dispose"));
-  window.addEventListener?.("pageshow", event => { if (event.persisted) { post("ready"); tick(); } });
-  document.addEventListener("visibilitychange", tick);
+  window.addEventListener?.("pageshow", event => { if (event.persisted) { lastHeartbeat = 0; lastState = 0; post("ready"); tick(); } });
+  document.addEventListener("visibilitychange", () => { lastHeartbeat = 0; lastState = 0; if (document.hidden) globalThis.__webkweb.autoPiP(); tick(); });
   document.addEventListener("yt-navigate-finish", tick);
 })();

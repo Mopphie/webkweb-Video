@@ -34,8 +34,8 @@ Der Audit vom 13.10.2026 wurde umgesetzt. „Implementiert“ beschreibt den vor
 
 ## Ausgeführt und offen
 
-- Ausgeführt: 22 Node-Tests, Syntaxprüfung aller 19 Swift-Dateien, Plist-/YAML-/Manifest-/Ressourcen-, Shell- und Python-Syntaxprüfungen. Echte Preset-Dateien heruntergeladen (AdGuard ~4.5 MB, HaGeZi ~1.4 MB, StevenBlack ~2.2 MB); Swift-Konvertierung dieser Dateien und WebKit-Kompilierung hier nicht ausführbar.
-- Vorbereitet, nicht ausgeführt: 21 XCTest-Definitionen. Lokaler Mac: `./Scripts/check-macos.sh`; mit Cast: `./Scripts/check-macos.sh --cast`.
+- Ausgeführt: 35 Node-Tests, Syntaxprüfung aller 23 Swift-Dateien, Plist-/YAML-/Manifest-/Ressourcen-, Shell- und Python-Syntaxprüfungen. Echte Preset-Dateien heruntergeladen (AdGuard ~4.5 MB, HaGeZi ~1.4 MB, StevenBlack ~2.2 MB); Swift-Konvertierung dieser Dateien und WebKit-Kompilierung hier nicht ausführbar.
+- Vorbereitet, nicht ausgeführt: 29 XCTest-Definitionen. Lokaler Mac: `./Scripts/check-macos.sh`; mit Cast: `./Scripts/check-macos.sh --cast`.
 - Extern offen: Xcode-Typprüfung, Standard- und Cast-Build, Simulator/UI, echte Medienfunktionen, Signing/App Group, CloudKit-Provisionierung und Sync. Öffentliche Policy-/Support-URL und Betreiberangaben bleiben auf Nutzerwunsch offen.
 - Grenzen: keine vollständige EasyList-/Scriptlet-Engine, kein zuverlässiges Entfernen serverseitiger Streamwerbung, keine DRM/MSE-Cast-Übertragung, kein Cast-/Live-/Audio-Videozähler, keine Garantie für Hintergrund/Clock/Timer bei suspendierter App oder App-Store-Zulassung. Geschlossene Shadow Roots bleiben unzugänglich. Ein Timer für das konkrete alte Video wird beim Neustart bewusst verworfen, da neue Dokumente neue Medien-IDs erhalten.
 - Keine GitHub Actions eingerichtet oder ausgeführt. Kein Merge in main.

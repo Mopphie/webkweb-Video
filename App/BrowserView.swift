@@ -4,7 +4,7 @@ import WidgetKit
 import WebKit
 
 private enum BrowserSheet: String, Identifiable {
-    case library, history, tabs, sleep, settings, cast
+    case library, history, tabs, sleep, settings, cast, queue, player, downloads
     var id: String { rawValue }
 }
 
@@ -29,6 +29,7 @@ struct BrowserView: View {
                 showHistory: { sheet = .history },
                 showTabs: { sheet = .tabs }, showSleep: { sheet = .sleep },
                 showSettings: { sheet = .settings }, showCast: { sheet = .cast },
+                showQueue: { sheet = .queue }, showPlayer: { sheet = .player }, showDownloads: { sheet = .downloads },
                 favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == browser.current.address })
                 .id(browser.current.id)
                 .toolbar(.hidden, for: .navigationBar)
@@ -40,6 +41,9 @@ struct BrowserView: View {
                     case .sleep: SleepTimerView()
                     case .settings: SettingsView()
                     case .cast: CastView(tab: browser.current)
+                    case .queue: QueueView()
+                    case .player: PlayerOptionsView(tab: browser.current)
+                    case .downloads: DownloadsView()
                     }
                 }
         }
@@ -52,7 +56,7 @@ struct BrowserView: View {
         .onChange(of: favoriteDigest) { _, _ in syncFavorites() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await browser.foreground() } }
-            else { browser.persistSession() }
+            else { if phase == .inactive { browser.playbackTab.attemptAutoPiP() }; browser.persistSession() }
         }
         .onReceive(router.$revision) { _ in
             for command in router.drain() {
@@ -153,6 +157,9 @@ private struct BrowserScreen: View {
     let showSleep: () -> Void
     let showSettings: () -> Void
     let showCast: () -> Void
+    let showQueue: () -> Void
+    let showPlayer: () -> Void
+    let showDownloads: () -> Void
     let favorite: () -> Void
     let isFavorite: Bool
     @State private var draft = ""
@@ -291,6 +298,14 @@ private struct BrowserScreen: View {
             }.font(.title3)
             if cast.isControllingMedia { Button("Cast-Steuerung") { cast.showControls() } }
             else { NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke") }
+            if tab.waiting || !tab.mediaError.isEmpty {
+                HStack {
+                    if tab.waiting { ProgressView().controlSize(.small) }
+                    Text(tab.mediaError.isEmpty ? "Player lädt …" : tab.mediaError).font(.caption)
+                    Spacer()
+                    Button { tab.runMedia("globalThis.__webkweb?.recover()") } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Wiedergabe erneut versuchen")
+                }
+            }
             if browser.sponsorBlockEnabled && !cast.isControllingMedia {
                 HStack {
                     Button("Skip", systemImage: "forward.end") { tab.runMedia("globalThis.__webkweb?.skip()") }
@@ -316,10 +331,13 @@ private struct BrowserScreen: View {
     }
     private var routeButtons: some View {
         Group {
+            Button { tab.runMedia("globalThis.__webkweb?.fullscreen()") } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44) }
+                .disabled(cast.isControllingMedia || tab.activeMediaKind != "video").accessibilityLabel("Vollbild")
             Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip").frame(width: 44, height: 44) }
                 .disabled(cast.isControllingMedia).accessibilityLabel("Bild-in-Bild")
             AirPlayControl().frame(width: 44, height: 44).accessibilityLabel("AirPlay-Auswahl")
             Button(action: showCast) { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("Cast-Optionen")
+            Button(action: showPlayer) { Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44) }.accessibilityLabel("Player-Einstellungen")
         }
     }
 
@@ -377,6 +395,15 @@ private struct BrowserScreen: View {
             Button("Favoriten", systemImage: "star", action: showLibrary)
             Button("Verlauf", systemImage: "clock.arrow.circlepath", action: showHistory)
             Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
+            Button("Queue", systemImage: "music.note.list", action: showQueue)
+            Button("Downloads", systemImage: "arrow.down.circle", action: showDownloads)
+            if !isHome {
+                Button("Zur Queue", systemImage: "text.badge.plus") { browser.enqueueCurrent() }.disabled(tab.isPrivate)
+                Button("Player", systemImage: "slider.horizontal.3", action: showPlayer).disabled(!tab.hasMedia)
+                if let media = tab.directMedia, DownloadStore.supports(media) {
+                    Button("Mediendatei speichern", systemImage: "arrow.down.to.line") { DownloadStore.shared.start(media, title: tab.title); showDownloads() }
+                }
+            }
             Button("Einstellungen", systemImage: "gear", action: showSettings)
             Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
             if let host = URL(string: tab.address)?.host {

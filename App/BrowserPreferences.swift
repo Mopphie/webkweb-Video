@@ -29,6 +29,9 @@ struct BrowserPreferences: Codable, Equatable {
     var blocking = true
     var sponsorBlock = false
     var gestures = false
+    var autoPiP = false
+    var hideShorts = false
+    var preferOriginalAudio = false
     var history = true
     var restoreTabs = true
     var desktop = false
@@ -45,7 +48,7 @@ struct BrowserPreferences: Codable, Equatable {
 
     init() {}
     enum CodingKeys: String, CodingKey {
-        case blocking, sponsorBlock, gestures, history, restoreTabs, desktop, zoom, searchEngine,
+        case blocking, sponsorBlock, gestures, autoPiP, hideShorts, preferOriginalAudio, history, restoreTabs, desktop, zoom, searchEngine,
              categories, allowlist, sponsorAllowlist, sources, cloudSync, privacyURL, supportURL, operatorContact
     }
     init(from decoder: Decoder) throws {
@@ -54,6 +57,9 @@ struct BrowserPreferences: Codable, Equatable {
         blocking = try c.decodeIfPresent(Bool.self, forKey: .blocking) ?? blocking
         sponsorBlock = try c.decodeIfPresent(Bool.self, forKey: .sponsorBlock) ?? sponsorBlock
         gestures = try c.decodeIfPresent(Bool.self, forKey: .gestures) ?? gestures
+        autoPiP = try c.decodeIfPresent(Bool.self, forKey: .autoPiP) ?? autoPiP
+        hideShorts = try c.decodeIfPresent(Bool.self, forKey: .hideShorts) ?? hideShorts
+        preferOriginalAudio = try c.decodeIfPresent(Bool.self, forKey: .preferOriginalAudio) ?? preferOriginalAudio
         history = try c.decodeIfPresent(Bool.self, forKey: .history) ?? history
         restoreTabs = try c.decodeIfPresent(Bool.self, forKey: .restoreTabs) ?? restoreTabs
         desktop = try c.decodeIfPresent(Bool.self, forKey: .desktop) ?? desktop

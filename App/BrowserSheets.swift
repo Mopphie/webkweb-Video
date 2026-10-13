@@ -6,6 +6,7 @@ enum LibrarySection: String, CaseIterable { case favorites = "Favoriten", histor
 
 @MainActor
 struct LibraryView: View {
+    @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \SavedPage.visitedAt, order: .reverse) private var pages: [SavedPage]
@@ -61,6 +62,10 @@ struct LibraryView: View {
                 Text(page.title).foregroundStyle(.primary).lineLimit(2)
                 Text(page.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
+        }
+        .contextMenu {
+            Button("Im Hintergrund öffnen", systemImage: "square.on.square") { browser.openBackground(page.address, isPrivate: false) }
+            Button("Zur Queue", systemImage: "text.badge.plus") { browser.enqueue(address: page.address, title: page.title) }
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) { context.delete(page); didChange() } label: { Label("Löschen", systemImage: "trash") }
@@ -210,6 +215,12 @@ struct SettingsView: View {
                     Button("Aktuelle Seite neu laden") { browser.current.reload() }.disabled(browser.current.address.isEmpty)
                     Toggle("Gestenfläche zum Spulen", isOn: $browser.gesturesEnabled)
                 }
+                Section("Wiedergabe") {
+                    Toggle("Auto-PiP beim Appwechsel", isOn: $browser.options.autoPiP)
+                    Toggle("YouTube Shorts ausblenden", isOn: $browser.options.hideShorts)
+                    Toggle("Original-Audio bevorzugen", isOn: $browser.options.preferOriginalAudio)
+                    Text("Auto-PiP versucht nur laufende Videos zu übernehmen; iOS und der Player können es verhindern. Original-Audio benötigt eine ausdrücklich bezeichnete Spur in der öffentlichen audioTracks-API.").font(.caption).foregroundStyle(.secondary)
+                }
                 Section("Netzwerkfilter") {
                     Toggle("Filter aktiv", isOn: $browser.blockingEnabled)
                     Text(rules.status).font(.caption).foregroundStyle(.secondary)
@@ -326,8 +337,9 @@ struct PrivacyView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Datenschutz").font(.largeTitle.bold())
                 Text("WebKWeb speichert Verlauf und Favoriten lokal mit SwiftData. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich im lokalen App-Group-Speicher für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Optionaler iCloud-Sync benötigt einen provisionierten Build und explizite Aktivierung.")
-                Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Eine Google-Suche übermittelt den eingegebenen Suchbegriff an Google. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
-                Text("Bei eingeschaltetem Netzwerkfilter wird höchstens einmal täglich sowie auf manuelle Anforderung die AdGuard DNS-Liste von adguardteam.github.io geladen. Der Server erhält eine normale Netzwerkanfrage. Die Liste wird lokal zu WebKit-Regeln kompiliert; dein Verlauf wird nicht an AdGuard gesendet.")
+                Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Suchbegriffe gehen an die gewählte Suchmaschine Google, DuckDuckGo oder Bing. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
+                Text("Aktivierte Filterquellen werden täglich im Vordergrund sowie bei manuellen Updates oder Änderungen geladen. Presets sind AdGuard DNS, HaGeZi und StevenBlack; eigene Quellen und lokale Textimporte sind möglich. Verlauf und Favoriten werden nicht an die Listenhosts gesendet.")
+                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Ausdrücklich gespeicherte Downloads bleiben als Dateien erhalten, auch aus privaten Tabs; Quelldaten für Retry sind nur im Arbeitsspeicher. Downloads sind cookie-freie HTTP(S)-Anfragen ohne Loginübernahme.")
                 Text("SponsorBlock ist zunächst ausgeschaltet. Nach Aktivierung werden YouTube-Video-IDs an sponsor.ajay.app übermittelt, ohne Browser-Cookies. Der Dienst sieht dabei deine IP-Adresse. Abschalten beendet weitere Abfragen; bereits gesendete Anfragen lassen sich nicht zurückholen.")
                 Text("AirPlay verwendet iOS. Ein optionaler Build mit dem Google Cast SDK sucht nach Geräten im lokalen Netzwerk und übermittelt den gewählten direkten Medienlink und Titel an den Empfänger. Die jeweiligen Geräte und Drittanbieter haben eigene Datenschutzregeln.")
                 Text("Diese Entwicklungsversion benötigt vor Veröffentlichung eine öffentlich erreichbare Datenschutzerklärung, eine Kontaktadresse des verantwortlichen Entwicklers und ausgefüllte App-Store-Datenschutzangaben.")

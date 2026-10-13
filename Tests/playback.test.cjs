@@ -12,16 +12,16 @@ function element(tag='VIDEO', options={}) {
  },options);
 }
 function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk') {
- const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[]; let tick,mutation;
+ const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[]; let tick,mutation,clock=Date.now(),queries=0;
  const location=new URL(url);
- const document={title:'Video',baseURI:url,querySelector(){return null;},querySelectorAll(s){return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
- const sandbox={URL,Math,Number,Array,Boolean,Date,innerWidth:1000,innerHeight:1000,location,document,
+ const document={title:'Video',baseURI:url,hidden:false,querySelector(){return null;},querySelectorAll(s){queries++;return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
+ const sandbox={URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
   window:{webkit:{messageHandlers:{playback:{postMessage(v){messages.push(v);}}}},addEventListener(n,h){windowEvents[n]=h;}},
   setInterval(fn){tick=fn;return 1;},MutationObserver:class {constructor(fn){mutation=fn;}observe(){}}
  };
  vm.createContext(sandbox);vm.runInContext(source,sandbox);
- return {api:sandbox.__webkweb,nodes,messages,location,documentEvents,windowEvents,shadowHosts,
-  tick:()=>tick(),add(v){nodes.push(v);mutation();},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
+ return {api:sandbox.__webkweb,nodes,messages,location,document,documentEvents,windowEvents,shadowHosts,
+  tick(){clock+=1000;tick();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
 }
 const segments=[{category:'intro',segment:[2,8]}];
 test('SponsorBlock defaults off; state includes valid source and document/media IDs',()=>{
@@ -93,7 +93,7 @@ test('DRM state resets for a new unencrypted source and media ID changes',()=>{
  h.nodes[0].currentSrc='https://cdn.example/clear.mp4';h.tick();assert.equal(h.state().encrypted,false);assert.notEqual(h.state().mediaID,before);
 });
 test('open shadow root media is detected',()=>{
- const h=harness([]),v=element();h.shadowHosts.push({shadowRoot:{querySelectorAll(s){return s==='*'?[]:[v];}}});h.tick();assert.equal(h.state().hasMedia,true);
+ const h=harness([]),v=element();h.shadowHosts.push({shadowRoot:{querySelectorAll(s){return s==='*'?[]:[v];}}});h.advance(16000);h.tick();assert.equal(h.state().hasMedia,true);
 });
 test('manual skip and undo restore position without immediately reskipping',()=>{
  const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;
@@ -111,4 +111,60 @@ test('back-forward cache restore registers the same document again and publishes
 test('explicit user selection steers seek to that video',()=>{
  const main=element(),small=element('VIDEO',{width:16,height:16});const h=harness([main,small]);
  h.documentEvents.pointerdown({composedPath:()=>[small]});h.api.seek(10);assert.equal(small.currentTime,10);assert.equal(main.currentTime,0);
+});
+test('pause-before-ended retains primary ID and reports video plus queue end',()=>{
+ const main=element(),loop=element('VIDEO',{width:16,height:16,loop:true}),h=harness([main,loop]),id=h.state().mediaID;
+ main.ended=true;main.paused=true;main.listeners.timeupdate();main.listeners.pause();
+ assert.equal(h.state().mediaID,id);main.listeners.ended();
+ assert.equal(h.messages.filter(m=>m.kind==='ended').length,1);assert.equal(h.messages.filter(m=>m.kind==='queueended').length,1);
+ assert.equal(h.messages.find(m=>m.kind==='queueended').mediaID,id);
+});
+test('primary audio ending drives queue but never N-video counter',()=>{
+ const audio=element('AUDIO'),h=harness([audio]);audio.end();
+ assert.equal(h.messages.filter(m=>m.kind==='ended').length,0);assert.equal(h.messages.find(m=>m.kind==='queueended').mediaKind,'audio');
+});
+test('seek and restart preserve deliberate mute volume and rate',()=>{
+ const v=element('VIDEO',{muted:true,volume:0.35,playbackRate:1.25}),h=harness([v]);h.api.seek(10);h.api.restart();
+ assert.equal(v.muted,true);assert.equal(v.volume,0.35);assert.equal(v.playbackRate,1.25);
+});
+test('managed queue disables HTML loop for ended events and restores it on release',()=>{
+ const v=element('VIDEO',{loop:true}),h=harness([v]);h.api.setQueueManaged(true);assert.equal(v.loop,false);h.api.setQueueManaged(false);assert.equal(v.loop,true);
+});
+test('caption selection and off use exposed text tracks only',()=>{
+ const textTracks=[{label:'Deutsch',language:'de',mode:'disabled'},{label:'English',language:'en',mode:'disabled'}],h=harness([element('VIDEO',{textTracks})]);
+ h.api.setCaption(1);assert.equal(textTracks[1].mode,'showing');assert.equal(textTracks[0].mode,'disabled');
+ h.api.setCaption(-1);assert.ok(textTracks.every(t=>t.mode==='disabled'));
+});
+test('original-audio preference selects only explicitly marked original and manual selection works',()=>{
+ const audioTracks=[{label:'English dubbed',enabled:true},{label:'Original audio',enabled:false}],h=harness([element('VIDEO',{audioTracks})]);
+ h.api.setOptions({preferOriginal:true});assert.equal(audioTracks[1].enabled,true);assert.equal(audioTracks[0].enabled,false);
+ h.api.setAudio(0);assert.equal(audioTracks[0].enabled,true);h.api.setAudio(99);assert.equal(audioTracks[0].enabled,true);
+});
+test('unknown audio labels are not guessed to be original',()=>{
+ const audioTracks=[{label:'English',enabled:true},{label:'Deutsch',enabled:false}],h=harness([element('VIDEO',{audioTracks})]);h.api.setOptions({preferOriginal:true});assert.equal(audioTracks[0].enabled,true);
+});
+test('rate limits reject invalid settings without changing volume',()=>{
+ const v=element('VIDEO',{volume:0.4,playbackRate:1}),h=harness([v]);h.api.setRate(2);assert.equal(v.playbackRate,2);h.api.setRate(99);assert.equal(v.playbackRate,2);assert.equal(v.volume,0.4);
+});
+test('fullscreen and PiP are separate and auto-PiP respects pause and timer stop',()=>{
+ let fullscreen=0,pip=0;const v=element('VIDEO',{webkitEnterFullscreen(){fullscreen++;},webkitSupportsPresentationMode:()=>true,webkitSetPresentationMode(){pip++;}}),h=harness([v]);
+ h.api.fullscreen();assert.equal(fullscreen,1);assert.equal(pip,0);h.api.setOptions({autoPiP:true});h.api.autoPiP();assert.equal(pip,1);
+ h.api.pause(true);h.api.autoPiP();assert.equal(pip,1);h.api.clearStop();h.api.autoPiP();assert.equal(pip,1);
+});
+test('waiting recovery respects timer latch and preserves mute',()=>{
+ const v=element('VIDEO',{muted:true}),h=harness([v]);v.listeners.waiting();assert.equal(h.state().waiting,true);
+ h.api.pause(true);h.api.recover();assert.equal(v.paused,true);h.api.clearStop();h.api.recover();assert.equal(v.paused,false);assert.equal(v.muted,true);
+ v.listeners.playing();assert.equal(h.state().waiting,false);
+});
+test('foreground ticks avoid whole-DOM queries until sparse discovery',()=>{
+ const h=harness(),before=h.queries();for(let i=0;i<10;i++)h.tick();assert.equal(h.queries(),before);
+ h.advance(15000);h.tick();assert.ok(h.queries()>before);
+});
+test('background ticks reduce state traffic and skip discovery',()=>{
+ const h=harness();h.api.setBackground(true);const before=h.messages.length,queries=h.queries();for(let i=0;i<10;i++)h.tick();
+ assert.equal(h.messages.slice(before).filter(m=>m.kind==='state').length,2);assert.equal(h.queries(),queries);
+});
+test('Shorts opt-in rejects route on genuine YouTube only',()=>{
+ const h=harness(undefined,'https://m.youtube.com/shorts/abcdefghijk');let redirected='';h.location.replace=url=>{redirected=url;};h.api.setOptions({hideShorts:true});assert.equal(redirected,'https://m.youtube.com/');
+ const fake=harness(undefined,'https://youtube.com.evil.example/shorts/abcdefghijk');let fakeRedirect=false;fake.location.replace=()=>{fakeRedirect=true;};fake.api.setOptions({hideShorts:true});assert.equal(fakeRedirect,false);
 });
