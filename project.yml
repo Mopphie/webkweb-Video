@@ -34,6 +34,8 @@ targets:
           APS_ENVIRONMENT: development
         Release:
           APS_ENVIRONMENT: production
+          # Resolved per target by the manual-signing CI archive, not globally.
+          PROVISIONING_PROFILE_SPECIFIER: "$(WEBKWEB_APP_PROFILE_UUID)"
           # Same no-download binary for App Review and every end user.
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WEBKWEB_NO_DOWNLOADS"
     dependencies:
@@ -53,6 +55,9 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Widgets/FavoritesWidget.entitlements
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
+      configs:
+        Release:
+          PROVISIONING_PROFILE_SPECIFIER: "$(WEBKWEB_WIDGET_PROFILE_UUID)"
   WebKWebTests:
     type: bundle.unit-test
     platform: iOS
