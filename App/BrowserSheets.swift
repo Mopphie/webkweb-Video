@@ -347,10 +347,15 @@ struct PrivacyView: View {
                 Text("WebKWeb speichert Verlauf und Favoriten lokal. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich lokal für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Verfügbares iCloud wird ausdrücklich aktiviert und synchronisiert Verlauf und Favoriten mit der privaten iCloud-Datenbank deines Apple-Kontos.")
                 Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Suchbegriffe gehen an die gewählte Suchmaschine Google, DuckDuckGo oder Bing. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
                 Text("Aktivierte Filterquellen werden täglich im Vordergrund sowie bei manuellen Updates oder Änderungen geladen. Presets sind AdGuard DNS, HaGeZi und StevenBlack; eigene Quellen und lokale Textimporte sind möglich. Verlauf und Favoriten werden nicht an die Listenhosts gesendet.")
-                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Ausdrücklich gespeicherte Downloads bleiben als Dateien erhalten, auch aus privaten Tabs; Quelldaten für Retry sind nur im Arbeitsspeicher. Downloads sind cookie-freie HTTPS-Anfragen ohne Loginübernahme.")
+                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Im Standard-Release ist der direkte Mediendownload deaktiviert.")
+                #if !WEBKWEB_NO_DOWNLOADS
+                Text("In diesem Entwicklungsbuild können ausdrücklich gespeicherte Downloads als Dateien erhalten bleiben, auch aus privaten Tabs; Quelldaten für Retry sind nur im Arbeitsspeicher. Downloads sind cookie-freie HTTPS-Anfragen ohne Loginübernahme.")
+                #endif
                 Text("SponsorBlock ist zunächst ausgeschaltet. Nach Aktivierung werden YouTube-Video-IDs an sponsor.ajay.app übermittelt, ohne Browser-Cookies. Der Dienst sieht dabei deine IP-Adresse. Abschalten beendet weitere Abfragen; bereits gesendete Anfragen lassen sich nicht zurückholen.")
                 Text("AirPlay verwendet iOS. Ein optionaler Build mit dem Google Cast SDK sucht nach Geräten im lokalen Netzwerk und übermittelt den gewählten direkten Medienlink und Titel an den Empfänger. Die jeweiligen Geräte und Drittanbieter haben eigene Datenschutzregeln.")
                 Text(ReleaseConfiguration.operatorContact.isEmpty ? "Anbieter- und Kontaktangaben sind noch nicht hinterlegt." : ReleaseConfiguration.operatorContact)
+                if let url = ReleaseConfiguration.privacyURL { Link("Vollständige Datenschutzerklärung", destination: url) }
+                if let url = ReleaseConfiguration.supportURL { Link("Support", destination: url) }
             }.padding(24).frame(maxWidth: 700, alignment: .leading).frame(maxWidth: .infinity)
         }.navigationTitle("Datenschutz").navigationBarTitleDisplayMode(.inline)
     }

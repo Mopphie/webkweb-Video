@@ -21,11 +21,11 @@ WebKWeb ist unabhängig von den aufgerufenen Webseiten und deren Betreibern. Die
 
 **Vor Einreichung prüfen:** Jede Aussage am Standardbuild, echte Nutzbarkeit unter iOS 17 und iOS 26, Datenschutz, Dienstbedingungen und Markenrechte. Optionale Cast-/CloudKit-Funktionen nicht in der Beschreibung nennen, solange sie nicht provisioniert und im eingereichten Build enthalten sind. Audio-/Video-Downloads nicht bewerben, solange die Rechtefrage und die Release-Variante ungeklärt sind.
 
-## Verbindlich offene Eingaben
+## Vorhandene und offene Eingaben
 
-- Öffentliche HTTPS-Datenschutz-URL: **FEHLT** (`WebKWebPrivacyURL` leer)
-- Öffentliche HTTPS-Support-URL: **FEHLT** (`WebKWebSupportURL` leer)
-- Echter Betreibername/Kontakt: **FEHLT** (`WebKWebOperatorContact` leer)
+- Öffentliche HTTPS-Datenschutz-URL: **vorhanden**, <https://mopphie.github.io/webkweb-privacy/> (`WebKWebPrivacyURL`)
+- Öffentliche HTTPS-Support-URL: **vorhanden**, <https://mopphie.github.io/webkweb-privacy/support/> (`WebKWebSupportURL`)
+- Betreibername/Kontakt: **von der bestehenden Printatops-Seite übernommen**, <https://mopphie.github.io/webkweb-privacy/impressum/> (`WebKWebOperatorContact`); finale Betreiberfreigabe/rechtliche Prüfung ausstehend
 - Apple Developer Team ID, bestätigte Bundle-IDs, App-Group-Provisioning, Signierungszertifikate/-profile: **NICHT BESTÄTIGT**
 - iCloud-Container: **NICHT BESTÄTIGT**; CloudKit deaktiviert lassen
 - App-Privacy-Antworten einschließlich besuchter Webseiten, optionalem SponsorBlock/Cast/iCloud und SDKs: **OFFEN**, nach finalem Build und Datenflussaudit ausfüllen

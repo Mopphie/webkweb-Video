@@ -3,9 +3,9 @@
 <plist version="1.0"><dict>
   <key>CFBundleDevelopmentRegion</key><string>de</string>
   <key>CFBundleDisplayName</key><string>WebKWeb</string>
-  <key>WebKWebPrivacyURL</key><string></string>
-  <key>WebKWebSupportURL</key><string></string>
-  <key>WebKWebOperatorContact</key><string></string>
+  <key>WebKWebPrivacyURL</key><string>https://mopphie.github.io/webkweb-privacy/</string>
+  <key>WebKWebSupportURL</key><string>https://mopphie.github.io/webkweb-privacy/support/</string>
+  <key>WebKWebOperatorContact</key><string>Michael Spiess · PureDevn Studio · Riedmattstrasse 1 · 6030 Ebikon · Schweiz · puredevn.io@gmail.com</string>
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
   <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

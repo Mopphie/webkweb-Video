@@ -7,6 +7,7 @@ No network, GitHub Actions, credentials, signing, simulator, or uploads.
 """
 from __future__ import annotations
 import argparse, ast, datetime, json, plistlib, re, shutil, subprocess, sys
+from urllib.parse import urlparse
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -96,11 +97,16 @@ def main():
     definitions=sum(len(re.findall(r'\bfunc\s+test\w+\s*\(',p.read_text(encoding='utf8'))) for p in (ROOT/'Tests').glob('*.swift'))
     record('Native XCTest definitions','NOT_RUN',{'definitions':definitions,'reason':'Requires Mac, Xcode 26, iOS simulator/device'})
     info=plistlib.loads((ROOT/'App'/'Info.plist').read_bytes())
-    missing=[k for k in ('WebKWebPrivacyURL','WebKWebSupportURL','WebKWebOperatorContact') if not info.get(k)]
-    record('Public release contacts','BLOCKED',{'empty_keys':missing} if missing else 'Bundle fields populated; manually verify real public endpoints')
+    keys=('WebKWebPrivacyURL','WebKWebSupportURL','WebKWebOperatorContact')
+    missing=[k for k in keys if not info.get(k)]
+    valid_urls=all(urlparse(info.get(k,'')).scheme=='https' and urlparse(info.get(k,'')).hostname
+                   for k in ('WebKWebPrivacyURL','WebKWebSupportURL'))
+    record('Public release contacts','BLOCKED' if missing else 'FAIL' if not valid_urls else 'PASS',
+           {'empty_keys':missing} if missing else 'Configured HTTPS URLs and contact; manually verify site and legal accuracy')
     now=datetime.datetime.now().astimezone().isoformat(timespec='seconds')
     report={'created_at':now,'os':sys.platform,'checks':checks,'native_build':'NOT_RUN',
-            'xctest':'NOT_RUN','signed_archive':'NOT_CREATED','github_actions':'NOT_USED'}
+            'xctest':'NOT_RUN','signed_archive':'NOT_CREATED',
+            'github_actions':'WEBKWEB_APP_NOT_USED; legal website Pages deploy separately approved'}
     target=REPORT/'portable-check.json'
     target.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf8')
     for check in checks:print(f"{check['status']}: {check['check']} – {check['detail']}")

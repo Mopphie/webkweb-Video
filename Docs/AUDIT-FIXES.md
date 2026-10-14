@@ -1,5 +1,7 @@
 # Audit-Fixes und Prüfnachweise
 
+> Historische Audit-Momentaufnahme. Der aktuelle Stand der Tests, Website und offenen Release-Punkte steht in [RELEASE.md](RELEASE.md); ältere Testzahlen und die dort als fehlend bezeichneten Kontaktangaben sind überholt.
+
 Der Audit vom 13.10.2026 wurde umgesetzt. „Implementiert“ beschreibt den vorhandenen Code; es bedeutet keinen erfolgreichen Apple-SDK-/Gerätetest. L = ausgeführter Node-Test mit originaler Playback.js und DOM-Harness. X = vorhandener XCTest, erst auf dem Mac ausführbar. S = statisch geprüfter Codepfad. Der Harness ist kein echter Browser.
 
 | Befund | Änderung | Nachweis |
