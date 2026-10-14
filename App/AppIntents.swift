@@ -20,7 +20,7 @@ final class IntentRouter: ObservableObject {
 
 struct OpenWebPageIntent: AppIntent {
     static var title: LocalizedStringResource = "Webseite oder Suche öffnen"
-    static var description = IntentDescription("Öffnet eine Adresse oder Suche mit deiner gewählten Suchmaschine in WebKWeb.")
+    static var description = IntentDescription("Öffnet eine Adresse oder Suche mit deiner gewählten Suchmaschine in DevnTube.")
     static var openAppWhenRun = true
     @Parameter(title: "Adresse oder Suchbegriff") var address: String
 

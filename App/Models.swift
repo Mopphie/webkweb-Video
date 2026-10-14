@@ -45,7 +45,7 @@ enum AddressResolver {
     }
 
     static func deepLink(_ url: URL) -> String? {
-        guard url.scheme?.lowercased() == "webkweb", url.host == "open",
+        guard url.scheme?.lowercased() == "devntube", url.host == "open",
               let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let value = parts.queryItems?.first(where: { $0.name == "url" })?.value,
               let destination = URL(string: value),

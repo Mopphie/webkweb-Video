@@ -38,7 +38,7 @@ struct WebKWebApp: App {
                     .tint(.teal)
                     .task { if let cloudWarning { browser.notice = cloudWarning } }
                     .onOpenURL { url in
-                        if url.scheme == "webkweb", url.host == "home" { browser.addTab() }
+                        if url.scheme == "devntube", url.host == "home" { browser.addTab() }
                         else if let input = AddressResolver.deepLink(url) { browser.open(input) }
                     }
             } else {

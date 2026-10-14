@@ -75,7 +75,7 @@ struct BrowserView: View {
             }
         }
         .onChange(of: browser.dialog?.id) { _, _ in promptText = browser.dialog?.defaultText ?? "" }
-        .alert(browser.dialog == nil ? "WebKWeb" : "Webseite", isPresented: Binding(
+        .alert(browser.dialog == nil ? "DevnTube" : "Webseite", isPresented: Binding(
             get: { browser.dialog != nil || browser.notice != nil || persistenceError != nil },
             set: { shown in
                 if !shown {

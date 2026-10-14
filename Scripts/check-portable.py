@@ -73,8 +73,16 @@ def main():
         import yaml
         project=yaml.safe_load((ROOT/'project.yml').read_text(encoding='utf8'))
         assert int(project['options']['xcodeVersion'].split('.')[0])>=26
-        assert project['targets']['WebKWeb']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER']
-        record('Project YAML parse and Xcode minimum','PASS','XcodeGen generation/build NOT performed')
+        assert project['settings']['base']['DEVELOPMENT_TEAM']=='HUN9MS832X'
+        assert project['targets']['WebKWeb']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER']=='de.mopphie.devntube'
+        assert project['targets']['FavoritesWidget']['settings']['base']['PRODUCT_BUNDLE_IDENTIFIER']=='de.mopphie.devntube.favorites'
+        assert app[group]==widget[group]==['group.de.mopphie.devntube']
+        assert 'group.de.mopphie.devntube' in (ROOT/'Shared'/'FavoriteSnapshot.swift').read_text(encoding='utf8')
+        app_info=plistlib.loads((ROOT/'App'/'Info.plist').read_bytes())
+        widget_info=plistlib.loads((ROOT/'Widgets'/'Info.plist').read_bytes())
+        assert app_info['CFBundleDisplayName']=='DevnTube' and widget_info['CFBundleDisplayName']=='DevnTube-Favoriten'
+        assert 'devntube' in app_info['CFBundleURLTypes'][0]['CFBundleURLSchemes']
+        record('Project YAML parse and Xcode minimum','PASS','DevnTube IDs, shared group, display names and deep link align in source; XcodeGen/build NOT performed')
         flag='WEBKWEB_NO_DOWNLOADS'
         app_release=project['targets']['WebKWeb']['settings']['configs']['Release']['SWIFT_ACTIVE_COMPILATION_CONDITIONS']
         tests_release=project['targets']['WebKWebTests']['settings']['configs']['Release']['SWIFT_ACTIVE_COMPILATION_CONDITIONS']

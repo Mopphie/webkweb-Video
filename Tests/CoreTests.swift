@@ -19,7 +19,7 @@ final class CoreTests: XCTestCase {
     func testWidgetDeepLinkRoundTrip() {
         let favorite = FavoriteSnapshot(id: "favorite", title: "Video", address: "https://example.com/watch?a=1&b=two#part")
         XCTAssertEqual(AddressResolver.deepLink(favorite.deepLink!), favorite.address)
-        XCTAssertNil(AddressResolver.deepLink(URL(string: "webkweb://open?url=javascript%3Aalert(1)")!))
+        XCTAssertNil(AddressResolver.deepLink(URL(string: "devntube://open?url=javascript%3Aalert(1)")!))
         XCTAssertNil(AddressResolver.deepLink(URL(string: "other://open?url=https%3A%2F%2Fexample.com")!))
     }
 

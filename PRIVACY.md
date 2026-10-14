@@ -1,4 +1,4 @@
-# Datenschutzhinweise für WebKWeb
+# Datenschutzhinweise für DevnTube
 
 Stand: 14. Oktober 2026. Technischer Entwicklungsstand. Die öffentliche [Datenschutzerklärung](https://mopphie.github.io/webkweb-privacy/), der [Support](https://mopphie.github.io/webkweb-privacy/support/) und das [Impressum](https://mopphie.github.io/webkweb-privacy/impressum/) sind erreichbar. Diese Datei dokumentiert zusätzliche Implementierungsdetails; maßgeblich bleibt die Prüfung am später tatsächlich ausgelieferten Build.
 

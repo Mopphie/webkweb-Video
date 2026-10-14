@@ -1,4 +1,4 @@
-# WebKWeb
+# DevnTube (internes Xcode-Ziel: WebKWeb)
 
 Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Entwicklungsversion mit noch ausstehenden Apple-Build- und Gerätetests.
 
@@ -20,7 +20,7 @@ Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und F
 
 Auf echten YouTube-`/watch?v=...`-Seiten entfällt die App-Adress-/Tab-/Player-/Timer-/Fußleiste. Der echte WKWebView zeigt YouTubes Player, ein-/ausblendbare Controls, Titel, Kanal, Abos, Aktionen, Kommentare und Empfehlungen. Ein deckend roter 44-pt-Menübutton liegt unten rechts innerhalb der Safe Area (14 pt rechts/18 pt unten); Navigation, Adresse, Tabs und App-Funktionen liegen im Menü. Masthead und Playerrahmen werden über begrenzte öffentliche DOM/CSS-Anpassungen gestaltet; die App erzeugt keine eigenen YouTube-Inhaltskarten. Routewechsel per SPA/History/BFCache entfernen oder erneuern die Anpassung. Andere Webseiten behalten ihre Browseroberfläche. YouTube-Layout/A/B-Varianten und reale Apple-Darstellung müssen auf Geräten geprüft werden; keine pixelgenaue Zusage.
 
-Erneuter Funktionsaudit vom 14.10.2026: [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md). HIG-/App-Review-Prüfung und konkrete offene Release-Bedingungen: [APP-REVIEW-DESIGN.md](Docs/APP-REVIEW-DESIGN.md). Öffentlich erreichbare Privacy-/Support-URL und Betreiberkontakt werden vor einem Release statisch über `WebKWebPrivacyURL`, `WebKWebSupportURL`, `WebKWebOperatorContact` in `App/Info.plist` hinterlegt; aktuell ausdrücklich leer. Diese Angaben sind nicht vom App-Endnutzer editierbar. Die In-App-Datenschutzhinweise bleiben verfügbar.
+Erneuter Funktionsaudit vom 14.10.2026: [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md). HIG-/App-Review-Prüfung und konkrete offene Release-Bedingungen: [APP-REVIEW-DESIGN.md](Docs/APP-REVIEW-DESIGN.md). Öffentlich erreichbare Privacy-/Support-URL und Betreiberkontakt sind statisch über die historisch benannten Schlüssel `WebKWebPrivacyURL`, `WebKWebSupportURL`, `WebKWebOperatorContact` in `App/Info.plist` hinterlegt. Diese Angaben sind nicht vom App-Endnutzer editierbar. Die In-App-Datenschutzhinweise bleiben verfügbar.
 
 ## Ergänzungen aus dem Video-Lite-Vergleich
 
@@ -40,7 +40,7 @@ xcodegen generate
 open WebKWeb.xcodeproj
 ```
 
-Für App und Widget dasselbe Development Team setzen. Bundle-IDs, beide Entitlements und `FavoriteStorage.groupID` müssen dieselbe provisionierte App Group verwenden; die voreingestellte Gruppe lautet `group.de.mopphie.webkweb`. Für echte Geräte braucht diese Gruppe die passende Portal-Konfiguration.
+Für App und Widget dasselbe Development Team setzen. Die expliziten IDs `de.mopphie.devntube` und `de.mopphie.devntube.favorites` sowie die Gruppe `group.de.mopphie.devntube` sind im Apple-Portal unter Team `HUN9MS832X` registriert; die App-Group-Zuordnung beider Kennungen wurde nach erneutem Öffnen geprüft. Bundle-IDs, beide Entitlements und `FavoriteStorage.groupID` stimmen damit im Quellcode überein. App-Store-Profile und echte Geräte-Signierung stehen noch aus.
 
 Optionales Cast benötigt CocoaPods und den vorhandenen `Podfile`; [CAST.md](Docs/CAST.md) enthält den Workspace-Build. Für CloudKit eine bereits im eigenen Apple-Konto angelegte Container-ID konfigurieren:
 

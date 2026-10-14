@@ -8,7 +8,7 @@ struct FavoriteSnapshot: Codable, Identifiable {
     var deepLink: URL? {
         guard let clean = StoredAddress.clean(address) else { return nil }
         var parts = URLComponents()
-        parts.scheme = "webkweb"
+        parts.scheme = "devntube"
         parts.host = "open"
         parts.queryItems = [URLQueryItem(name: "url", value: clean)]
         return parts.url
@@ -17,7 +17,7 @@ struct FavoriteSnapshot: Codable, Identifiable {
 
 enum FavoriteStorage {
     // Both targets must use the same provisioned App Group.
-    static let groupID = "group.de.mopphie.webkweb"
+    static let groupID = "group.de.mopphie.devntube"
     static let key = "favoriteSnapshots"
 
     static func read() -> [FavoriteSnapshot] {

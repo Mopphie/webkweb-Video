@@ -24,11 +24,11 @@ struct FavoritesWidgetView: View {
     @Environment(\.widgetFamily) private var family
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("WebKWeb", systemImage: "play.rectangle.fill").font(.headline).foregroundStyle(.teal)
+            Label("DevnTube", systemImage: "play.rectangle.fill").font(.headline).foregroundStyle(.teal)
             if entry.favorites.isEmpty {
                 Text("Favoriten in der App speichern oder Widget bearbeiten.").font(.caption).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
-                Link("Browser öffnen", destination: URL(string: "webkweb://home")!).font(.caption.bold())
+                Link("Browser öffnen", destination: URL(string: "devntube://home")!).font(.caption.bold())
             } else {
                 ForEach(Array(entry.favorites.prefix(family == .systemSmall ? 2 : 4))) { favorite in
                     if let link = favorite.deepLink {
@@ -47,7 +47,7 @@ struct FavoritesWidgetView: View {
 struct WebKWebFavoritesWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "WebKWebFavorites", intent: FavoriteWidgetConfiguration.self, provider: FavoritesProvider()) { FavoritesWidgetView(entry: $0) }
-            .configurationDisplayName("WebKWeb-Favoriten").description("Wähle Favoriten oder nutze die Bibliotheksreihenfolge.")
+            .configurationDisplayName("DevnTube-Favoriten").description("Wähle Favoriten oder nutze die Bibliotheksreihenfolge.")
             .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
