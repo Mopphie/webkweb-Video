@@ -55,7 +55,7 @@ struct SeekGesturePad: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
         .gesture(DragGesture(minimumDistance: 20)
             .onChanged { movement = $0.translation.width / 5 }
-            .onEnded { seek(movement); movement = 0 })
+            .onEnded { _ in seek(movement); movement = 0 })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Spulen: links oder rechts doppelt tippen; horizontal wischen")
         .accessibilityAdjustableAction { seek($0 == .increment ? 10 : -10) }
