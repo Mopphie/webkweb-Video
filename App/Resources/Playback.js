@@ -56,7 +56,11 @@
     const e = attached.get(v);
     if (!e) return null;
     const sourceKey = (v.currentSrc || "") + ":" + (videoID() || "");
-    if (sourceKey !== e.sourceKey) { e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false; e.originalLoop = null; }
+    if (sourceKey !== e.sourceKey) {
+      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false;
+      // Keep the page's pre-queue loop preference until queue management ends.
+      if (!queueManaged) e.originalLoop = null;
+    }
     return e;
   }
   const mediaID = v => { const e = entry(v); return e ? `${documentID}:${e.id}:${e.cycle}` : ""; };
@@ -223,7 +227,8 @@
       try { this.pip(); } catch (_) {} // User gesture / background timing remains iOS-dependent.
     },
     skip() {
-      const v = media(); if (!v || isAd()) return;
+      const v = media();
+      if (!sponsorEnabled || segmentID !== videoID() || !v || v.tagName !== "VIDEO" || isAd()) return;
       const match = segments.find(s => s.segment[1] > v.currentTime);
       if (match) skipTo(v, match);
     },

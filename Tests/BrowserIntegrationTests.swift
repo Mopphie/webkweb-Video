@@ -65,6 +65,24 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertNil(snapshot.selected)
         browser.tabs.forEach { $0.close() }
     }
+    func testInvalidSleepRequestsKeepExistingDeadline() {
+        let defaults = UserDefaults.standard, key = "sleepPlanV2"
+        let previous = defaults.data(forKey: key)
+        defer { defaults.set(previous, forKey: key) }
+        let browser = BrowserModel()
+        defer { browser.cancelSleep(); browser.tabs.forEach { $0.close() } }
+        browser.sleep(seconds: 120)
+        let original = browser.sleepPlan.deadline
+        XCTAssertNotNil(original)
+        browser.sleep(seconds: 0)
+        XCTAssertEqual(browser.sleepPlan.deadline, original)
+        browser.sleep(minutes: Int.max)
+        XCTAssertEqual(browser.sleepPlan.deadline, original)
+        browser.sleep(videos: 2) // No active video in the new tab.
+        XCTAssertEqual(browser.sleepPlan.deadline, original)
+        browser.sleep(videos: 0)
+        XCTAssertEqual(browser.sleepPlan.deadline, original)
+    }
     func testDialogQueueRetainsBothRepliesAndCancelsClosedTab() async {
         let browser = BrowserModel()
         let first = browser.current, second = browser.addTab()

@@ -498,13 +498,21 @@ final class BrowserModel: ObservableObject {
         CastService.shared.pause(); publishNowPlaying()
     }
     private func clearPlaybackStop() { playbackStopped = false; tabs.forEach { $0.run("globalThis.__webkweb?.clearStop()", allFrames: true) } }
-    func sleep(minutes: Int) { sleep(seconds: minutes * 60) }
+    func sleep(minutes: Int) {
+        guard (1...1440).contains(minutes) else { notice = "Timer benötigt 1 bis 1440 Minuten."; return }
+        sleep(seconds: minutes * 60)
+    }
     func sleep(seconds: Int) {
+        guard (1...86400).contains(seconds) else { notice = "Timer benötigt 1 bis 86400 Sekunden."; return }
         cancelSleep(); sleepPlan.arm(seconds: seconds); persistSleep(); if sleepPlan.isActive { startTimer() }
     }
     func sleep(videos: Int, currentVideoOnly: Bool = false) {
+        guard (1...100).contains(videos), !CastService.shared.isControllingMedia,
+              current.activeMediaKind == "video", (!currentVideoOnly || !current.activeMediaID.isEmpty) else {
+            notice = "Videozählung benötigt 1 bis 100 Videos und einen Webseiten-Videoplayer."
+            return
+        }
         cancelSleep()
-        guard !CastService.shared.isControllingMedia, current.activeMediaKind == "video" else { notice = "Videozählung benötigt einen Webseiten-Videoplayer."; return }
         sleepPlan.arm(videos: videos, tabID: current.id, mediaID: currentVideoOnly ? current.activeMediaID : nil); persistSleep()
     }
     func cancelSleep() { timer?.invalidate(); timer = nil; sleepPlan.cancel(); persistSleep(); clearPlaybackStop() }

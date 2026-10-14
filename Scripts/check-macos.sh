@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--cast" ) ]]; then
+  echo "Aufruf: ./Scripts/check-macos.sh [--cast]" >&2
+  exit 2
+fi
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Dieses Skript benötigt macOS mit Xcode 16+ und einem iOS-17+-Simulator." >&2
+  echo "Dieses Skript benötigt macOS mit Xcode 26+, iOS-26-SDK und einem iPhone-Simulator." >&2
   exit 1
 fi
+command -v python3 >/dev/null || { echo "Bitte Python 3 installieren." >&2; exit 1; }
+command -v xcodebuild >/dev/null || { echo "Bitte Xcode 26+ und die Command Line Tools auswählen." >&2; exit 1; }
+command -v xcrun >/dev/null || { echo "Bitte Xcode Command Line Tools installieren." >&2; exit 1; }
 command -v xcodegen >/dev/null || { echo "Bitte XcodeGen installieren: brew install xcodegen" >&2; exit 1; }
 command -v node >/dev/null || { echo "Bitte Node.js 18+ installieren." >&2; exit 1; }
+xcode_major="$(xcodebuild -version | python3 -c 'import sys; print(int(sys.stdin.readline().split()[1].split(".")[0]))')"
+sdk_major="$(xcrun --sdk iphoneos --show-sdk-version | python3 -c 'import sys; print(int(sys.stdin.read().strip().split(".")[0]))')"
+node_major="$(node -p 'process.versions.node.split(".")[0]')"
+if (( xcode_major < 26 || sdk_major < 26 )); then
+  echo "App-Store-Upload erfordert Xcode 26+ und iOS-26-SDK (gefunden: Xcode ${xcode_major}, SDK ${sdk_major})." >&2
+  exit 1
+fi
+if (( node_major < 18 )); then echo "Node.js 18+ erforderlich (gefunden: ${node_major})." >&2; exit 1; fi
 xcodegen generate
 project_args=(-project WebKWeb.xcodeproj)
 if [[ "${1:-}" == "--cast" ]]; then

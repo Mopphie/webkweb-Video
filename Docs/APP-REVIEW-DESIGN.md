@@ -1,6 +1,6 @@
 # Design- und App-Review-Prüfung
 
-Stand: 13. Oktober 2026. Prüfung des Quelltexts und der öffentlich abrufbaren Apple-Richtlinien; kein ausgeführter iOS-Build und keine Zusage einer App-Store-Zulassung.
+Stand: 14. Oktober 2026. Prüfung des Quelltexts und der öffentlich abrufbaren Apple-Richtlinien; 50 lokale Node-Tests und 26 reine Swift-Syntaxprüfungen in zwei Konfigurationen auf Windows, **kein** ausgeführter iOS-Build oder XCTest und keine Zusage einer App-Store-Zulassung. Der Store-Eintrag ist nur als [Arbeitsentwurf](APP-STORE-DRAFT.md) vorbereitet.
 
 ## YouTube-Referenz
 
@@ -16,11 +16,13 @@ Liquid Glass gehört zur funktionalen Ebene für Navigation und Controls. Inhalt
 
 Benutzerdefinierte Buttons benötigen ausreichend große Trefferflächen (44 × 44 pt als Ziel), einen erkennbaren gedrückten Zustand und aussagekräftige VoiceOver-Namen. Große Schrift darf Texte nicht unzugänglich machen; die Startseite nutzt bei Accessibility-Schriftgrößen weniger Spalten. Ein-/Aus-Zustände müssen neben Farbe auch über Symbol/Text beziehungsweise Accessibility-Werte verständlich sein. System-Sheets, Menüs und destruktive Bestätigungen erhalten ihre native Interaktion. Safe Areas schützen die Systemstatusanzeige und die Bedienbarkeit des schwebenden Menüknopfs.
 
-Noch auf Apple-Geräten zu prüfen: Accessibility Inspector, VoiceOver-Reihenfolge einschließlich Webseiteninhalt, Full Keyboard Access, Increase Contrast, Reduce Transparency, größte Dynamic-Type-Stufen und Querformat. Ein Linux-Syntaxparser ersetzt diese Prüfungen nicht.
+Noch auf Apple-Geräten zu prüfen: Accessibility Inspector, VoiceOver-Reihenfolge einschließlich Webseiteninhalt, Full Keyboard Access, Increase Contrast, Reduce Transparency, größte Dynamic-Type-Stufen und Querformat. Ein reiner Swift-Syntaxparser auf Windows ersetzt diese Prüfungen nicht.
 
 ## App-Store-Anforderungen und aktueller Stand
 
 Quelle: [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/).
+
+Seit 28. April 2026 verlangt Apple für App-Store-Connect-Uploads Xcode 26+ und iOS-/iPadOS-26-SDK ([Upcoming Requirements](https://developer.apple.com/news/upcoming-requirements/)); das im Projekt konfigurierte iOS-17-Mindestziel ist davon getrennt. Die aktualisierten Altersfreigabe-Fragen für unbeschränkten Webzugang müssen im echten App-Store-Connect-Eintrag beantwortet werden. Ein lokaler Swift-Parser ersetzt weder SDK-Typprüfung noch Gerätetests.
 
 | Anforderung | Befund und Konsequenz |
 | --- | --- |
@@ -37,4 +39,4 @@ Quelle: [App Review Guidelines](https://developer.apple.com/app-store/review/gui
 
 ## Release-Entscheidung
 
-Diese Änderungen liefern einen überprüfbaren Entwicklungsentwurf. Eine Einreichung bleibt offen, bis der echte Betreiber seine Angaben und gegebenenfalls Dienste-/Download-Genehmigungen vorlegt und die Mac-/Geräteprüfungen aus [RELEASE.md](RELEASE.md) bestanden sind. Es gibt keinen versteckten Modus für Reviewer. Keine Veröffentlichung, kein Merge und keine GitHub-Actions-Minuten ohne die entsprechende Nutzeranweisung.
+Diese Änderungen liefern einen überprüfbaren Entwicklungsentwurf. Eine Einreichung bleibt offen, bis der echte Betreiber seine Angaben und gegebenenfalls Dienste-/Download-Genehmigungen vorlegt und die Mac-/Geräteprüfungen aus [RELEASE.md](RELEASE.md) bestanden sind. Eine einheitliche, ausdrücklich dokumentierte Release-Konfiguration ohne Downloads ist [vorbereitet](NO-DOWNLOAD-VARIANT.md), aber noch nicht als Xcode-Binärdatei gebaut oder abgenommen. Es gibt keinen versteckten Modus für Reviewer. Keine Veröffentlichung, kein Merge und keine GitHub-Actions-Minuten ohne die entsprechende Nutzeranweisung.

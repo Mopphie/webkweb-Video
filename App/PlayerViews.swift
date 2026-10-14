@@ -105,6 +105,7 @@ struct PlayerOptionsView: View {
     }
 }
 
+#if !WEBKWEB_NO_DOWNLOADS
 @MainActor
 struct DownloadsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -135,3 +136,4 @@ struct DownloadsView: View {
         }
     }
 }
+#endif

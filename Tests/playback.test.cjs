@@ -100,6 +100,16 @@ test('manual skip and undo restore position without immediately reskipping',()=>
  h.api.skip();assert.equal(h.nodes[0].currentTime,8);assert.equal(h.state().canUndo,true);
  h.api.undoSkip();assert.equal(h.nodes[0].currentTime,4);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
 });
+test('manual SponsorBlock skip never seeks an audio-only player',()=>{
+ const audio=element('AUDIO',{currentSrc:'https://cdn.example/sound.mp3',currentTime:4}),h=harness([audio]);
+ h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.api.skip();
+ assert.equal(audio.currentTime,4);assert.equal(h.state().canUndo,false);
+});
+test('manual SponsorBlock skip rejects stale video segments before SPA tick',()=>{
+ const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);
+ h.location.href='https://m.youtube.com/watch?v=12345678901';h.nodes[0].currentTime=4;h.api.skip();
+ assert.equal(h.nodes[0].currentTime,4);assert.equal(h.state().canUndo,false);
+});
 test('pagehide sends disposal for precisely the same document',()=>{
  const h=harness();const id=h.state().documentID;h.windowEvents.pagehide();const disposal=h.messages.at(-1);assert.equal(disposal.kind,'dispose');assert.equal(disposal.documentID,id);
 });
@@ -129,6 +139,10 @@ test('seek and restart preserve deliberate mute volume and rate',()=>{
 });
 test('managed queue disables HTML loop for ended events and restores it on release',()=>{
  const v=element('VIDEO',{loop:true}),h=harness([v]);h.api.setQueueManaged(true);assert.equal(v.loop,false);h.api.setQueueManaged(false);assert.equal(v.loop,true);
+});
+test('managed queue restores original HTML loop after source changes',()=>{
+ const v=element('VIDEO',{loop:true}),h=harness([v]);h.api.setQueueManaged(true);assert.equal(v.loop,false);
+ v.currentSrc='https://cdn.example/other.mp4';h.tick();h.api.setQueueManaged(false);assert.equal(v.loop,true);
 });
 test('caption selection and off use exposed text tracks only',()=>{
  const textTracks=[{label:'Deutsch',language:'de',mode:'disabled'},{label:'English',language:'en',mode:'disabled'}],h=harness([element('VIDEO',{textTracks})]);

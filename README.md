@@ -26,13 +26,13 @@ Erneuter Funktionsaudit vom 14.10.2026: [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md). H
 
 Im Menü erreichbar: lokale URL-/Favoriten-Queue mit vollständigem Shuffle und Repeat Aus/Ein/Alle, Next/Previous über RemoteCommands; Hintergrund-Linköffnung per Longpress. Playeroptionen bieten getrenntes Vollbild/PiP, Geschwindigkeit, verfügbare HTML-Untertitel-/Audiospuren und Buffering-/Fehleranzeige. Auto-PiP, Shorts-Ausblenden und Original-Audio sind optionale Einstellungen. Kein interner YouTube-API-Zugriff oder erfundener 1080p-Schalter.
 
-Direkte HTTPS-Audio-/Videodateien lassen sich ausdrücklich herunterladen, abbrechen, erneut laden, teilen und löschen. Der Vordergrunddownload nutzt keine Browser-Cookies, prüft HTTP/MIME, lehnt Streaming-Manifeste ab und persistiert keine Quell-URL. Downloads aus privaten Tabs sind bewusst gespeicherte Dateien. Keine Stream-/DRM-Extraktion und kein garantierter Hintergrunddownload.
+**Nur Entwicklungsbuild:** Direkte HTTPS-Audio-/Videodateien lassen sich in Debug herunterladen, abbrechen, erneut laden, teilen und löschen. Der Vordergrunddownload nutzt keine Browser-Cookies, prüft HTTP/MIME und lehnt Streaming-Manifeste ab. Mangels belegter Drittquellenrechte ist der Downloader im einheitlichen Release-Build für alle Nutzer per `WEBKWEB_NO_DOWNLOADS` aus dem kompilierten Produkt ausgeschlossen; die Mac-Binärprüfung steht noch aus. [Variante und Prüfpfad](Docs/NO-DOWNLOAD-VARIANT.md). Keine Stream-/DRM-Extraktion und kein garantierter Hintergrunddownload.
 
 Die Bridge verwaltet Medien über Mutationserfassung und cached Nodes; offene Shadow Roots werden sichtbar höchstens alle 15 Sekunden zusätzlich gesucht. Nicht sichtbare Frames senden nur alle fünf Sekunden einen Heartbeat. Diese DOM-/Nachrichtenreduktion wurde im Harness geprüft; tatsächliche CPU/Batterie/CarPlay/TV/Rotation bleiben Gerätetests. Vergleich und kurzer Funktionsaudit: [VIDEO-LITE-COMPARISON.md](Docs/VIDEO-LITE-COMPARISON.md).
 
 ## Auf dem Mac starten
 
-Xcode 16+, XcodeGen und Node.js 18+:
+Für den aktuellen App-Store-Upload: macOS mit Xcode 26+, iOS-26-SDK, Command Line Tools, XcodeGen und Node.js 18+. Das Mindestziel der App bleibt iOS 17:
 
 ```bash
 brew install xcodegen node
@@ -69,7 +69,7 @@ Direkter Standardbuild:
 xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. In Linux wurden 47 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 37 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet Änderungen und Beweise zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Auf Windows wurden 50 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 38 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. Lokaler Prüfbericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py --swift-frontend <Pfad zum Swift-Frontend>`. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet ältere Änderungen zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
 
 ## Grenzen und Datenschutz
 

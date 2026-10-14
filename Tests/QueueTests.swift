@@ -47,6 +47,7 @@ final class QueueTests: XCTestCase {
     }
 }
 
+#if !WEBKWEB_NO_DOWNLOADS
 @MainActor
 final class DownloadValidationTests: XCTestCase {
     func testDownloadsRejectLoginHTMLAndStreamingManifests() throws {
@@ -66,3 +67,4 @@ final class DownloadValidationTests: XCTestCase {
         XCTAssertFalse(name.contains("/")); XCTAssertFalse(name.contains("..")); XCTAssertTrue(name.hasSuffix(".mp4"))
     }
 }
+#endif

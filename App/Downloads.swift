@@ -1,6 +1,9 @@
 import Foundation
 import Combine
 
+// The same Release product for every user omits unlicensed direct downloads.
+#if !WEBKWEB_NO_DOWNLOADS
+
 struct DownloadedFile: Identifiable {
     var id: String { url.lastPathComponent }
     let url: URL
@@ -130,3 +133,4 @@ final class DownloadStore: ObservableObject {
         }.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
     }
 }
+#endif

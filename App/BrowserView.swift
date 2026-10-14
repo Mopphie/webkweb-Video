@@ -44,7 +44,12 @@ struct BrowserView: View {
                     case .cast: CastView(tab: browser.current)
                     case .queue: QueueView()
                     case .player: PlayerOptionsView(tab: browser.current)
-                    case .downloads: DownloadsView()
+                    case .downloads:
+                        #if WEBKWEB_NO_DOWNLOADS
+                        EmptyView()
+                        #else
+                        DownloadsView()
+                        #endif
                     case .address: AddressEntryView().presentationDetents([.medium, .large])
                     }
                 }
@@ -426,13 +431,17 @@ private struct BrowserScreen: View {
             Button("Verlauf", systemImage: "clock.arrow.circlepath", action: showHistory)
             Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
             Button("Queue", systemImage: "music.note.list", action: showQueue)
+            #if !WEBKWEB_NO_DOWNLOADS
             Button("Downloads", systemImage: "arrow.down.circle", action: showDownloads)
+            #endif
             if !isHome {
                 Button("Zur Queue", systemImage: "text.badge.plus") { browser.enqueueCurrent() }.disabled(tab.isPrivate)
                 Button("Player", systemImage: "slider.horizontal.3", action: showPlayer).disabled(!tab.hasMedia)
+                #if !WEBKWEB_NO_DOWNLOADS
                 if let media = tab.directMedia, DownloadStore.supports(media) {
                     Button("Mediendatei speichern", systemImage: "arrow.down.to.line") { DownloadStore.shared.start(media, title: tab.title); showDownloads() }
                 }
+                #endif
             }
             Button("Einstellungen", systemImage: "gear", action: showSettings)
             Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
