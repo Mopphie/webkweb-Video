@@ -499,7 +499,8 @@ private struct BrowserScreen: View {
                     Button("10 Sekunden vor", systemImage: "goforward.10") { closeWatchActions { browser.seek(10) } }
                         .disabled(!tab.hasMedia && !cast.isControllingMedia)
                     Button("Bild-in-Bild", systemImage: "pip") {
-                        closeWatchActions { tab.runMedia("globalThis.__webkweb?.pip()") }
+                        tab.runMedia("globalThis.__webkweb?.pip()")
+                        watchActionsVisible = false
                     }.disabled(!tab.hasMedia || cast.isControllingMedia)
                     Button("Auf dem Fernseher", systemImage: "tv") { closeWatchActions(showCast) }
                     if browser.sponsorBlockEnabled && !cast.isControllingMedia {
