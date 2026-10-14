@@ -12,16 +12,16 @@ function element(tag='VIDEO', options={}) {
  },options);
 }
 function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk') {
- const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[]; let tick,mutation,clock=Date.now(),queries=0;
+ const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[]; let tick,mutation,clock=Date.now(),queries=0,adShowing=false,skipButton=null;
  const location=new URL(url);
- const document={title:'Video',baseURI:url,hidden:false,querySelector(){return null;},querySelectorAll(s){queries++;return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
+ const document={title:'Video',baseURI:url,hidden:false,querySelector(s){return adShowing && s==='.ad-showing,.ad-interrupting'?{}:s.includes('ytp-skip-ad-button')?skipButton:adShowing && s==='.ad-showing video, .ad-interrupting video'?nodes[0]:null;},querySelectorAll(s){queries++;return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
  const sandbox={URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
   window:{webkit:{messageHandlers:{playback:{postMessage(v){messages.push(v);}}}},addEventListener(n,h){windowEvents[n]=h;}},
   setInterval(fn){tick=fn;return 1;},MutationObserver:class {constructor(fn){mutation=fn;}observe(){}}
  };
  vm.createContext(sandbox);vm.runInContext(source,sandbox);
  return {api:sandbox.__webkweb,nodes,messages,location,document,documentEvents,windowEvents,shadowHosts,
-  tick(){clock+=1000;tick();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
+  tick(){clock+=1000;tick();},advance(ms){clock+=ms;},setAd(value){adShowing=value;},setSkipButton(value){skipButton=value;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
 }
 const segments=[{category:'intro',segment:[2,8]}];
 test('SponsorBlock defaults off; state includes valid source and document/media IDs',()=>{
@@ -35,6 +35,43 @@ test('selected category skips a matching segment',()=>{
 test('category exclusions leave playback unchanged',()=>{
  const h=harness();h.api.setSponsorBlock(true,['sponsor']);h.api.setSegments('abcdefghijk',segments);
  h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
+});
+test('visible YouTube preroll attempts native skip and finite ad seek only',()=>{
+ const v=element('VIDEO',{currentTime:1,duration:12}),h=harness([v]);let clicks=0;
+ h.setSkipButton({disabled:false,click(){clicks++;}});h.setAd(true);h.tick();
+ assert.equal(clicks,1);assert.ok(v.currentTime>11);assert.ok(v.currentTime<12);
+ assert.equal(h.state().adShowing,true);
+ h.setAd(false);v.currentTime=4;h.tick();assert.equal(clicks,1);assert.equal(v.currentTime,4);
+});
+test('ad bypass never seeks unmarked content, live streams, or non-YouTube pages',()=>{
+ const plain=element('VIDEO',{currentTime:3,duration:20}),a=harness([plain]);a.tick();assert.equal(plain.currentTime,3);
+ const live=element('VIDEO',{currentTime:3,duration:Infinity}),b=harness([live]);b.setAd(true);b.tick();assert.equal(live.currentTime,3);
+ const other=element('VIDEO',{currentTime:3,duration:20}),c=harness([other],'https://example.com/video');c.setAd(true);c.tick();assert.equal(other.currentTime,3);
+});
+test('timer latch does not bypass ads',()=>{
+ const v=element('VIDEO',{currentTime:1,duration:12}),h=harness([v]);h.setAd(true);h.api.pause(true);h.tick();assert.equal(v.currentTime,1);
+});
+test('ad hint prevents SponsorBlock and queue completion even when CSS clears before ended',()=>{
+ const v=element('VIDEO',{currentTime:4}),h=harness([v]);h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);
+ h.setAd(true);h.api.state();assert.equal(h.state().adShowing,true);
+ v.listeners.timeupdate();h.api.skip();assert.equal(v.currentTime,4);
+ v.end();assert.equal(h.messages.filter(m=>m.kind==='queueended').length,0);
+ h.setAd(false);h.api.state();v.listeners.ended();v.currentTime=4;v.paused=false;v.ended=false;v.listeners.timeupdate();
+ assert.equal(v.currentTime,4);assert.equal(h.messages.filter(m=>m.kind==='ended').length,0);
+ v.listeners.playing();assert.equal(h.state().adShowing,false);v.listeners.timeupdate();assert.equal(v.currentTime,8);
+ v.end();assert.equal(h.messages.filter(m=>m.kind==='queueended').length,1);
+});
+test('ad-looking marker on non-YouTube does not suppress ordinary media events',()=>{
+ const v=element(),h=harness([v],'https://example.com/video');h.setAd(true);h.api.state();
+ assert.equal(h.state().adShowing,false);v.end();assert.equal(h.messages.filter(m=>m.kind==='queueended').length,1);
+});
+test('new source clears stale ad latch even without a content playing callback',()=>{
+ const v=element(),h=harness([v]);h.setAd(true);h.api.state();h.setAd(false);
+ v.currentSrc='https://cdn.example/content.mp4';h.tick();v.end();assert.equal(h.messages.filter(m=>m.kind==='queueended').length,1);
+});
+test('ad ended callback records the latch even before the next state sample',()=>{
+ const v=element(),h=harness([v]);h.setAd(true);v.end();h.setAd(false);v.listeners.ended();
+ assert.equal(h.messages.filter(m=>m.kind==='queueended').length,0);
 });
 test('SPA clears stale segments and accepts refreshed new-video segments',()=>{
  const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);

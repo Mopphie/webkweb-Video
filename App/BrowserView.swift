@@ -175,6 +175,8 @@ private struct BrowserScreen: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var dynamicType
     @ObservedObject private var cast = CastService.shared
+    @State private var watchActionsVisible = false
+    @State private var pendingWatchAction: (() -> Void)?
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
     private var isHome: Bool { tab.address.isEmpty && !tab.loading }
     private var isWatch: Bool { YouTubeAddress.isWatchPage(URL(string: tab.address)) }
@@ -207,8 +209,20 @@ private struct BrowserScreen: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            if isWatch { browserMenu.padding(.trailing, 14).padding(.bottom, 18) }
+            if isWatch {
+                Button { watchActionsVisible = true } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 21, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 44, height: 44).background(Color.red, in: Circle()).contentShape(Circle())
+                }
+                .accessibilityLabel("Browseraktionen")
+                .padding(.trailing, 14).padding(.bottom, 18)
+            }
         }
+        .sheet(isPresented: $watchActionsVisible, onDismiss: {
+            let action = pendingWatchAction
+            pendingWatchAction = nil
+            action?()
+        }) { watchActions }
         .background(Color.black.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .tint(.white)
@@ -465,6 +479,101 @@ private struct BrowserScreen: View {
         }
         .buttonStyle(.plain).accessibilityLabel("Browsermenü")
         .accessibilityHint("Navigation, Adresse, Tabs und Wiedergabeoptionen")
+    }
+
+    private func closeWatchActions(then action: @escaping () -> Void) {
+        pendingWatchAction = action
+        watchActionsVisible = false
+    }
+
+    private var watchActions: some View {
+        NavigationStack {
+            List {
+                Section("Wiedergabe") {
+                    Button((cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "Pausieren" : "Abspielen",
+                           systemImage: (cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "pause" : "play") {
+                        closeWatchActions { browser.togglePlayback() }
+                    }.disabled(!tab.hasMedia && !cast.isControllingMedia)
+                    Button("10 Sekunden zurück", systemImage: "gobackward.10") { closeWatchActions { browser.seek(-10) } }
+                        .disabled(!tab.hasMedia && !cast.isControllingMedia)
+                    Button("10 Sekunden vor", systemImage: "goforward.10") { closeWatchActions { browser.seek(10) } }
+                        .disabled(!tab.hasMedia && !cast.isControllingMedia)
+                    Button("Bild-in-Bild", systemImage: "pip") {
+                        closeWatchActions { tab.runMedia("globalThis.__webkweb?.pip()") }
+                    }.disabled(!tab.hasMedia || cast.isControllingMedia)
+                    Button("Auf dem Fernseher", systemImage: "tv") { closeWatchActions(showCast) }
+                    if browser.sponsorBlockEnabled && !cast.isControllingMedia {
+                        Button("Sponsorsegment überspringen", systemImage: "forward.end") {
+                            closeWatchActions { tab.runMedia("globalThis.__webkweb?.skip()") }
+                        }
+                        Button("Sponsor-Skip rückgängig", systemImage: "arrow.uturn.backward") {
+                            closeWatchActions { tab.runMedia("globalThis.__webkweb?.undoSkip()") }
+                        }.disabled(!tab.canUndoSkip)
+                    }
+                    if browser.sleepPlan.isActive {
+                        Button("Timer abbrechen", systemImage: "moon.zzz") { closeWatchActions { browser.cancelSleep() } }
+                    }
+                }
+                Section("Navigation") {
+                    Button("Zurück", systemImage: "chevron.left") { closeWatchActions { tab.webView.goBack() } }
+                        .disabled(!tab.canGoBack)
+                    Button("Vorwärts", systemImage: "chevron.right") { closeWatchActions { tab.webView.goForward() } }
+                        .disabled(!tab.canGoForward)
+                    Button("Startseite", systemImage: "house") { closeWatchActions { browser.addTab() } }
+                    Button("Tabs", systemImage: "square.on.square") { closeWatchActions(showTabs) }
+                    Button("Adresse oder Suche", systemImage: "magnifyingglass") { closeWatchActions(showAddress) }
+                    Button(tab.loading ? "Laden stoppen" : "Neu laden", systemImage: tab.loading ? "xmark" : "arrow.clockwise") {
+                        closeWatchActions { tab.loading ? tab.webView.stopLoading() : tab.reload() }
+                    }
+                    Button(isFavorite ? "Favorit entfernen" : "Als Favorit speichern", systemImage: "star") { closeWatchActions(favorite) }
+                }
+                Section("Browser") {
+                    Button("Neuer Tab", systemImage: "plus") { closeWatchActions { browser.addTab() } }
+                    Button("Privater Tab", systemImage: "hand.raised") { closeWatchActions { browser.addTab(isPrivate: true) } }
+                    Button("Favoriten", systemImage: "star") { closeWatchActions(showLibrary) }
+                    Button("Verlauf", systemImage: "clock.arrow.circlepath") { closeWatchActions(showHistory) }
+                    Button("Sleep-Timer", systemImage: "moon.zzz") { closeWatchActions(showSleep) }
+                    Button("Queue", systemImage: "music.note.list") { closeWatchActions(showQueue) }
+                    #if !WEBKWEB_NO_DOWNLOADS
+                    Button("Downloads", systemImage: "arrow.down.circle") { closeWatchActions(showDownloads) }
+                    #endif
+                    Button("Zur Queue", systemImage: "text.badge.plus") { closeWatchActions { browser.enqueueCurrent() } }
+                        .disabled(tab.isPrivate)
+                    Button("Player", systemImage: "slider.horizontal.3") { closeWatchActions(showPlayer) }
+                        .disabled(!tab.hasMedia)
+                    Button("Einstellungen", systemImage: "gear") { closeWatchActions(showSettings) }
+                    Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
+                    if let host = URL(string: tab.address)?.host {
+                        Button(browser.shouldBlock(URL(string: tab.address)) ? "Filter für diese Seite aus" : "Filter für diese Seite ein",
+                               systemImage: "shield") {
+                            closeWatchActions {
+                                if let allowed = browser.options.allowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) {
+                                    browser.options.allowlist.removeAll { $0 == allowed }
+                                } else { browser.options.allowlist.append(host) }
+                            }
+                        }
+                        Button(browser.shouldSponsor(URL(string: tab.address), page: URL(string: tab.address)) ? "SponsorBlock hier aus" : "SponsorBlock hier ein",
+                               systemImage: "forward.end") {
+                            closeWatchActions {
+                                if let allowed = browser.options.sponsorAllowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) {
+                                    browser.options.sponsorAllowlist.removeAll { $0 == allowed }
+                                } else { browser.options.sponsorAllowlist.append(host) }
+                            }
+                        }
+                    }
+                    if let url = URL(string: tab.address) { ShareLink(item: url) }
+                    Button("Alles pausieren", systemImage: "pause.circle") { closeWatchActions { browser.pauseAll() } }
+                }
+            }
+            .navigationTitle("Aktionen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Schließen", systemImage: "xmark") { watchActionsVisible = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     private func time(_ value: Double) -> String {

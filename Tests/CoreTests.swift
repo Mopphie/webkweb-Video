@@ -66,9 +66,10 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(converted.skippedCount, 3)
         XCTAssertTrue(converted.json.contains("ads\\\\.example"))
         XCTAssertTrue(converted.json.contains("tracker"))
-        XCTAssertTrue(converted.json.contains("pagead"))
+        XCTAssertFalse(converted.json.contains("pagead"))
+        XCTAssertFalse(converted.json.contains("api/stats/ads"))
         let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(converted.json.utf8)) as? [[String: Any]])
-        XCTAssertEqual(rules.count, 9)
+        XCTAssertEqual(rules.count, 7)
         let allow = try XCTUnwrap(rules.last?["action"] as? [String: String])
         XCTAssertEqual(allow["type"], "ignore-previous-rules")
         let tracker = try XCTUnwrap(rules.first { rule in

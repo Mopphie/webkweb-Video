@@ -18,7 +18,19 @@
     const id = url.pathname === "/watch" ? url.searchParams.get("v") : url.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/)?.[1];
     return /^[\w-]{11}$/.test(id || "") ? id : null;
   };
-  const isAd = () => Boolean(document.querySelector(".ad-showing,.ad-interrupting"));
+  // A DOM hint, not a reliable ad detector. Never infer ad status from URL or
+  // duration: that would also misclassify the requested video.
+  const isAd = () => Boolean(videoID() && document.querySelector(".ad-showing,.ad-interrupting"));
+  function bypassVisibleAd() {
+    if (!isAd()) return;
+    // Best effort only: the website controls its own player and may ignore both
+    // its skip button and seeking. Never seek unless YouTube marks an active ad.
+    const button = document.querySelector(".ytp-skip-ad-button, .ytp-skip-ad-button-modern, .ytp-ad-skip-button");
+    if (button && !button.disabled) { try { button.click(); } catch (_) {} }
+    const v = document.querySelector(".ad-showing video, .ad-interrupting video");
+    if (v?.tagName !== "VIDEO" || !Number.isFinite(v.duration) || v.duration <= 0 || v.duration > 600) return;
+    try { v.currentTime = Math.max(v.currentTime, v.duration - 0.05); } catch (_) {}
+  }
   function discover(root) {
     if (root?.tagName === "VIDEO" || root?.tagName === "AUDIO") knownMedia.add(root);
     root?.querySelectorAll?.("video,audio").forEach(v => knownMedia.add(v));
@@ -57,7 +69,7 @@
     if (!e) return null;
     const sourceKey = (v.currentSrc || "") + ":" + (videoID() || "");
     if (sourceKey !== e.sourceKey) {
-      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false;
+      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false; e.adObserved = false;
       // Keep the page's pre-queue loop preference until queue management ends.
       if (!queueManaged) e.originalLoop = null;
     }
@@ -67,9 +79,10 @@
   const tracks = (list, audio = false) => Array.from(list || []).slice(0, 100).map((track, id) => ({id,
     title: track.label || track.language || `Spur ${id + 1}`, selected: audio ? Boolean(track.enabled) : track.mode === "showing"}));
   const state = (force = true) => {
-    const v = media(); lastPrimary = v;
+    const adShowing = isAd(), v = media(); lastPrimary = v;
+    if (adShowing && v) entry(v).adObserved = true;
     if (queueManaged && v) { const e = entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); v.loop = false; }
-    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.encrypted, entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
+    const signature = [adShowing, v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.encrypted, entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
     const now = Date.now(); if (!force && signature === lastSignature && now - lastState < 1000) return;
     lastState = now; lastSignature = signature;
     let mime = "";
@@ -85,7 +98,7 @@
       source: v?.currentSrc || "", contentType: mime, encrypted: v ? Boolean(entry(v)?.encrypted || v.mediaKeys) : false,
       mediaID: v ? mediaID(v) : "", mediaKind: v?.tagName === "VIDEO" ? "video" : "audio",
       priority: v ? (v.tagName === "VIDEO" ? 1000000 : 0) + area(v) : 0,
-      interactionAt, videoID: videoID() || "", canUndo: Boolean(undo),
+      interactionAt, videoID: videoID() || "", adShowing, canUndo: Boolean(undo) && !adShowing,
       captions: tracks(v?.textTracks), audioTracks: tracks(v?.audioTracks, true),
       rate: v?.playbackRate || 1, width: v?.videoWidth || 0, height: v?.videoHeight || 0,
       muted: Boolean(v?.muted), waiting: Boolean(entry(v)?.waiting),
@@ -109,7 +122,7 @@
     nodes().forEach(v => {
       if (stopped && !v.paused) v.pause();
       if (attached.has(v)) return;
-      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, encrypted: false, waiting: false});
+      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, encrypted: false, waiting: false, adObserved: false});
       entry(v);
       // A new element may already have started before its play listener exists.
       v.addEventListener("encrypted", () => { entry(v).encrypted = true; state(); });
@@ -122,7 +135,7 @@
       v.addEventListener("loadedmetadata", () => { entry(v); applyOriginal(v); state(); });
       v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
       v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
-      v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("playing", () => { const e = entry(v); e.waiting = false; if (!isAd()) e.adObserved = false; state(); });
       v.addEventListener("error", state);
       v.addEventListener("ratechange", state);
       v.addEventListener("volumechange", state);
@@ -131,14 +144,17 @@
       v.audioTracks?.addEventListener?.("addtrack", () => { applyOriginal(v); state(); });
       applyOriginal(v);
       v.addEventListener("timeupdate", () => {
-        if (!sponsorEnabled || segmentID !== videoID() || v !== media() || v.tagName !== "VIDEO" || v.paused || v.seeking || isAd()) return;
+        if (!sponsorEnabled || segmentID !== videoID() || v !== media() || v.tagName !== "VIDEO" || v.paused || v.seeking || isAd() || entry(v)?.adObserved) return;
         if (ignoredSegment && v.currentTime >= ignoredSegment.segment[1]) ignoredSegment = null;
         const match = segments.find(s => s !== ignoredSegment && v.currentTime >= s.segment[0] && v.currentTime < s.segment[1]);
         if (match) skipTo(v, match);
       });
       v.addEventListener("ended", () => {
         const e = entry(v);
-        if (e.ended || isAd() || v !== lastPrimary) return;
+        // An ad's ended callback can arrive after its CSS marker disappears.
+        // Only a fresh content `playing` event (or source change) releases it.
+        if (isAd()) { e.adObserved = true; return; }
+        if (e.ended || e.adObserved || v !== lastPrimary) return;
         const id = mediaID(v); e.ended = true;
         if (v.tagName === "VIDEO") post("ended", {eventID: id, mediaID: id, mediaKind: "video", primary: true});
         post("queueended", {eventID: id, mediaID: id, mediaKind: v.tagName === "VIDEO" ? "video" : "audio", primary: true}); state();
@@ -228,7 +244,7 @@
     },
     skip() {
       const v = media();
-      if (!sponsorEnabled || segmentID !== videoID() || !v || v.tagName !== "VIDEO" || isAd()) return;
+      if (!sponsorEnabled || segmentID !== videoID() || !v || v.tagName !== "VIDEO" || isAd() || entry(v)?.adObserved) return;
       const match = segments.find(s => s.segment[1] > v.currentTime);
       if (match) skipTo(v, match);
     },
@@ -260,6 +276,7 @@
     }
     if (!hidden && now - lastDiscovery >= 15000) { discover(document); lastDiscovery = now; }
     attach();
+    if (!hidden && !stopped) bypassVisibleAd();
     if (stopped) nodes().forEach(v => { if (!v.paused) v.pause(); });
     state(false);
   };

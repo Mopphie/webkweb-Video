@@ -60,17 +60,16 @@ enum DomainFilterConverter {
             let record: [String: Any] = ["trigger": parsed, "action": ["type": allow ? "ignore-previous-rules" : "block"]]
             if allow { exceptions.append(record) } else { blocks.append(record) }
         }
-        for endpoint in ["pagead/", "api/stats/ads"] {
-            blocks.append(["trigger": ["url-filter": "^https?://([^/:]+\\.)?youtube\\.com/" + endpoint], "action": ["type": "block"]])
-        }
-        guard blocks.count > 5 || skipped == 0 else { throw FilterError.emptyList }
+        // Do not partially block YouTube's own ad endpoints: the player may
+        // wait for a preroll response that never arrives. Host filters remain.
+        guard blocks.count > 3 || skipped == 0 else { throw FilterError.emptyList }
         guard exceptions.count < 8000 else { throw FilterError.unsupportedException }
         var jsons: [String] = []
         for start in stride(from: 0, to: blocks.count, by: chunkSize) {
             let chunk = Array(blocks[start..<min(start + chunkSize, blocks.count)]) + exceptions
             jsons.append(String(decoding: try JSONSerialization.data(withJSONObject: chunk), as: UTF8.self))
         }
-        return FilterConversion(jsons: jsons, domainCount: blocks.count - 2, skippedCount: skipped)
+        return FilterConversion(jsons: jsons, domainCount: blocks.count, skippedCount: skipped)
     }
     private static func parse(_ input: String, allow: Bool) -> [String: Any]? {
         let parts = input.split(separator: "$", maxSplits: 1, omittingEmptySubsequences: false)
@@ -176,7 +175,8 @@ final class RuleStore: ObservableObject {
             if initialTask == nil {
                 initialTask = Task { [weak self] in
                     guard let self else { return [] }
-                    if let ids = UserDefaults.standard.stringArray(forKey: "filterListIDsV2"), !ids.isEmpty {
+                    // V2 cached lists include the removed YouTube endpoint blocks.
+                    if let ids = UserDefaults.standard.stringArray(forKey: "filterListIDsV3"), !ids.isEmpty {
                         var result: [WKContentRuleList] = []
                         for id in ids { if let list = await self.lookup(id) { result.append(list) } }
                         if result.count == ids.count { return result }
@@ -229,7 +229,7 @@ final class RuleStore: ObservableObject {
             let oldIDs = lists.map(\.identifier)
             lists = compiled; revision = UUID(); ruleCount = report.domainCount
             if errors.isEmpty { lastUpdate = .now }
-            UserDefaults.standard.set(compiled.map(\.identifier), forKey: "filterListIDsV2")
+            UserDefaults.standard.set(compiled.map(\.identifier), forKey: "filterListIDsV3")
             if errors.isEmpty { UserDefaults.standard.set(lastUpdate, forKey: "filterUpdatedAtV2") }
             status = "\(report.domainCount) Regeln in \(compiled.count) Listen; \(report.skippedCount) nicht unterstützte Blockregeln"
             if !errors.isEmpty { status += "; Quellenfehler: " + errors.joined(separator: ", ") }
