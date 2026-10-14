@@ -26,8 +26,6 @@ concurrency:
 
 jobs:
   release:
-    # Default branch registers manual dispatch; app code stays in draft branch.
-    if: github.ref == 'refs/heads/codex/swift-video-browser'
     runs-on: macos-26
     timeout-minutes: 90
     steps:
