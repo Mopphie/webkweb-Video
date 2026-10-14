@@ -44,6 +44,18 @@ final class BrowserIntegrationTests: XCTestCase {
         let tab = BrowserTab(isPrivate: true)
         defer { tab.close() }
         tab.webView.loadHTMLString("<html><body>old-player</body></html>", baseURL: nil)
+        // WebKit starts the first navigation asynchronously on CI simulators.
+        // Wait for the initial document before testing the blank-document commit.
+        var initialReady = false
+        for _ in 0..<100 {
+            if let text = try? await tab.webView.evaluateJavaScript("document.body.textContent") as? String,
+               text == "old-player" {
+                initialReady = true
+                break
+            }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        guard initialReady else { XCTFail("Initial WebKit document did not load"); return }
         try await tab.prepareForWipe()
         let text = try await tab.webView.evaluateJavaScript("document.body.textContent")
         XCTAssertEqual(text as? String, "")
