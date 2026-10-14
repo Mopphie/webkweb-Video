@@ -34,8 +34,26 @@ Der Audit vom 13.10.2026 wurde umgesetzt. „Implementiert“ beschreibt den vor
 
 ## Ausgeführt und offen
 
-- Ausgeführt: 42 Node-Tests, Syntaxprüfung aller 23 Swift-Dateien, Plist-/YAML-/Manifest-/Ressourcen-, Shell- und Python-Syntaxprüfungen. Echte Preset-Dateien heruntergeladen (AdGuard ~4.5 MB, HaGeZi ~1.4 MB, StevenBlack ~2.2 MB); Swift-Konvertierung dieser Dateien und WebKit-Kompilierung hier nicht ausführbar.
-- Vorbereitet, nicht ausgeführt: 30 XCTest-Definitionen. Lokaler Mac: `./Scripts/check-macos.sh`; mit Cast: `./Scripts/check-macos.sh --cast`.
+- Ausgeführt: 47 Node-Tests, Syntaxprüfung aller 26 Swift-Dateien, Plist-/YAML-/Manifest-/Ressourcen-, Shell- und Python-Syntaxprüfungen. Echte Preset-Dateien heruntergeladen (AdGuard ~4.5 MB, HaGeZi ~1.4 MB, StevenBlack ~2.2 MB); Swift-Konvertierung dieser Dateien und WebKit-Kompilierung hier nicht ausführbar.
+- Vorbereitet, nicht ausgeführt: 37 XCTest-Definitionen. Lokaler Mac: `./Scripts/check-macos.sh`; mit Cast: `./Scripts/check-macos.sh --cast`.
 - Extern offen: Xcode-Typprüfung, Standard- und Cast-Build, Simulator/UI, echte Medienfunktionen, Signing/App Group, CloudKit-Provisionierung und Sync. Öffentliche Policy-/Support-URL und Betreiberangaben bleiben auf Nutzerwunsch offen.
 - Grenzen: keine vollständige EasyList-/Scriptlet-Engine, kein zuverlässiges Entfernen serverseitiger Streamwerbung, keine DRM/MSE-Cast-Übertragung, kein Cast-/Live-/Audio-Videozähler, keine Garantie für Hintergrund/Clock/Timer bei suspendierter App oder App-Store-Zulassung. Geschlossene Shadow Roots bleiben unzugänglich. Ein Timer für das konkrete alte Video wird beim Neustart bewusst verworfen, da neue Dokumente neue Medien-IDs erhalten.
 - Keine GitHub Actions eingerichtet oder ausgeführt. Kein Merge in main.
+
+## Erneuter Audit am 14.10.2026
+
+Quellcodeprüfung über Route/Bridge/Medien/Timer/Tabs/Queue/Downloads/Filter/Settings/SwiftData/Intents/Widget und native Integration. Die bestehenden 42 Node-Tests wurden um fünf tatsächliche Regressionen ergänzt; keine kosmetischen Icon-Mirror-Tests. Die Startseite verwendet jetzt acht flache Glyphs ohne Glasflächen, mit unverändert großer transparenter Trefferfläche. Suchfeld und funktionale Browsersteuerung behalten Glass/Material.
+
+| Konkreter Befund | Korrektur | Nachweis |
+| --- | --- | --- |
+| App-Start/Foreground aktivierten AVAudioSession ohne Player und konnten fremdes Audio unterbrechen | Bedarfspolitik statt unbedingtem setActive; Cast aktiviert keine neue lokale Session; bereits aktives Audio bleibt bis tatsächlicher Pausebestätigung aktiv | Native Policy-Tests vorbereitet; AV-Gerätetest offen |
+| Now Playing meldete immer 1×; medienloser neuer Tab verlor Hintergrund-Remote-Steuerung | reale lokale Rate, Pause 0; aktiver Hintergrundplayer als Fallback, ausgewählter Player behält Vorrang | Native Policy-Tests vorbereitet |
+| Restore lud alle Tabs mit Autoplayfreigabe und speicherte vor Abschluss leere Adressen | passive Restore-Tabs verlangen Useraktion; pending angeforderte URL bleibt im Session-Snapshot | Native Restore-/Persistenztest vorbereitet |
+| Änderung der Sponsor-Kategorien ließ alte Segmente bis zur Netzantwort weiter skippen | bereits geladene Segmente sofort auf aktuelle Kategorien begrenzen; Disable bereinigt Skip/Undo | Zwei ausführbare JS-Regressionen |
+| Repeat-One konnte nach Hauptvideo-Ende einen noch laufenden Nebenplayer neu starten | konkreter Medien-ID-Restart im ursprünglichen Frame, kein anderer/neuer Player und keine Timerstop-Umgehung | Zwei ausführbare JS-Regressionen |
+| Cast-Callbacks konnten nach Navigation einen neuen Player pausieren/resumen | Tab-/Client-/Medien-/Navigations-/Command-Identität abgleichen; alte Clients ignorieren; Failure darf lokale Wiedergabe nie automatisch fortsetzen | Navigationstest vorbereitet; SDK-/Receiverprüfung offen |
+| Favoritcurrent übernahm URL-Userinfo in Bibliothek/Widget/Siri | gemeinsame StoredAddress-Grenze entfernt User/Pass; bestehende Seiten werden normalisiert, Snapshots/Deep-Links erneut bereinigt | Native Persistenz-/DeepLink-Test vorbereitet |
+
+Ausgeführt: 47/47 Node-Tests, 26 Swift-Dateien syntaxgeprüft, Plist-/Manifest-/JSON-/YAML-/Ressourcen-/Shell-/Python-Prüfung. Any-playing-Bridge-Test bestätigt, dass eine Audiositzung nicht schon nach Pause des ersten von mehreren Playern freigegeben werden muss. Vorbereitet, nicht ausgeführt: 37 XCTest-Definitionen. Swift-Syntax ersetzt keine Typprüfung; neue Hilfsfunktionen zusätzlich auf Returns/Optional-Unwrapping gelesen.
+
+Keine weiteren bestätigten Funktionsfehler aus der statischen Prüfung. Xcode/Apple-SDK, XCTest, echte Audio-/Media-/TV-/Cast-/CloudKit-/Download-/UI-Funktionen bleiben offene Plattformprüfungen. Öffentliche Privacy-/Support-/Betreiberfelder bleiben ausdrücklich leer, Dienst-/Download-Autorisierung bleibt extern offen. Keine Actions/Workflows und keine garantierte Store-/Geräte-Zusage.

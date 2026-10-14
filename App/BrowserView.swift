@@ -31,7 +31,7 @@ struct BrowserView: View {
                 showSettings: { sheet = .settings }, showCast: { sheet = .cast },
                 showQueue: { sheet = .queue }, showPlayer: { sheet = .player }, showDownloads: { sheet = .downloads },
                 showAddress: { sheet = .address },
-                favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == browser.current.address })
+                favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == StoredAddress.clean(browser.current.address) })
                 .id(browser.current.id)
                 .toolbar(.hidden, for: .navigationBar)
                 .sheet(item: $sheet) { selected in
@@ -92,6 +92,7 @@ struct BrowserView: View {
     private func normalizeSavedPages() {
         var seen = Set<String>()
         for (index, page) in pages.enumerated() {
+            if let clean = StoredAddress.clean(page.address) { page.address = clean }
             if page.identifier.isEmpty || !seen.insert(page.identifier).inserted { page.identifier = UUID().uuidString; seen.insert(page.identifier) }
             if page.favoriteOrder == 0 { page.favoriteOrder = Double(index + 1) }
         }
@@ -119,9 +120,8 @@ struct BrowserView: View {
 
     private func favoriteCurrent() {
         let tab = browser.current
-        guard !tab.address.isEmpty else { return }
+        guard let address = StoredAddress.clean(tab.address) else { return }
         do {
-            let address = tab.address
             var request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.address == address })
             request.fetchLimit = 1
             if let existing = try context.fetch(request).first {
@@ -144,7 +144,7 @@ struct BrowserView: View {
         let request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.favorite },
             sortBy: [SortDescriptor(\SavedPage.favoriteOrder), SortDescriptor(\SavedPage.visitedAt, order: .reverse)])
         guard let favorites = try? context.fetch(request) else { return }
-        FavoriteStorage.write(favorites.map { FavoriteSnapshot(id: $0.identifier, title: $0.title, address: $0.address) })
+        FavoriteStorage.write(favorites.compactMap { page in StoredAddress.clean(page.address).map { FavoriteSnapshot(id: page.identifier, title: page.title, address: $0) } })
         WidgetCenter.shared.reloadTimelines(ofKind: "WebKWebFavorites")
     }
 }
@@ -267,10 +267,9 @@ private struct BrowserScreen: View {
         Button(action: action) {
             VStack(spacing: 9) {
                 icon().frame(width: shortcutSize, height: shortcutSize)
-                    .browserGlass(radius: shortcutSize / 2)
                 Text(title).font(.caption2).foregroundStyle(.white.opacity(0.72))
                     .multilineTextAlignment(.center).lineLimit(2).fixedSize(horizontal: false, vertical: true)
-            }.frame(maxWidth: .infinity)
+            }.frame(maxWidth: .infinity).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore).accessibilityLabel(title)

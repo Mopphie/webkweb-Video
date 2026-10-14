@@ -17,9 +17,11 @@ final class CastService: NSObject, ObservableObject {
     private var client: GCKRemoteMediaClient?
     private var pending: GCKRequest?
     private weak var pendingTab: BrowserTab?
-    private var wasLocalPlaying = false
     private var loadRevision = 0
     private var loadDeadline: Date?
+    private var loadNavigationRevision: UInt = 0
+    private var loadMediaID = ""
+    private weak var loadClient: GCKRemoteMediaClient?
     private var progressTimer: Timer?
     #endif
     static var isAvailable: Bool {
@@ -51,8 +53,9 @@ final class CastService: NSObject, ObservableObject {
         let builder = GCKMediaInformationBuilder(contentURL: media.url)
         builder.contentType = media.contentType; builder.streamType = .buffered; builder.metadata = metadata
         let load = GCKMediaLoadRequestDataBuilder(); load.mediaInformation = builder.build(); load.autoplay = true; load.startTime = max(0, time)
-        pendingTab = browser?.current; wasLocalPlaying = pendingTab?.playing ?? false
+        pendingTab = browser?.current
         loadRevision = browser?.commandRevision ?? 0; loadDeadline = browser?.sleepPlan.deadline
+        loadNavigationRevision = pendingTab?.navigationRevision ?? 0; loadMediaID = pendingTab?.activeMediaID ?? ""; loadClient = client
         pending = client.loadMedia(with: load.build()); pending?.delegate = self
         status = "Cast lädt …"; return true
         #else
@@ -89,11 +92,15 @@ final class CastService: NSObject, ObservableObject {
     #if canImport(GoogleCast)
     private func bindClient() {
         let next = GCKCastContext.sharedInstance().sessionManager.currentCastSession?.remoteMediaClient
-        if client !== next { client?.remove(self); client = next; client?.add(self) }
+        if client !== next {
+            pending?.delegate = nil; pending = nil; pendingTab = nil; loadClient = nil
+            client?.remove(self); client = next; client?.add(self)
+        }
         if let client, let mediaStatus = client.mediaStatus { update(client, mediaStatus) }
         else { isControllingMedia = false; isPlaying = false; duration = nil; browser?.publishNowPlaying() }
     }
     private func update(_ client: GCKRemoteMediaClient, _ mediaStatus: GCKMediaStatus) {
+        guard client === self.client else { return }
         isControllingMedia = mediaStatus.mediaInformation != nil && mediaStatus.playerState != .idle
         if mediaStatus.idleReason == .error {
             let message = "Der Cast-Empfänger konnte die Quelle nicht abspielen."
@@ -105,6 +112,15 @@ final class CastService: NSObject, ObservableObject {
         mediaTitle = mediaStatus.mediaInformation?.metadata?.string(forKey: kGCKMetadataKeyTitle) ?? "Cast"
         browser?.publishNowPlaying()
     }
+    private var pendingStillCurrent: Bool {
+        guard let tab = pendingTab, let browser, loadClient === client,
+              browser.tabs.contains(where: { $0 === tab }) else { return false }
+        return tab.navigationRevision == loadNavigationRevision && tab.activeMediaID == loadMediaID && browser.commandRevision == loadRevision
+    }
+    private var pendingDeadlineExpired: Bool {
+        guard let loadDeadline, browser?.sleepPlan.deadline == loadDeadline else { return false }
+        return Date() >= loadDeadline
+    }
     #endif
 }
 
@@ -114,25 +130,26 @@ extension CastService: GCKSessionManagerListener, GCKRemoteMediaClientListener, 
     func sessionManager(_ sessionManager: GCKSessionManager, didResumeSession session: GCKSession) { bindClient() }
     func sessionManager(_ sessionManager: GCKSessionManager, didEnd session: GCKSession, withError error: Error?) { bindClient(); status = error?.localizedDescription ?? "Cast getrennt" }
     func remoteMediaClient(_ client: GCKRemoteMediaClient, didUpdate mediaStatus: GCKMediaStatus?) {
+        guard client === self.client else { return }
         if let mediaStatus { update(client, mediaStatus) }
         else { isControllingMedia = false; isPlaying = false; duration = nil; browser?.publishNowPlaying() }
     }
     func requestDidComplete(_ request: GCKRequest) {
         guard request === pending else { return }
         browser?.enforceSleepDeadline()
-        let expired = loadDeadline.map { Date() >= $0 } ?? false
-        if browser?.playbackStopped == true || expired || browser?.commandRevision != loadRevision { client?.pause() }
-        pendingTab?.run("globalThis.__webkweb?.pause(\(browser?.playbackStopped == true ? "true" : "false"))", allFrames: true)
-        pending = nil; pendingTab = nil; status = "Cast verbunden"
+        let accepted = pendingStillCurrent && browser?.playbackStopped == false && !pendingDeadlineExpired
+        if accepted { pendingTab?.run("globalThis.__webkweb?.pause()", allFrames: true) }
+        else { client?.pause() }
+        pending = nil; pendingTab = nil; loadClient = nil; status = accepted ? "Cast verbunden" : "Veraltete Cast-Anfrage pausiert"
     }
     func request(_ request: GCKRequest, didAbortWithReason reason: GCKRequestAbortReason) {
         guard request === pending else { return }; pending = nil; pendingTab = nil; status = "Cast-Anfrage abgebrochen"
     }
     func request(_ request: GCKRequest, didFailWithError error: GCKError) {
         guard request === pending else { return }
-        let expired = loadDeadline.map { Date() >= $0 } ?? false
-        if let tab = pendingTab, wasLocalPlaying, !expired, browser?.playbackStopped == false, browser?.commandRevision == loadRevision, browser?.tabs.contains(where: { $0 === tab }) == true { tab.runMedia("globalThis.__webkweb?.resume()") }
-        pending = nil; pendingTab = nil; status = "Cast fehlgeschlagen: \(error.localizedDescription)"
+        // Local playback was never paused before a successful transfer. A failed
+        // load must preserve a user's intervening pause in the website player.
+        pending = nil; pendingTab = nil; loadClient = nil; status = "Cast fehlgeschlagen: \(error.localizedDescription)"
         browser?.notice = status
     }
 }

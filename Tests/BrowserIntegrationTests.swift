@@ -10,6 +10,26 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertFalse(tab.webView.configuration.websiteDataStore.isPersistent)
         tab.close()
     }
+    func testRestoredTabsRequireUserActionAndKeepPendingAddresses() throws {
+        let defaults = UserDefaults.standard, key = "browserSessionV2"
+        let old = defaults.data(forKey: key), oldOptions = defaults.data(forKey: PreferencesStorage.key)
+        defer { defaults.set(old, forKey: key); defaults.set(oldOptions, forKey: PreferencesStorage.key) }
+        var options = BrowserPreferences(); options.restoreTabs = true; PreferencesStorage.save(options)
+        let first = TabSnapshot(id: UUID(), address: "https://example.com/first", title: "First")
+        let second = TabSnapshot(id: UUID(), address: "https://example.com/second", title: "Second")
+        defaults.set(try JSONEncoder().encode(BrowserSessionSnapshot(tabs: [first, second], selected: first.id)), forKey: key)
+        let browser = BrowserModel(); defer { browser.tabs.forEach { $0.close() } }
+        for tab in browser.tabs { XCTAssertEqual(tab.webView.configuration.mediaTypesRequiringUserActionForPlayback, .all) }
+        browser.persistSession()
+        let saved = try JSONDecoder().decode(BrowserSessionSnapshot.self, from: XCTUnwrap(defaults.data(forKey: key)))
+        XCTAssertEqual(saved.tabs.map(\.address), [first.address, second.address])
+    }
+    func testNavigationRevisionInvalidatesOldPlayerActionsImmediately() {
+        let tab = BrowserTab(); defer { tab.close() }
+        let old = tab.navigationRevision
+        tab.load(URL(string: "https://example.com/next")!)
+        XCTAssertNotEqual(tab.navigationRevision, old)
+    }
     func testIntentRouterDrainsExactlyOnceInOrder() {
         let router = IntentRouter.shared
         _ = router.drain()

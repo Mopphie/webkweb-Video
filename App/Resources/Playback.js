@@ -76,6 +76,7 @@
       mime = match?.type || v.getAttribute?.("type") || "";
     }
     post("state", {title: document.title, hasMedia: Boolean(v), playing: v ? !v.paused && !v.ended : false,
+      anyPlaying: nodes().some(node => !node.paused && !node.ended),
       time: Number.isFinite(v?.currentTime) ? v.currentTime : 0, duration: Number.isFinite(v?.duration) ? v.duration : null,
       source: v?.currentSrc || "", contentType: mime, encrypted: v ? Boolean(entry(v)?.encrypted || v.mediaKeys) : false,
       mediaID: v ? mediaID(v) : "", mediaKind: v?.tagName === "VIDEO" ? "video" : "audio",
@@ -165,8 +166,14 @@
   }
   globalThis.__webkweb = {
     setSponsorBlock(enabled, chosenCategories = categories) {
-      sponsorEnabled = Boolean(enabled); categories = chosenCategories;
-      if (!sponsorEnabled) { segments = []; segmentID = null; }
+      const next = Array.isArray(chosenCategories) ? [...new Set(chosenCategories)].filter(c => ["sponsor", "intro", "outro", "selfpromo"].includes(c)) : categories;
+      const changed = sponsorEnabled !== Boolean(enabled) || categories.join(",") !== next.join(",");
+      sponsorEnabled = Boolean(enabled); categories = next;
+      segments = sponsorEnabled ? segments.filter(s => categories.includes(s.category)) : [];
+      if (!sponsorEnabled) segmentID = null;
+      if (!sponsorEnabled || (undo && !categories.includes(undo.segment.category))) undo = null;
+      if (!sponsorEnabled || (ignoredSegment && !categories.includes(ignoredSegment.category))) ignoredSegment = null;
+      if (changed) state();
     },
     setSegments(id, value) {
       if (id !== videoID() || !Array.isArray(value)) return;
@@ -189,7 +196,11 @@
       if (queueManaged) { const v = media(), e = v && entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); if (v) v.loop = false; }
       else nodes().forEach(v => { const e = entry(v); if (e?.originalLoop != null) { v.loop = e.originalLoop; e.originalLoop = null; } });
     },
-    restart() { const v = media(); if (v) { v.currentTime = 0; this.resume(); } },
+    restart(id) {
+      if (stopped) return;
+      const v = typeof id === "string" ? nodes().find(node => mediaID(node) === id) : media();
+      if (v) { selected = v; v.currentTime = 0; v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); }
+    },
     setRate(value) { const v = media(); if (v && Number.isFinite(value) && value >= 0.25 && value <= 3) { v.playbackRate = value; state(); } },
     setCaption(id) { const v = media(); if (!v) return; Array.from(v.textTracks || []).forEach((t, index) => { t.mode = index === id ? "showing" : "disabled"; }); state(); },
     setAudio(id) {

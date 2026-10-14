@@ -168,3 +168,23 @@ test('Shorts opt-in rejects route on genuine YouTube only',()=>{
  const h=harness(undefined,'https://m.youtube.com/shorts/abcdefghijk');let redirected='';h.location.replace=url=>{redirected=url;};h.api.setOptions({hideShorts:true});assert.equal(redirected,'https://m.youtube.com/');
  const fake=harness(undefined,'https://youtube.com.evil.example/shorts/abcdefghijk');let fakeRedirect=false;fake.location.replace=()=>{fakeRedirect=true;};fake.api.setOptions({hideShorts:true});assert.equal(fakeRedirect,false);
 });
+test('category change immediately removes already loaded sponsor segments from auto and manual skip',()=>{
+ const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.api.setSponsorBlock(true,['sponsor']);
+ h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);h.api.skip();assert.equal(h.nodes[0].currentTime,4);
+});
+test('disabling SponsorBlock clears undo and loaded skip segments immediately',()=>{
+ const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;h.api.skip();assert.equal(h.state().canUndo,true);
+ h.api.setSponsorBlock(false);assert.equal(h.state().canUndo,false);h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();h.api.skip();assert.equal(h.nodes[0].currentTime,4);
+});
+test('repeat identifies the ended primary instead of restarting a surviving loop player',()=>{
+ const main=element(),loop=element('VIDEO',{width:16,height:16,loop:true,currentTime:33}),h=harness([main,loop]),id=h.state().mediaID;
+ main.end();h.api.restart(id);assert.equal(main.paused,false);assert.equal(main.currentTime,0);assert.equal(loop.currentTime,33);
+});
+test('stale repeat identity and timer stop never restart another source',()=>{
+ const main=element(),h=harness([main]),id=h.state().mediaID;main.end();h.api.pause(true);h.api.restart(id);assert.equal(main.paused,true);
+ h.api.clearStop();main.currentSrc='https://cdn.example/other.mp4';h.tick();h.api.restart(id);assert.equal(main.paused,true);
+});
+test('audio demand reports all active elements until every asynchronous pause is acknowledged',()=>{
+ const main=element(),audio=element('AUDIO'),h=harness([main,audio]);main.pause();assert.equal(h.state().playing,false);assert.equal(h.state().anyPlaying,true);
+ audio.pause();assert.equal(h.state().anyPlaying,false);
+});

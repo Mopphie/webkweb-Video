@@ -2,7 +2,7 @@
 
 Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Entwicklungsversion mit noch ausstehenden Apple-Build- und Gerätetests.
 
-Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und Favoriten/Verlauf/Timer/Einstellungen. Lokale Icons erzeugen keine Favicon-Anfragen. Mit iOS-26-SDK/Compiler 6.2 nutzt die Oberfläche Liquid Glass, sonst Systemmaterial. Transparenz reduzieren, große Schrift und iPad erhalten eigene Layoutanpassungen.
+Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und Favoriten/Verlauf/Timer/Einstellungen. Alle acht Startseiten-Icons sind schlichte lokale Glyphs ohne Glass-/Materialflächen oder Randblasen. Die transparente Trefferfläche bleibt groß; Suchpille und funktionale Browserbuttons behalten ihr Material. Lokale Icons erzeugen keine Favicon-Anfragen. Mit iOS-26-SDK/Compiler 6.2 nutzt die Oberfläche Liquid Glass, sonst Systemmaterial. Transparenz reduzieren, große Schrift und iPad erhalten eigene Layoutanpassungen.
 
 ## Funktionen
 
@@ -20,7 +20,7 @@ Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und F
 
 Auf echten YouTube-`/watch?v=...`-Seiten entfällt die App-Adress-/Tab-/Player-/Timer-/Fußleiste. Der echte WKWebView zeigt YouTubes Player, ein-/ausblendbare Controls, Titel, Kanal, Abos, Aktionen, Kommentare und Empfehlungen. Ein deckend roter 44-pt-Menübutton liegt unten rechts innerhalb der Safe Area (14 pt rechts/18 pt unten); Navigation, Adresse, Tabs und App-Funktionen liegen im Menü. Masthead und Playerrahmen werden über begrenzte öffentliche DOM/CSS-Anpassungen gestaltet; die App erzeugt keine eigenen YouTube-Inhaltskarten. Routewechsel per SPA/History/BFCache entfernen oder erneuern die Anpassung. Andere Webseiten behalten ihre Browseroberfläche. YouTube-Layout/A/B-Varianten und reale Apple-Darstellung müssen auf Geräten geprüft werden; keine pixelgenaue Zusage.
 
-HIG-/App-Review-Prüfung und konkrete offene Release-Bedingungen: [APP-REVIEW-DESIGN.md](Docs/APP-REVIEW-DESIGN.md). Öffentlich erreichbare Privacy-/Support-URL und Betreiberkontakt werden vor einem Release statisch über `WebKWebPrivacyURL`, `WebKWebSupportURL`, `WebKWebOperatorContact` in `App/Info.plist` hinterlegt; aktuell ausdrücklich leer. Diese Angaben sind nicht vom App-Endnutzer editierbar. Die In-App-Datenschutzhinweise bleiben verfügbar.
+Erneuter Funktionsaudit vom 14.10.2026: [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md). HIG-/App-Review-Prüfung und konkrete offene Release-Bedingungen: [APP-REVIEW-DESIGN.md](Docs/APP-REVIEW-DESIGN.md). Öffentlich erreichbare Privacy-/Support-URL und Betreiberkontakt werden vor einem Release statisch über `WebKWebPrivacyURL`, `WebKWebSupportURL`, `WebKWebOperatorContact` in `App/Info.plist` hinterlegt; aktuell ausdrücklich leer. Diese Angaben sind nicht vom App-Endnutzer editierbar. Die In-App-Datenschutzhinweise bleiben verfügbar.
 
 ## Ergänzungen aus dem Video-Lite-Vergleich
 
@@ -69,7 +69,7 @@ Direkter Standardbuild:
 xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. In Linux wurden 42 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 30 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet Änderungen und Beweise zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. In Linux wurden 47 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 37 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet Änderungen und Beweise zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
 
 ## Grenzen und Datenschutz
 

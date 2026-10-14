@@ -10,11 +10,13 @@ final class AudioController {
     private var resumeAfterInterruption = false
     private var interruptionRevision = 0
     private var interruptionDeadline: Date?
+    private var ownsActiveSession = false
+    private var interruptedTabID: UUID?
+    private var interruptedMediaID = ""
     private init() {}
     func attach(_ browser: BrowserModel) {
         self.browser = browser
         guard tokens.isEmpty else { return }
-        activate()
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.play() }; return .success }
         center.pauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.pauseAll(blockAutoplay: true) }; return .success }
@@ -31,20 +33,26 @@ final class AudioController {
         tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
             Task { @MainActor in self?.interrupted(note) }
         })
-        tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor in self?.activate() } })
+        tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in Task { @MainActor in self?.ownsActiveSession = false; self?.updateDemand() } })
         tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] note in
             Task { @MainActor in
                 if (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt) == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue { self?.browser?.pauseAll() }
             }
         })
     }
-    func activate() {
+    func activateForPlayback() { updateDemand(explicitPlay: true) }
+    func updateDemand(explicitPlay: Bool = false) {
+        guard let browser else { return }
+        let required = MediaPolicy.requiresAudioSession(localPlaying: browser.tabs.contains(where: \.hasActivePlayback), explicitPlay: explicitPlay, casting: CastService.shared.isControllingMedia, stopped: browser.playbackStopped, alreadyActive: ownsActiveSession)
+        guard required != ownsActiveSession else { return }
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch { browser?.notice = "Audio-Sitzung konnte nicht aktiviert werden: \(error.localizedDescription)" }
+            if required { try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback); try AVAudioSession.sharedInstance().setActive(true) }
+            else { try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+            ownsActiveSession = required
+        } catch { browser.notice = "Audio-Sitzung konnte nicht geändert werden: \(error.localizedDescription)" }
     }
     func update(tab: BrowserTab) {
+        updateDemand()
         let cast = CastService.shared, hasContent = tab.hasMedia || cast.isControllingMedia
         let center = MPRemoteCommandCenter.shared()
         [center.playCommand, center.pauseCommand, center.stopCommand, center.togglePlayPauseCommand, center.skipForwardCommand, center.skipBackwardCommand].forEach { $0.isEnabled = hasContent }
@@ -54,7 +62,7 @@ final class AudioController {
         let playing = cast.isControllingMedia ? cast.isPlaying : tab.playing
         var data: [String: Any] = [MPMediaItemPropertyTitle: tab.isPrivate ? "Privater Player" : (cast.isControllingMedia ? cast.mediaTitle : tab.title),
             MPNowPlayingInfoPropertyElapsedPlaybackTime: cast.isControllingMedia ? cast.elapsed : tab.playbackTime,
-            MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0]
+            MPNowPlayingInfoPropertyPlaybackRate: MediaPolicy.nowPlayingRate(playing: playing, rate: cast.isControllingMedia ? 1 : tab.playbackRate)]
         if let duration = cast.isControllingMedia ? cast.duration : tab.duration, duration.isFinite { data[MPMediaItemPropertyPlaybackDuration] = duration }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = data
     }
@@ -62,13 +70,16 @@ final class AudioController {
         guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt, let type = AVAudioSession.InterruptionType(rawValue: raw), let browser else { return }
         if type == .began {
             resumeAfterInterruption = browser.playbackTab.playing || CastService.shared.isPlaying
+            interruptedTabID = browser.playbackTab.id; interruptedMediaID = browser.playbackTab.activeMediaID
             interruptionDeadline = browser.sleepPlan.deadline
+            ownsActiveSession = false
             browser.pauseAll(blockAutoplay: true); interruptionRevision = browser.commandRevision
         } else {
-            activate(); browser.enforceSleepDeadline()
+            browser.enforceSleepDeadline()
             let options = AVAudioSession.InterruptionOptions(rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
             let timerExpired = interruptionDeadline.map { Date() >= $0 } ?? false
-            if options.contains(.shouldResume), resumeAfterInterruption, !timerExpired, browser.commandRevision == interruptionRevision { browser.play() }
+            if options.contains(.shouldResume), resumeAfterInterruption, !timerExpired, browser.commandRevision == interruptionRevision,
+               browser.playbackTab.id == interruptedTabID, browser.playbackTab.activeMediaID == interruptedMediaID { browser.play() }
             resumeAfterInterruption = false
         }
     }

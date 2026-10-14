@@ -37,9 +37,9 @@ Die Liste enthält Wünsche sowie Beschwerden über eine andere App. Daraus folg
 
 ## Validierung
 
-Ausgeführt in Linux: 35/42 Node-Tests mit originaler Playback.js, darunter primäre End-Reihenfolge, Audio/N-Video-Abgrenzung, Replay, Mute/Volume/Rate, Loop, Caption/AudioTrack-Auswahl, Auto-PiP-Gates, Shorts-Hostprüfung, Buffering und DOM-/Background-Abfragezahl. Das ist ein DOM-Harness, kein WebKit-/Geräte-Test. 23 Swift-Dateien syntaxgeprüft; Plists/Manifeste/YAML/Ressourcen/Shell/Python geprüft.
+Ausgeführt in Linux: 35/47 Node-Tests mit originaler Playback.js, darunter primäre End-Reihenfolge, Audio/N-Video-Abgrenzung, Replay, Mute/Volume/Rate, Loop, Caption/AudioTrack-Auswahl, Auto-PiP-Gates, Shorts-Hostprüfung, Buffering und DOM-/Background-Abfragezahl. Das ist ein DOM-Harness, kein WebKit-/Geräte-Test. 26 Swift-Dateien syntaxgeprüft; Plists/Manifeste/YAML/Ressourcen/Shell/Python geprüft.
 
-Vorbereitet, nicht hier ausgeführt: 30 XCTest-Definitionen einschließlich vollständiger Queue-Permutation/Repeat/Shuffle-off/Reorder/Persistenz sowie MIME-/Filename-Validierung. Mac-Prüfpfade bleiben `./Scripts/check-macos.sh` und `./Scripts/check-macos.sh --cast`.
+Vorbereitet, nicht hier ausgeführt: 37 XCTest-Definitionen einschließlich vollständiger Queue-Permutation/Repeat/Shuffle-off/Reorder/Persistenz sowie MIME-/Filename-Validierung. Mac-Prüfpfade bleiben `./Scripts/check-macos.sh` und `./Scripts/check-macos.sh --cast`.
 
 Offen: Swift-Typprüfung/XcodeGen/Apple-SDK, XCTest, Simulator-UI, echter Download-/Retry-/Suspend-Verlauf, Media/Background/PiP/AirPlay/Rotation/CarPlay-Befehle und Cast/TV sowie Instruments. Signierung/App Groups/CloudKit-Provisionierung und echte öffentliche Betreiberangaben bleiben extern erforderlich. Keine garantierte App-Store-Zulassung.
 
