@@ -481,7 +481,7 @@ private struct BrowserScreen: View {
         .accessibilityHint("Navigation, Adresse, Tabs und Wiedergabeoptionen")
     }
 
-    private func closeWatchActions(then action: @escaping () -> Void) {
+    private func closeWatchActions(_ action: @escaping () -> Void) {
         pendingWatchAction = action
         watchActionsVisible = false
     }
