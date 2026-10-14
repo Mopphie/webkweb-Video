@@ -31,11 +31,12 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertNotEqual(tab.navigationRevision, old)
     }
     func testIntentRouterDrainsExactlyOnceInOrder() {
-        let router = IntentRouter.shared
-        _ = router.drain()
+        // Isolate this queue from the live BrowserView subscriber, which drains the shared router.
+        let router = IntentRouter()
         router.send(.open("https://example.com")); router.send(.pause)
         let commands = router.drain()
         XCTAssertEqual(commands.count, 2)
+        guard commands.count == 2 else { return }
         if case .open(let value) = commands[0] { XCTAssertEqual(value, "https://example.com") } else { XCTFail("Order changed") }
         XCTAssertTrue(router.drain().isEmpty)
     }

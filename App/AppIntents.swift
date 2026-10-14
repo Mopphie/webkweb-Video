@@ -15,7 +15,7 @@ final class IntentRouter: ObservableObject {
     private var queue: [BrowserCommand] = []
     func send(_ command: BrowserCommand) { queue.append(command); revision &+= 1 }
     func drain() -> [BrowserCommand] { let pending = queue; queue.removeAll(); return pending }
-    private init() {}
+    init() {}
 }
 
 struct OpenWebPageIntent: AppIntent {
