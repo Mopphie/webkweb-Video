@@ -20,14 +20,26 @@ struct FilterSource: Codable, Identifiable, Equatable {
     var localFile: String?
     static let defaults: [FilterSource] = [
         FilterSource(title: "AdGuard DNS", address: "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt"),
-        FilterSource(title: "HaGeZi Light", address: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/light.txt", enabled: false),
-        FilterSource(title: "StevenBlack Hosts", address: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", enabled: false)
+        FilterSource(title: "HaGeZi Light", address: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/light.txt", enabled: false)
     ]
+    // Remove the old supplied aggregate on upgrades as well as fresh installs.
+    // User-created local lists and unrelated subscriptions remain untouched.
+    static func withoutRetiredSources(_ sources: [FilterSource]) -> [FilterSource] {
+        sources.filter { source in
+            guard source.localFile == nil,
+                  let url = URL(string: source.address), let host = url.host?.lowercased() else { return true }
+            let path = url.path.lowercased()
+            if host == "raw.githubusercontent.com" {
+                return !path.hasPrefix("/stevenblack/hosts/")
+            }
+            if host == "github.com" { return !path.hasPrefix("/stevenblack/hosts/") }
+            return true
+        }
+    }
 }
 
 struct BrowserPreferences: Codable, Equatable {
     var blocking = true
-    var sponsorBlock = false
     var gestures = false
     var autoPiP = false
     var hideShorts = false
@@ -37,22 +49,19 @@ struct BrowserPreferences: Codable, Equatable {
     var desktop = false
     var zoom = 1.0
     var searchEngine = SearchEngine.google
-    var categories = Set(SponsorSegment.categories)
     var allowlist: [String] = []
-    var sponsorAllowlist: [String] = []
     var sources = FilterSource.defaults
     var cloudSync = false
 
     init() {}
     enum CodingKeys: String, CodingKey {
-        case blocking, sponsorBlock, gestures, autoPiP, hideShorts, preferOriginalAudio, history, restoreTabs, desktop, zoom, searchEngine,
-             categories, allowlist, sponsorAllowlist, sources, cloudSync
+        case blocking, gestures, autoPiP, hideShorts, preferOriginalAudio, history, restoreTabs, desktop, zoom, searchEngine,
+             allowlist, sources, cloudSync
     }
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
         blocking = try c.decodeIfPresent(Bool.self, forKey: .blocking) ?? blocking
-        sponsorBlock = try c.decodeIfPresent(Bool.self, forKey: .sponsorBlock) ?? sponsorBlock
         gestures = try c.decodeIfPresent(Bool.self, forKey: .gestures) ?? gestures
         autoPiP = try c.decodeIfPresent(Bool.self, forKey: .autoPiP) ?? autoPiP
         hideShorts = try c.decodeIfPresent(Bool.self, forKey: .hideShorts) ?? hideShorts
@@ -62,10 +71,8 @@ struct BrowserPreferences: Codable, Equatable {
         desktop = try c.decodeIfPresent(Bool.self, forKey: .desktop) ?? desktop
         zoom = min(2, max(0.5, try c.decodeIfPresent(Double.self, forKey: .zoom) ?? zoom))
         searchEngine = try c.decodeIfPresent(SearchEngine.self, forKey: .searchEngine) ?? searchEngine
-        categories = (try c.decodeIfPresent(Set<String>.self, forKey: .categories) ?? categories).intersection(SponsorSegment.categories)
         allowlist = try c.decodeIfPresent([String].self, forKey: .allowlist) ?? allowlist
-        sponsorAllowlist = try c.decodeIfPresent([String].self, forKey: .sponsorAllowlist) ?? sponsorAllowlist
-        sources = try c.decodeIfPresent([FilterSource].self, forKey: .sources) ?? sources
+        sources = FilterSource.withoutRetiredSources(try c.decodeIfPresent([FilterSource].self, forKey: .sources) ?? sources)
         cloudSync = try c.decodeIfPresent(Bool.self, forKey: .cloudSync) ?? cloudSync
     }
 }
@@ -76,7 +83,6 @@ enum PreferencesStorage {
         if let data = UserDefaults.standard.data(forKey: key), let options = try? JSONDecoder().decode(BrowserPreferences.self, from: data) { return options }
         var options = BrowserPreferences()
         options.blocking = UserDefaults.standard.object(forKey: "blockingEnabled") as? Bool ?? true
-        options.sponsorBlock = UserDefaults.standard.bool(forKey: "sponsorBlockEnabled")
         return options
     }
     static func save(_ options: BrowserPreferences) {

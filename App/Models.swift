@@ -82,28 +82,6 @@ enum YouTubeAddress {
     }
 }
 
-struct DirectMedia: Equatable {
-    let url: URL
-    let contentType: String
-
-    init?(source: String, contentType: String?, encrypted: Bool) {
-        guard !encrypted, let parts = URLComponents(string: source),
-              ["http", "https"].contains(parts.scheme?.lowercased() ?? ""),
-              let host = parts.host, !host.isEmpty,
-              parts.user == nil, parts.password == nil, let url = parts.url else { return nil }
-        let knownTypes = ["mp4": "video/mp4", "m4v": "video/mp4", "mov": "video/quicktime",
-                          "m3u8": "application/x-mpegURL", "webm": "video/webm",
-                          "mp3": "audio/mpeg", "m4a": "audio/mp4"]
-        let declared = contentType?.split(separator: ";").first.map(String.init)?.lowercased()
-        guard let mime = declared.flatMap({ value in
-            (value.hasPrefix("video/") || value.hasPrefix("audio/") ||
-             ["application/x-mpegurl", "application/vnd.apple.mpegurl"].contains(value)) ? value : nil
-        }) ?? knownTypes[url.pathExtension.lowercased()] else { return nil }
-        self.url = url
-        self.contentType = mime
-    }
-}
-
 struct SleepPlan: Codable {
     private(set) var deadline: Date?
     private(set) var remainingVideos: Int?

@@ -23,33 +23,12 @@ function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefgh
  return {api:sandbox.__webkweb,nodes,messages,location,document,documentEvents,windowEvents,shadowHosts,
   tick(){clock+=1000;tick();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
 }
-const segments=[{category:'intro',segment:[2,8]}];
-test('SponsorBlock defaults off; state includes valid source and document/media IDs',()=>{
- const h=harness();assert.ok(h.state().documentID);assert.ok(h.state().mediaID);assert.equal(h.state().source,h.nodes[0].currentSrc);
- h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
+test('state includes document and media IDs without exporting direct media URLs',()=>{
+ const h=harness();assert.ok(h.state().documentID);assert.ok(h.state().mediaID);assert.equal(h.state().hasMedia,true);
+ assert.equal(h.state().source,undefined);assert.equal(h.state().contentType,undefined);
 });
-test('selected category skips a matching segment',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,8);
-});
-test('category exclusions leave playback unchanged',()=>{
- const h=harness();h.api.setSponsorBlock(true,['sponsor']);h.api.setSegments('abcdefghijk',segments);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
-});
-test('SPA clears stale segments and accepts refreshed new-video segments',()=>{
- const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);
- h.location.href='https://m.youtube.com/watch?v=12345678901';h.tick();h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
- h.api.setSegments('abcdefghijk',segments);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
- h.api.setSegments('12345678901',segments);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,8);
-});
-test('spoofed YouTube host cannot use segments',()=>{
- const h=harness(undefined,'https://youtube.com.evil.example/watch?v=abcdefghijk');h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
-});
-test('invalid bounds/categories are rejected and seek is clamped',()=>{
- const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',[{category:'intro',segment:[-2,8]},{category:'sponsor',segment:[8,2]},{category:'unknown',segment:[2,8]}]);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
- h.api.seek(-999);assert.equal(h.nodes[0].currentTime,0);h.api.seek(999);assert.equal(h.nodes[0].currentTime,100);
+test('ordinary seek remains clamped to media duration',()=>{
+ const h=harness();h.api.seek(-999);assert.equal(h.nodes[0].currentTime,0);h.api.seek(999);assert.equal(h.nodes[0].currentTime,100);
 });
 test('live seek stays in seekable range',()=>{
  const h=harness([element('VIDEO',{duration:Infinity,currentTime:150,seekable:{length:1,start:()=>100,end:()=>200}})]);
@@ -84,31 +63,12 @@ test('end deduplication and replay produce distinct IDs',()=>{
 test('same-location iframe documents have distinct identities',()=>{
  const a=harness(),b=harness();assert.notEqual(a.state().documentID,b.state().documentID);
 });
-test('source MIME matches currentSrc rather than first source',()=>{
- const sources=[{src:'https://cdn.example/first',type:'video/mp4'},{src:'https://cdn.example/chosen',type:'application/vnd.apple.mpegurl'}];
- const h=harness([element('VIDEO',{sources,currentSrc:sources[1].src})]);assert.equal(h.state().contentType,'application/vnd.apple.mpegurl');
-});
-test('DRM state resets for a new unencrypted source and media ID changes',()=>{
- const h=harness();h.nodes[0].listeners.encrypted();assert.equal(h.state().encrypted,true);const before=h.state().mediaID;
- h.nodes[0].currentSrc='https://cdn.example/clear.mp4';h.tick();assert.equal(h.state().encrypted,false);assert.notEqual(h.state().mediaID,before);
+test('a replacement source receives a new media identity',()=>{
+ const h=harness();const before=h.state().mediaID;
+ h.nodes[0].currentSrc='https://cdn.example/replacement.mp4';h.tick();assert.notEqual(h.state().mediaID,before);
 });
 test('open shadow root media is detected',()=>{
  const h=harness([]),v=element();h.shadowHosts.push({shadowRoot:{querySelectorAll(s){return s==='*'?[]:[v];}}});h.advance(16000);h.tick();assert.equal(h.state().hasMedia,true);
-});
-test('manual skip and undo restore position without immediately reskipping',()=>{
- const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;
- h.api.skip();assert.equal(h.nodes[0].currentTime,8);assert.equal(h.state().canUndo,true);
- h.api.undoSkip();assert.equal(h.nodes[0].currentTime,4);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
-});
-test('manual SponsorBlock skip never seeks an audio-only player',()=>{
- const audio=element('AUDIO',{currentSrc:'https://cdn.example/sound.mp3',currentTime:4}),h=harness([audio]);
- h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.api.skip();
- assert.equal(audio.currentTime,4);assert.equal(h.state().canUndo,false);
-});
-test('manual SponsorBlock skip rejects stale video segments before SPA tick',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);
- h.location.href='https://m.youtube.com/watch?v=12345678901';h.nodes[0].currentTime=4;h.api.skip();
- assert.equal(h.nodes[0].currentTime,4);assert.equal(h.state().canUndo,false);
 });
 test('pagehide sends disposal for precisely the same document',()=>{
  const h=harness();const id=h.state().documentID;h.windowEvents.pagehide();const disposal=h.messages.at(-1);assert.equal(disposal.kind,'dispose');assert.equal(disposal.documentID,id);
@@ -181,14 +141,6 @@ test('background ticks reduce state traffic and skip discovery',()=>{
 test('Shorts opt-in rejects route on genuine YouTube only',()=>{
  const h=harness(undefined,'https://m.youtube.com/shorts/abcdefghijk');let redirected='';h.location.replace=url=>{redirected=url;};h.api.setOptions({hideShorts:true});assert.equal(redirected,'https://m.youtube.com/');
  const fake=harness(undefined,'https://youtube.com.evil.example/shorts/abcdefghijk');let fakeRedirect=false;fake.location.replace=()=>{fakeRedirect=true;};fake.api.setOptions({hideShorts:true});assert.equal(fakeRedirect,false);
-});
-test('category change immediately removes already loaded sponsor segments from auto and manual skip',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.api.setSponsorBlock(true,['sponsor']);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);h.api.skip();assert.equal(h.nodes[0].currentTime,4);
-});
-test('disabling SponsorBlock clears undo and loaded skip segments immediately',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;h.api.skip();assert.equal(h.state().canUndo,true);
- h.api.setSponsorBlock(false);assert.equal(h.state().canUndo,false);h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();h.api.skip();assert.equal(h.nodes[0].currentTime,4);
 });
 test('repeat identifies the ended primary instead of restarting a surviving loop player',()=>{
  const main=element(),loop=element('VIDEO',{width:16,height:16,loop:true,currentTime:33}),h=harness([main,loop]),id=h.state().mediaID;

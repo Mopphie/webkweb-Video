@@ -207,8 +207,8 @@ struct SleepTimerView: View {
                     if mode == 0 { browser.sleep(seconds: hours * 3600 + minutes * 60 + seconds) }
                     else { browser.sleep(videos: mode == 2 ? 1 : videos, currentVideoOnly: mode == 2) }
                     dismiss()
-                }.disabled(mode == 0 ? (hours * 3600 + minutes * 60 + seconds == 0) : (browser.current.activeMediaKind != "video" || CastService.shared.isControllingMedia))
-                Text("Nur der primäre Webseiten-Videoplayer zählt. Kein Live-/Cast-Zähler. Zeit-Timer bleibt nach Neustart erhalten; private Tab-Zähler werden nicht gespeichert. Ende-des-aktuellen-Videos wird nach Neustart verworfen. Eine suspendierte App kann erst beim Fortsetzen pausieren.")
+                }.disabled(mode == 0 ? (hours * 3600 + minutes * 60 + seconds == 0) : (browser.current.activeMediaKind != "video"))
+                Text("Nur der primäre Webseiten-Videoplayer zählt. Kein Live-Zähler. Zeit-Timer bleibt nach Neustart erhalten; private Tab-Zähler werden nicht gespeichert. Ende-des-aktuellen-Videos wird nach Neustart verworfen. Eine suspendierte App kann erst beim Fortsetzen pausieren.")
                     .font(.caption).foregroundStyle(.secondary)
                 if browser.sleepPlan.isActive { Button("Timer abbrechen", role: .destructive) { browser.cancelSleep(); dismiss() } }
             }.navigationTitle("Sleep-Timer")
@@ -250,16 +250,6 @@ struct SettingsView: View {
                     Button(rules.refreshing ? "Wird aktualisiert …" : "Jetzt aktualisieren") { Task { await rules.refreshIfNeeded(force: true) } }.disabled(rules.refreshing)
                     if let date = rules.lastUpdate { Text(date.formatted()).font(.caption).foregroundStyle(.secondary) }
                 }
-                Section("SponsorBlock") {
-                    Toggle("Segmente überspringen", isOn: $browser.sponsorBlockEnabled)
-                    NavigationLink("Auf Webseiten deaktivieren") { FilterAllowlistView(sponsor: true) }
-                    ForEach(SponsorSegment.categories, id: \.self) { category in
-                        Toggle(SponsorCategoryLabels.title(category), isOn: Binding(
-                            get: { browser.options.categories.contains(category) },
-                            set: { enabled in if enabled { browser.options.categories.insert(category) } else { browser.options.categories.remove(category) } }))
-                    }
-                    Text("Bei Aktivierung erhält sponsor.ajay.app die YouTube-Video-ID und IP-Adresse. Kategorien gelten auch für YouTube-Frames. Skip und Zurück stehen im Player bereit.").font(.caption).foregroundStyle(.secondary)
-                }
                 Section("Lokale Daten") {
                     Toggle("Verlauf speichern", isOn: $browser.options.history)
                     Toggle("Normale Tabs wiederherstellen", isOn: $browser.options.restoreTabs)
@@ -273,6 +263,7 @@ struct SettingsView: View {
                 }
                 Section("Datenschutz & Support") {
                     NavigationLink("Datenschutz") { PrivacyView() }
+                    NavigationLink("Lizenzen") { ThirdPartyNoticesView() }
                     if let url = ReleaseConfiguration.privacyURL { Link("Öffentliche Datenschutzerklärung", destination: url) }
                     if let url = ReleaseConfiguration.supportURL { Link("Support", destination: url) }
                     if !ReleaseConfiguration.operatorContact.isEmpty { Text(ReleaseConfiguration.operatorContact).font(.footnote) }
@@ -289,18 +280,11 @@ struct SettingsView: View {
     }
 }
 
-enum SponsorCategoryLabels {
-    static func title(_ value: String) -> String {
-        ["sponsor": "Sponsor", "intro": "Intro", "outro": "Outro", "selfpromo": "Eigenwerbung"][value] ?? value
-    }
-}
-
 @MainActor
-struct CastView: View {
+struct AirPlayView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var tab: BrowserTab
-    @ObservedObject private var cast = CastService.shared
     var body: some View {
         NavigationStack {
             Form {
@@ -308,31 +292,11 @@ struct CastView: View {
                     HStack { Text("Ausgabegerät wählen"); Spacer(); AirPlayControl().frame(width: 44, height: 44) }
                     Button("AirPlay für Webseitenvideo öffnen") { tab.runMedia("globalThis.__webkweb?.airplay()") }
                 }
-                Section("Google Cast") {
-                    #if canImport(GoogleCast)
-                    HStack { Text("Cast-Gerät wählen"); Spacer(); CastDeviceButton().frame(width: 44, height: 44) }
-                    Button("Direkten Medienlink übertragen") {
-                        guard let media = tab.directMedia else { return }
-                        _ = cast.load(media, title: tab.title, at: tab.playbackTime)
-                    }.disabled(tab.directMedia == nil)
-                    #else
-                    Text("Google Cast ist in dieser Version nicht verfügbar.")
-                    #endif
-                    if let media = tab.directMedia { Text(media.url.host ?? "Medienlink").font(.caption).foregroundStyle(.secondary) }
-                    else { Text("Kein übertragbarer direkter HTTP(S)-Medienlink erkannt.").font(.caption).foregroundStyle(.secondary) }
-                    if !cast.status.isEmpty { Text(cast.status).font(.caption) }
-                    if cast.isControllingMedia {
-                        Button(cast.isPlaying ? "Cast pausieren" : "Cast abspielen") { browser.togglePlayback() }
-                        Button("Cast-Steuerung öffnen") { cast.showControls() }
-                        Button("Cast trennen") { cast.disconnect() }
-                    }
-                }
                 Section {
-                    Text("Der Cast-Empfänger muss den Link selbst ohne Browser-Cookies, Login, DRM oder spezielle Header laden können. blob:-URLs und verschlüsselte Medien werden abgelehnt. YouTube-MSE-Player werden nicht durch einen YouTube-Watch-Link ersetzt. Live-Streams, Receiver-Codec-Support und CORS können die Wiedergabe begrenzen.")
-                    Text("SponsorBlock und Videozählung wirken im Webseitenplayer, nicht auf dem Cast-Empfänger. Ein Zeit-Timer kann die aktive Cast-Session pausieren, solange die App läuft.")
+                    Text("AirPlay verwendet die Systemrouten von iOS. Verfügbarkeit und Wiedergabe hängen von Webseite, Gerät und Netzwerk ab.")
                 }.font(.footnote).foregroundStyle(.secondary)
             }
-            .navigationTitle("Auf dem Fernseher")
+            .navigationTitle("AirPlay")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
         }
     }
@@ -346,13 +310,9 @@ struct PrivacyView: View {
                 Text("Datenschutz").font(.largeTitle.bold())
                 Text("DevnTube speichert Verlauf und Favoriten lokal. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich lokal für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Verfügbares iCloud wird ausdrücklich aktiviert und synchronisiert Verlauf und Favoriten mit der privaten iCloud-Datenbank deines Apple-Kontos.")
                 Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Suchbegriffe gehen an die gewählte Suchmaschine Google, DuckDuckGo oder Bing. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
-                Text("Aktivierte Filterquellen werden täglich im Vordergrund sowie bei manuellen Updates oder Änderungen geladen. Presets sind AdGuard DNS, HaGeZi und StevenBlack; eigene Quellen und lokale Textimporte sind möglich. Verlauf und Favoriten werden nicht an die Listenhosts gesendet.")
-                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Im Standard-Release ist der direkte Mediendownload deaktiviert.")
-                #if !WEBKWEB_NO_DOWNLOADS
-                Text("In diesem Entwicklungsbuild können ausdrücklich gespeicherte Downloads als Dateien erhalten bleiben, auch aus privaten Tabs; Quelldaten für Retry sind nur im Arbeitsspeicher. Downloads sind cookie-freie HTTPS-Anfragen ohne Loginübernahme.")
-                #endif
-                Text("SponsorBlock ist zunächst ausgeschaltet. Nach Aktivierung werden YouTube-Video-IDs an sponsor.ajay.app übermittelt, ohne Browser-Cookies. Der Dienst sieht dabei deine IP-Adresse. Abschalten beendet weitere Abfragen; bereits gesendete Anfragen lassen sich nicht zurückholen.")
-                Text("AirPlay verwendet iOS. Ein optionaler Build mit dem Google Cast SDK sucht nach Geräten im lokalen Netzwerk und übermittelt den gewählten direkten Medienlink und Titel an den Empfänger. Die jeweiligen Geräte und Drittanbieter haben eigene Datenschutzregeln.")
+                Text("Aktivierte Filterquellen werden täglich im Vordergrund sowie bei manuellen Updates oder Änderungen geladen. Presets sind AdGuard DNS und HaGeZi; eigene Quellen und lokale Textimporte sind möglich. Verlauf und Favoriten werden nicht an die Listenhosts gesendet.")
+                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Diese App bietet keine Medien-Downloads. Bereits aus früheren Versionen lokal gespeicherte Dateien bleiben unangetastet.")
+                Text("AirPlay verwendet die von iOS angebotenen Ausgabegeräte. Die Geräte und besuchten Webseiten haben eigene Datenschutzregeln.")
                 Text(ReleaseConfiguration.operatorContact.isEmpty ? "Anbieter- und Kontaktangaben sind noch nicht hinterlegt." : ReleaseConfiguration.operatorContact)
                 if let url = ReleaseConfiguration.privacyURL { Link("Vollständige Datenschutzerklärung", destination: url) }
                 if let url = ReleaseConfiguration.supportURL { Link("Support", destination: url) }

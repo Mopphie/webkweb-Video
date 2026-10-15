@@ -44,12 +44,10 @@ def main():
     if frontend:
         errors=[]
         for path in swift_files:
-            for mode in ([],['-D','WEBKWEB_NO_DOWNLOADS']):
-                result=command([frontend,'-frontend','-parse',*mode,path])
-                if result.returncode:errors.append({'file':str(path.relative_to(ROOT)),'mode':mode or ['Debug'],
-                                                     'diagnostic':(result.stderr+result.stdout)[:1200]})
+            result=command([frontend,'-frontend','-parse',path])
+            if result.returncode:errors.append({'file':str(path.relative_to(ROOT)),
+                                                'diagnostic':(result.stderr+result.stdout)[:1200]})
         record('Swift syntax only','FAIL' if errors else 'PASS',{'checked':len(swift_files),'errors':errors,
-               'modes':['Debug','Release no-downloads'],
                'note':'Parser does not typecheck SwiftUI, WebKit, SDK or XCTest.'})
     else:record('Swift syntax only','NOT_RUN',{'checked':0,'available':len(swift_files)})
 
@@ -83,12 +81,17 @@ def main():
         assert app_info['CFBundleDisplayName']=='DevnTube' and widget_info['CFBundleDisplayName']=='DevnTube-Favoriten'
         assert 'devntube' in app_info['CFBundleURLTypes'][0]['CFBundleURLSchemes']
         record('Project YAML parse and Xcode minimum','PASS','DevnTube IDs, shared group, display names and deep link align in source; XcodeGen/build NOT performed')
-        flag='WEBKWEB_NO_DOWNLOADS'
-        app_release=project['targets']['WebKWeb']['settings']['configs']['Release']['SWIFT_ACTIVE_COMPILATION_CONDITIONS']
-        tests_release=project['targets']['WebKWebTests']['settings']['configs']['Release']['SWIFT_ACTIVE_COMPILATION_CONDITIONS']
-        guarded=[ROOT/p for p in ('App/Downloads.swift','App/BrowserView.swift','App/PlayerViews.swift','Tests/QueueTests.swift')]
-        assert flag in app_release and flag in tests_release and all(flag in p.read_text(encoding='utf8') for p in guarded)
-        record('Release no-downloads source configuration','PASS','Build flag/source guards verified; a Mac binary build remains required')
+        removed=('App/Downloads.swift','App/SponsorBlock.swift','App/CastService.swift','Podfile')
+        assert all(not (ROOT/name).exists() for name in removed)
+        production='\n'.join(p.read_text(encoding='utf8') for section in ('App','Shared','Widgets')
+                             for p in (ROOT/section).rglob('*') if p.suffix in ('.swift','.js'))
+        forbidden=('DownloadStore','DownloadsView','SponsorBlockService','setSponsorBlock','setSegments',
+                   'undoSkip','CastService','GoogleCast','DirectMedia','WEBKWEB_NO_DOWNLOADS')
+        assert not any(symbol in production for symbol in forbidden)
+        assert 'NSBonjourServices' not in app_info and 'NSLocalNetworkUsageDescription' not in app_info
+        assert 'WEBKWEB_NO_DOWNLOADS' not in (ROOT/'project.yml').read_text(encoding='utf8')
+        record('Removed media downloads, SponsorBlock and Cast','PASS',
+               'Removed source files, API/UI symbols and old build flags; AirPlay remains; user files are not touched')
     except ImportError:record('Project YAML parse and Xcode minimum','NOT_RUN','PyYAML not available')
     except Exception as exc:record('Project YAML parse and Xcode minimum','FAIL',str(exc))
 

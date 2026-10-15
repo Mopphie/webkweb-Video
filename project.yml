@@ -36,8 +36,6 @@ targets:
           APS_ENVIRONMENT: production
           # Resolved per target by the manual-signing CI archive, not globally.
           PROVISIONING_PROFILE_SPECIFIER: "$(WEBKWEB_APP_PROFILE_UUID)"
-          # Same no-download binary for App Review and every end user.
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WEBKWEB_NO_DOWNLOADS"
     dependencies:
       - target: FavoritesWidget
         embed: true
@@ -68,9 +66,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.mopphie.devntube.tests
         GENERATE_INFOPLIST_FILE: YES
-      configs:
-        Release:
-          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) WEBKWEB_NO_DOWNLOADS"
     dependencies:
       - target: WebKWeb
 schemes:

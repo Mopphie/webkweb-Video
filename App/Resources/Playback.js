@@ -6,9 +6,9 @@
   const knownMedia = new Set(), observedRoots = new WeakSet();
   let background = false, autoPiP = false, preferOriginal = false, hideShorts = false, queueManaged = false;
   let lastDiscovery = 0, lastHeartbeat = 0, lastState = 0, lastSignature = "";
-  let serial = 0, sponsorEnabled = false, categories = ["sponsor", "intro", "outro", "selfpromo"];
-  let segmentID = null, segments = [], lastAddress = "", stopped = false, selected = null;
-  let interactionAt = 0, lastPrimary = null, undo = null, ignoredSegment = null;
+  let serial = 0;
+  let lastAddress = "", stopped = false, selected = null;
+  let interactionAt = 0, lastPrimary = null;
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
@@ -57,7 +57,7 @@
     if (!e) return null;
     const sourceKey = (v.currentSrc || "") + ":" + (videoID() || "");
     if (sourceKey !== e.sourceKey) {
-      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false;
+      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.waiting = false;
       // Keep the page's pre-queue loop preference until queue management ends.
       if (!queueManaged) e.originalLoop = null;
     }
@@ -69,23 +69,15 @@
   const state = (force = true) => {
     const v = media(); lastPrimary = v;
     if (queueManaged && v) { const e = entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); v.loop = false; }
-    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.encrypted, entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
+    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
     const now = Date.now(); if (!force && signature === lastSignature && now - lastState < 1000) return;
     lastState = now; lastSignature = signature;
-    let mime = "";
-    if (v) {
-      const match = [...v.querySelectorAll("source")].find(s => {
-        try { return new URL(s.src || s.getAttribute("src"), document.baseURI || location.href).href === v.currentSrc; } catch (_) { return false; }
-      });
-      mime = match?.type || v.getAttribute?.("type") || "";
-    }
     post("state", {title: document.title, hasMedia: Boolean(v), playing: v ? !v.paused && !v.ended : false,
       anyPlaying: nodes().some(node => !node.paused && !node.ended),
       time: Number.isFinite(v?.currentTime) ? v.currentTime : 0, duration: Number.isFinite(v?.duration) ? v.duration : null,
-      source: v?.currentSrc || "", contentType: mime, encrypted: v ? Boolean(entry(v)?.encrypted || v.mediaKeys) : false,
       mediaID: v ? mediaID(v) : "", mediaKind: v?.tagName === "VIDEO" ? "video" : "audio",
       priority: v ? (v.tagName === "VIDEO" ? 1000000 : 0) + area(v) : 0,
-      interactionAt, videoID: videoID() || "", canUndo: Boolean(undo),
+      interactionAt,
       captions: tracks(v?.textTracks), audioTracks: tracks(v?.audioTracks, true),
       rate: v?.playbackRate || 1, width: v?.videoWidth || 0, height: v?.videoHeight || 0,
       muted: Boolean(v?.muted), waiting: Boolean(entry(v)?.waiting),
@@ -100,19 +92,13 @@
     try { v.currentTime = target; } catch (_) {}
     state();
   };
-  const skipTo = (v, segment) => {
-    undo = {id: mediaID(v), videoID: videoID(), time: v.currentTime, segment};
-    try { v.currentTime = Math.min(segment.segment[1], Number.isFinite(v.duration) ? v.duration : segment.segment[1]); } catch (_) {}
-    state();
-  };
   function attach() {
     nodes().forEach(v => {
       if (stopped && !v.paused) v.pause();
       if (attached.has(v)) return;
-      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, encrypted: false, waiting: false});
+      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, waiting: false});
       entry(v);
       // A new element may already have started before its play listener exists.
-      v.addEventListener("encrypted", () => { entry(v).encrypted = true; state(); });
       v.addEventListener("play", () => {
         if (stopped) { v.pause(); return; }
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
@@ -130,12 +116,7 @@
       v.audioTracks?.addEventListener?.("change", state);
       v.audioTracks?.addEventListener?.("addtrack", () => { applyOriginal(v); state(); });
       applyOriginal(v);
-      v.addEventListener("timeupdate", () => {
-        if (!sponsorEnabled || segmentID !== videoID() || v !== media() || v.tagName !== "VIDEO" || v.paused || v.seeking || isAd()) return;
-        if (ignoredSegment && v.currentTime >= ignoredSegment.segment[1]) ignoredSegment = null;
-        const match = segments.find(s => s !== ignoredSegment && v.currentTime >= s.segment[0] && v.currentTime < s.segment[1]);
-        if (match) skipTo(v, match);
-      });
+      v.addEventListener("timeupdate", () => state(false));
       v.addEventListener("ended", () => {
         const e = entry(v);
         if (e.ended || isAd() || v !== lastPrimary) return;
@@ -169,22 +150,6 @@
     }
   }
   globalThis.__webkweb = {
-    setSponsorBlock(enabled, chosenCategories = categories) {
-      const next = Array.isArray(chosenCategories) ? [...new Set(chosenCategories)].filter(c => ["sponsor", "intro", "outro", "selfpromo"].includes(c)) : categories;
-      const changed = sponsorEnabled !== Boolean(enabled) || categories.join(",") !== next.join(",");
-      sponsorEnabled = Boolean(enabled); categories = next;
-      segments = sponsorEnabled ? segments.filter(s => categories.includes(s.category)) : [];
-      if (!sponsorEnabled) segmentID = null;
-      if (!sponsorEnabled || (undo && !categories.includes(undo.segment.category))) undo = null;
-      if (!sponsorEnabled || (ignoredSegment && !categories.includes(ignoredSegment.category))) ignoredSegment = null;
-      if (changed) state();
-    },
-    setSegments(id, value) {
-      if (id !== videoID() || !Array.isArray(value)) return;
-      segmentID = id;
-      segments = value.filter(s => categories.includes(s.category) && Array.isArray(s.segment) && s.segment.length === 2 &&
-        s.segment.every(Number.isFinite) && s.segment[0] >= 0 && s.segment[1] > s.segment[0]);
-    },
     pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); nodes().forEach(v => v.pause()); state(); },
     clearStop() { stopped = false; },
     resume() { stopped = false; const v = media(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
@@ -226,16 +191,6 @@
       if (!autoPiP || stopped || !v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
       try { this.pip(); } catch (_) {} // User gesture / background timing remains iOS-dependent.
     },
-    skip() {
-      const v = media();
-      if (!sponsorEnabled || segmentID !== videoID() || !v || v.tagName !== "VIDEO" || isAd()) return;
-      const match = segments.find(s => s.segment[1] > v.currentTime);
-      if (match) skipTo(v, match);
-    },
-    undoSkip() {
-      const v = media(); if (!v || !undo || undo.id !== mediaID(v) || undo.videoID !== videoID()) return;
-      ignoredSegment = undo.segment; v.currentTime = undo.time; undo = null; state();
-    },
     pip() {
       const v = media(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
       try {
@@ -252,10 +207,8 @@
     if (hidden && now - lastHeartbeat < 5000) return;
     lastHeartbeat = now;
     if (lastAddress !== location.href) {
-      const oldID = lastAddress ? (() => { try { const u = new URL(lastAddress); return u.searchParams.get("v") || u.pathname.split("/").at(-1); } catch (_) { return null; } })() : null;
       lastAddress = location.href;
-      if (segmentID !== videoID() || oldID !== videoID()) { segments = []; segmentID = null; undo = null; ignoredSegment = null; }
-      post("navigation", {videoID: videoID() || ""});
+      post("navigation");
       shortsPolicy();
     }
     if (!hidden && now - lastDiscovery >= 15000) { discover(document); lastDiscovery = now; }

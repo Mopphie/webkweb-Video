@@ -1,0 +1,41 @@
+Third-party notices — DevnTube / WebKWeb
+Checked: 2026-10-15
+
+AdGuard DNS filter
+Maintained by AdGuard Software Ltd / AdguardTeam and contributors.
+Source and notices: https://github.com/AdguardTeam/AdGuardSDNSFilter
+License: GNU General Public License version 3
+https://github.com/AdguardTeam/AdGuardSDNSFilter/blob/master/LICENSE
+Configured data URL: https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+
+HaGeZi Multi LIGHT
+Maintained by HaGeZi and contributors.
+Source and notices: https://github.com/hagezi/dns-blocklists
+License: GNU General Public License version 3
+https://github.com/hagezi/dns-blocklists/blob/main/LICENSE
+Configured data URL: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/light.txt
+Input-source information: https://github.com/hagezi/dns-blocklists/blob/main/sources.md
+
+These lists are fetched separately when enabled. No copy of either list or
+third-party SDK is bundled with this app. Original downloaded list text,
+including its headers, is kept in the local source cache. Our converter
+changes supported domain/hosts/network rules into WebKit content rules;
+scriptlets, cosmetic rules and unsupported syntax are not executed.
+The version and date are those in each downloaded file, not this notice date.
+The GPL permits commercial use subject to its conditions. The complete GPLv3
+text accompanies these notices. If lists or derived rule data are redistributed,
+their notices, licenses and applicable corresponding-source duties must also
+be fulfilled. These notices do not license unrelated imported lists.
+
+Apple frameworks and system symbols
+SwiftUI, WebKit, AVKit, AVFoundation, MediaPlayer, SwiftData, WidgetKit,
+App Intents and SF Symbols are provided by Apple under Apple's applicable
+SDK and distribution agreements. System symbols are referenced through APIs;
+no third-party font or icon pack is bundled.
+
+Website names and content
+Website names identify ordinary bookmarks. The app does not bundle website
+logos, thumbnails, videos or third-party reference screenshots. Website content
+loads from the website under its terms. No partnership or content ownership
+is implied by these bookmarks. Permission to browse does not grant a right
+to redistribute or monetize third-party media.

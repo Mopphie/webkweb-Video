@@ -1,6 +1,6 @@
 # App-Store-Eintrag – Arbeitsentwurf, nicht eingereicht
 
-Stand: 14. Oktober 2026. Die Texte beschreiben den geplanten **Standardbuild** und müssen nach einem echten Xcode-/Gerätetest gegen die tatsächlich ausgelieferte App geprüft werden. Keine Store-Daten wurden hochgeladen. Keine erfundenen Screenshots, Zugänge oder Betreiberangaben.
+Stand: 15. Oktober 2026. Die Texte beschreiben den geplanten **Standardbuild** und müssen nach einem echten Xcode-/Gerätetest gegen die tatsächlich ausgelieferte App geprüft werden. Keine Store-Daten wurden hochgeladen. Keine erfundenen Screenshots, Zugänge oder Betreiberangaben.
 
 ## Metadaten (de-DE)
 
@@ -15,22 +15,22 @@ Stand: 14. Oktober 2026. Die Texte beschreiben den geplanten **Standardbuild** u
 
 DevnTube ist ein Browser für iPhone und iPad mit Tabs, Favoriten und Werkzeugen für die Wiedergabe von Webseitenvideos. Öffne Webseiten, speichere Favoriten und nutze private Tabs, deren Sitzungen nicht wiederhergestellt werden.
 
-Für unterstützte HTML-Videos bietet die App Wiedergabesteuerung, Bild-in-Bild, AirPlay und einen Sleep-Timer. Ob eine Funktion verfügbar ist, bestimmen die jeweilige Webseite, das Video und iOS. Ein optionaler Netzwerkfilter und SponsorBlock können bestimmte Anfragen beziehungsweise verfügbare Community-Segmente behandeln; sie garantieren keine werbefreie Wiedergabe.
+Für unterstützte HTML-Videos bietet die App Wiedergabesteuerung, Bild-in-Bild, AirPlay und einen Sleep-Timer. Ob eine Funktion verfügbar ist, bestimmen die jeweilige Webseite, das Video und iOS. Ein optionaler Netzwerkfilter kann bestimmte Anfragen reduzieren; er garantiert keine werbefreie Wiedergabe.
 
 DevnTube ist unabhängig von den aufgerufenen Webseiten und deren Betreibern. Die Nutzung fremder Dienste unterliegt deren Bedingungen.
 
-**Vor Einreichung prüfen:** Jede Aussage am Standardbuild, echte Nutzbarkeit unter iOS 17 und iOS 26, Datenschutz, Dienstbedingungen und Markenrechte. Optionale Cast-/CloudKit-Funktionen nicht in der Beschreibung nennen, solange sie nicht provisioniert und im eingereichten Build enthalten sind. Audio-/Video-Downloads nicht bewerben, solange die Rechtefrage und die Release-Variante ungeklärt sind.
+**Vor Einreichung prüfen:** Jede Aussage am Standardbuild, echte Nutzbarkeit unter iOS 17 und iOS 26, Datenschutz, Dienstbedingungen und Markenrechte. CloudKit nicht in der Beschreibung nennen, solange es nicht provisioniert und im eingereichten Build enthalten ist. Native Medien-Downloads, SponsorBlock und Google Cast sind aus allen Konfigurationen entfernt und dürfen nicht beworben werden.
 
 ## Vorhandene und offene Eingaben
 
 - Öffentliche HTTPS-Datenschutz-URL: **vorhanden**, <https://mopphie.github.io/webkweb-privacy/> (`WebKWebPrivacyURL`)
 - Öffentliche HTTPS-Support-URL: **vorhanden**, <https://mopphie.github.io/webkweb-privacy/support/> (`WebKWebSupportURL`)
 - Betreibername/Kontakt: **von der bestehenden Printatops-Seite übernommen**, <https://mopphie.github.io/webkweb-privacy/impressum/> (`WebKWebOperatorContact`); finale Betreiberfreigabe/rechtliche Prüfung ausstehend
-- Apple-Team `HUN9MS832X`, explizite IDs `de.mopphie.devntube` und `de.mopphie.devntube.favorites` sowie App Group `group.de.mopphie.devntube`: **im Portal angelegt, Zuordnung bei beiden IDs geprüft**. Beide App-Store-Profile erstellt und gegen IDs, Gruppe und lokales Zertifikat geprüft. `.p12`-Passwort und Gerätetests: **OFFEN**
+- Apple-Team `HUN9MS832X`, explizite IDs `de.mopphie.devntube` und `de.mopphie.devntube.favorites` sowie App Group `group.de.mopphie.devntube`: **im Portal angelegt, Zuordnung bei beiden IDs geprüft**. Beide App-Store-Profile erstellt und gegen IDs, Gruppe und lokales Zertifikat geprüft. Frühere Signierung/TestFlight laut [RELEASE.md](RELEASE.md) erfolgt; erneuter Build dieser Bereinigung und Gerätetests: **OFFEN**
 - iCloud-Container: **NICHT BESTÄTIGT**; CloudKit deaktiviert lassen
-- App-Privacy-Antworten einschließlich besuchter Webseiten, optionalem SponsorBlock/Cast/iCloud und SDKs: **OFFEN**, nach finalem Build und Datenflussaudit ausfüllen
+- App-Privacy-Antworten einschließlich besuchter Webseiten und optionalem iCloud: **OFFEN**, nach finalem Build und Datenflussaudit ausfüllen
 - Export-/Verschlüsselungsfragen, Altersfreigabe, Rechte an Icon/Marke und Dienstbedingungen: **OFFEN**
-- Autorisierung für Downloads von Audio/Video aus Drittquellen: **FEHLT**. Der Betreiber hat die [Release-Variante ohne Downloads](NO-DOWNLOAD-VARIANT.md) für **alle Nutzer** bestätigt; ein echter Mac-Build fehlt noch. Alternativ erst Rechte für konkret autorisierte Quellen belegen und eine begrenzte Variante entwickeln. Kein versteckter Reviewer-Schalter.
+- Native Medien-Downloads sind wegen fehlender belegter Quellenautorisierung vollständig entfernt, ebenso SponsorBlock und Google Cast. [Entfernung und Prüfpfad](NO-DOWNLOAD-VARIANT.md), [Lizenzprüfung](COMMERCIAL-USE.md). Es gibt keine abweichende Entwickler-/Reviewer-Variante.
 
 ## Echte Screenshots und Review-Hinweise – noch zu erstellen
 

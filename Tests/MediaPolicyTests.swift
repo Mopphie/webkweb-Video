@@ -2,16 +2,14 @@ import XCTest
 @testable import WebKWeb
 
 final class MediaPolicyTests: XCTestCase {
-    func testIdleLaunchForegroundAndCastDoNotClaimLocalAudio() {
-        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, casting: false, stopped: false))
-        XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: false, explicitPlay: true, casting: false, stopped: false))
-        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, explicitPlay: true, casting: true, stopped: false))
-        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: true, casting: false, stopped: true))
+    func testIdleLaunchAndForegroundDoNotClaimLocalAudio() {
+        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, stopped: false))
+        XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: false, explicitPlay: true, stopped: false))
+        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: true, stopped: true))
     }
     func testExistingAudioWaitsForActualPauseAcknowledgement() {
-        XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: true, casting: false, stopped: true, alreadyActive: true))
-        XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: true, casting: true, stopped: false, alreadyActive: true))
-        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, casting: false, stopped: true, alreadyActive: true))
+        XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: true, stopped: true, alreadyActive: true))
+        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, stopped: true, alreadyActive: true))
     }
     func testNowPlayingRateReflectsSpeedAndPause() {
         XCTAssertEqual(MediaPolicy.nowPlayingRate(playing: true, rate: 1.5), 1.5)

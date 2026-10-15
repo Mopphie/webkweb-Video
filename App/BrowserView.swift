@@ -4,7 +4,7 @@ import WidgetKit
 import WebKit
 
 private enum BrowserSheet: String, Identifiable {
-    case library, history, tabs, sleep, settings, cast, queue, player, downloads, address
+    case library, history, tabs, sleep, settings, airplay, queue, player, address
     var id: String { rawValue }
 }
 
@@ -28,8 +28,8 @@ struct BrowserView: View {
             BrowserScreen(tab: browser.current, showLibrary: { sheet = .library },
                 showHistory: { sheet = .history },
                 showTabs: { sheet = .tabs }, showSleep: { sheet = .sleep },
-                showSettings: { sheet = .settings }, showCast: { sheet = .cast },
-                showQueue: { sheet = .queue }, showPlayer: { sheet = .player }, showDownloads: { sheet = .downloads },
+                showSettings: { sheet = .settings }, showAirPlay: { sheet = .airplay },
+                showQueue: { sheet = .queue }, showPlayer: { sheet = .player },
                 showAddress: { sheet = .address },
                 favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == StoredAddress.clean(browser.current.address) })
                 .id(browser.current.id)
@@ -41,15 +41,9 @@ struct BrowserView: View {
                     case .tabs: TabsView()
                     case .sleep: SleepTimerView()
                     case .settings: SettingsView()
-                    case .cast: CastView(tab: browser.current)
+                    case .airplay: AirPlayView(tab: browser.current)
                     case .queue: QueueView()
                     case .player: PlayerOptionsView(tab: browser.current)
-                    case .downloads:
-                        #if WEBKWEB_NO_DOWNLOADS
-                        EmptyView()
-                        #else
-                        DownloadsView()
-                        #endif
                     case .address: AddressEntryView().presentationDetents([.medium, .large])
                     }
                 }
@@ -163,10 +157,9 @@ private struct BrowserScreen: View {
     let showTabs: () -> Void
     let showSleep: () -> Void
     let showSettings: () -> Void
-    let showCast: () -> Void
+    let showAirPlay: () -> Void
     let showQueue: () -> Void
     let showPlayer: () -> Void
-    let showDownloads: () -> Void
     let showAddress: () -> Void
     let favorite: () -> Void
     let isFavorite: Bool
@@ -174,7 +167,6 @@ private struct BrowserScreen: View {
     @FocusState private var editing: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var dynamicType
-    @ObservedObject private var cast = CastService.shared
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
     private var isHome: Bool { tab.address.isEmpty && !tab.loading }
     private var isWatch: Bool { YouTubeAddress.isWatchPage(URL(string: tab.address)) }
@@ -201,7 +193,7 @@ private struct BrowserScreen: View {
                 }
             }
             if !isWatch {
-                if tab.hasMedia || cast.isControllingMedia { mediaControls }
+                if tab.hasMedia { mediaControls }
                 if browser.sleepPlan.isActive { timerStatus }
                 bottomBar
             }
@@ -309,8 +301,7 @@ private struct BrowserScreen: View {
                     HStack(spacing: 8) { Spacer(); routeButtons; Spacer() }
                 }
             }.font(.title3)
-            if cast.isControllingMedia { Button("Cast-Steuerung") { cast.showControls() } }
-            else { NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke") }
+            NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke")
             if tab.waiting || !tab.mediaError.isEmpty {
                 HStack {
                     if tab.waiting { ProgressView().controlSize(.small) }
@@ -318,12 +309,6 @@ private struct BrowserScreen: View {
                     Spacer()
                     Button { tab.runMedia("globalThis.__webkweb?.recover()") } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Wiedergabe erneut versuchen")
                 }
-            }
-            if browser.sponsorBlockEnabled && !cast.isControllingMedia {
-                HStack {
-                    Button("Skip", systemImage: "forward.end") { tab.runMedia("globalThis.__webkweb?.skip()") }
-                    Button("Zurück", systemImage: "arrow.uturn.backward") { tab.runMedia("globalThis.__webkweb?.undoSkip()") }.disabled(!tab.canUndoSkip)
-                }.font(.caption)
             }
             if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
         }.padding(.horizontal, 18).padding(.vertical, 10)
@@ -334,22 +319,22 @@ private struct BrowserScreen: View {
         Group {
             Button { browser.seek(-10) } label: { Image(systemName: "gobackward.10").frame(width: 44, height: 44) }.accessibilityLabel("10 Sekunden zurück")
             Button { browser.togglePlayback() } label: {
-                Image(systemName: (cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "pause.fill" : "play.fill").frame(width: 44, height: 44)
-            }.accessibilityLabel((cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "Pausieren" : "Abspielen")
+                Image(systemName: tab.playing ? "pause.fill" : "play.fill").frame(width: 44, height: 44)
+            }.accessibilityLabel(tab.playing ? "Pausieren" : "Abspielen")
             Button { browser.seek(10) } label: { Image(systemName: "goforward.10").frame(width: 44, height: 44) }.accessibilityLabel("10 Sekunden vor")
         }
     }
     private var playbackPosition: some View {
-        Text(time(cast.isControllingMedia ? cast.elapsed : tab.playbackTime)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        Text(time(tab.playbackTime)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
     }
     private var routeButtons: some View {
         Group {
             Button { tab.runMedia("globalThis.__webkweb?.fullscreen()") } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44) }
-                .disabled(cast.isControllingMedia || tab.activeMediaKind != "video").accessibilityLabel("Vollbild")
+                .disabled(tab.activeMediaKind != "video").accessibilityLabel("Vollbild")
             Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip").frame(width: 44, height: 44) }
-                .disabled(cast.isControllingMedia).accessibilityLabel("Bild-in-Bild")
+                .accessibilityLabel("Bild-in-Bild")
             AirPlayControl().frame(width: 44, height: 44).accessibilityLabel("AirPlay-Auswahl")
-            Button(action: showCast) { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("Cast-Optionen")
+            Button(action: showAirPlay) { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("AirPlay-Optionen")
             Button(action: showPlayer) { Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44) }.accessibilityLabel("Player-Einstellungen")
         }
     }
@@ -414,14 +399,10 @@ private struct BrowserScreen: View {
                     Button(isFavorite ? "Favorit entfernen" : "Als Favorit speichern", systemImage: isFavorite ? "star.fill" : "star", action: favorite)
                 }
                 Section("Wiedergabe") {
-                    Button((cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "Pausieren" : "Abspielen", systemImage: (cast.isControllingMedia ? cast.isPlaying : tab.playing) ? "pause" : "play") { browser.togglePlayback() }.disabled(!tab.hasMedia && !cast.isControllingMedia)
-                    Button("10 Sekunden zurück", systemImage: "gobackward.10") { browser.seek(-10) }.disabled(!tab.hasMedia && !cast.isControllingMedia)
-                    Button("10 Sekunden vor", systemImage: "goforward.10") { browser.seek(10) }.disabled(!tab.hasMedia && !cast.isControllingMedia)
-                    Button("Auf dem Fernseher", systemImage: "tv", action: showCast)
-                    if browser.sponsorBlockEnabled && !cast.isControllingMedia {
-                        Button("Segment überspringen", systemImage: "forward.end") { tab.runMedia("globalThis.__webkweb?.skip()") }
-                        Button("Skip rückgängig", systemImage: "arrow.uturn.backward") { tab.runMedia("globalThis.__webkweb?.undoSkip()") }.disabled(!tab.canUndoSkip)
-                    }
+                    Button(tab.playing ? "Pausieren" : "Abspielen", systemImage: tab.playing ? "pause" : "play") { browser.togglePlayback() }.disabled(!tab.hasMedia)
+                    Button("10 Sekunden zurück", systemImage: "gobackward.10") { browser.seek(-10) }.disabled(!tab.hasMedia)
+                    Button("10 Sekunden vor", systemImage: "goforward.10") { browser.seek(10) }.disabled(!tab.hasMedia)
+                    Button("Auf dem Fernseher", systemImage: "tv", action: showAirPlay)
                     if browser.sleepPlan.isActive { Button("Timer abbrechen", systemImage: "moon.zzz") { browser.cancelSleep() } }
                 }
             }
@@ -431,28 +412,15 @@ private struct BrowserScreen: View {
             Button("Verlauf", systemImage: "clock.arrow.circlepath", action: showHistory)
             Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
             Button("Queue", systemImage: "music.note.list", action: showQueue)
-            #if !WEBKWEB_NO_DOWNLOADS
-            Button("Downloads", systemImage: "arrow.down.circle", action: showDownloads)
-            #endif
             if !isHome {
                 Button("Zur Queue", systemImage: "text.badge.plus") { browser.enqueueCurrent() }.disabled(tab.isPrivate)
                 Button("Player", systemImage: "slider.horizontal.3", action: showPlayer).disabled(!tab.hasMedia)
-                #if !WEBKWEB_NO_DOWNLOADS
-                if let media = tab.directMedia, DownloadStore.supports(media) {
-                    Button("Mediendatei speichern", systemImage: "arrow.down.to.line") { DownloadStore.shared.start(media, title: tab.title); showDownloads() }
-                }
-                #endif
             }
             Button("Einstellungen", systemImage: "gear", action: showSettings)
             Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
             if let host = URL(string: tab.address)?.host {
                 Button(browser.shouldBlock(URL(string: tab.address)) ? "Filter für diese Seite aus" : "Filter für diese Seite ein", systemImage: "shield") {
                     if let allowed = browser.options.allowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.allowlist.removeAll { $0 == allowed } } else { browser.options.allowlist.append(host) }
-                }
-            }
-            if let host = URL(string: tab.address)?.host {
-                Button(browser.shouldSponsor(URL(string: tab.address), page: URL(string: tab.address)) ? "SponsorBlock hier aus" : "SponsorBlock hier ein", systemImage: "forward.end") {
-                    if let allowed = browser.options.sponsorAllowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.sponsorAllowlist.removeAll { $0 == allowed } } else { browser.options.sponsorAllowlist.append(host) }
                 }
             }
             if let url = URL(string: tab.address) { ShareLink(item: url) }

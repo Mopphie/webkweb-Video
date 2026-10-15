@@ -24,12 +24,6 @@ final class BrowserIntegrationTests: XCTestCase {
         let saved = try JSONDecoder().decode(BrowserSessionSnapshot.self, from: XCTUnwrap(defaults.data(forKey: key)))
         XCTAssertEqual(saved.tabs.map(\.address), [first.address, second.address])
     }
-    func testNavigationRevisionInvalidatesOldPlayerActionsImmediately() {
-        let tab = BrowserTab(); defer { tab.close() }
-        let old = tab.navigationRevision
-        tab.load(URL(string: "https://example.com/next")!)
-        XCTAssertNotEqual(tab.navigationRevision, old)
-    }
     func testIntentRouterDrainsExactlyOnceInOrder() {
         // Isolate this queue from the live BrowserView subscriber, which drains the shared router.
         let router = IntentRouter()

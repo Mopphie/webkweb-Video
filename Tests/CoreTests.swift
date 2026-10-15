@@ -40,15 +40,6 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(YouTubeAddress.isWatchPage(nil))
     }
 
-    func testCastAcceptsOnlyDirectNonDRMNetworkMedia() {
-        XCTAssertNotNil(DirectMedia(source: "https://cdn.example.com/video.mp4", contentType: nil, encrypted: false))
-        XCTAssertNotNil(DirectMedia(source: "https://cdn.example.com/stream?id=1", contentType: "application/vnd.apple.mpegurl", encrypted: false))
-        XCTAssertNil(DirectMedia(source: "blob:https://youtube.com/id", contentType: "video/mp4", encrypted: false))
-        XCTAssertNil(DirectMedia(source: "https://cdn.example.com/video.mp4", contentType: nil, encrypted: true))
-        XCTAssertNil(DirectMedia(source: "https://youtube.com/watch?v=abcdefghijk", contentType: nil, encrypted: false))
-        XCTAssertNil(DirectMedia(source: "https://user:secret@example.com/video.mp4", contentType: nil, encrypted: false))
-    }
-
     func testDomainConverterPreservesExceptionScopeConservatively() throws {
         let text = """
         ! test source
@@ -66,9 +57,10 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(converted.skippedCount, 3)
         XCTAssertTrue(converted.json.contains("ads\\\\.example"))
         XCTAssertTrue(converted.json.contains("tracker"))
-        XCTAssertTrue(converted.json.contains("pagead"))
+        XCTAssertFalse(converted.json.contains("pagead"))
+        XCTAssertFalse(converted.json.contains("youtube"))
         let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(converted.json.utf8)) as? [[String: Any]])
-        XCTAssertEqual(rules.count, 9)
+        XCTAssertEqual(rules.count, 7)
         let allow = try XCTUnwrap(rules.last?["action"] as? [String: String])
         XCTAssertEqual(allow["type"], "ignore-previous-rules")
         let tracker = try XCTUnwrap(rules.first { rule in
@@ -143,9 +135,21 @@ final class CoreTests: XCTestCase {
     func testPreferencesRoundTripAndCloudDefaults() throws {
         var options = BrowserPreferences()
         options.gestures = true; options.history = false; options.searchEngine = .bing
-        options.allowlist = ["example.com"]; options.categories = ["intro"]
+        options.allowlist = ["example.com"]
         XCTAssertEqual(try JSONDecoder().decode(BrowserPreferences.self, from: JSONEncoder().encode(options)), options)
         XCTAssertFalse(BrowserPreferences().cloudSync)
+    }
+
+    func testUpgradeRemovesSuppliedMixedLicenseSourceButKeepsUserSources() throws {
+        var options = BrowserPreferences()
+        let old = FilterSource(title: "Old preset", address: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts")
+        let custom = FilterSource(title: "Own list", address: "https://example.com/owned-rules.txt")
+        let local = FilterSource(title: "Local import", address: old.address, localFile: "owned.txt")
+        options.sources = [old, custom, local]
+        let restored = try JSONDecoder().decode(BrowserPreferences.self, from: JSONEncoder().encode(options))
+        XCTAssertEqual(restored.sources.map(\.id), [custom.id, local.id])
+        XCTAssertEqual(restored.sources.last?.localFile, "owned.txt")
+        XCTAssertFalse(FilterSource.defaults.contains { $0.address.lowercased().contains("stevenblack") })
     }
 
     func testCurrentVideoSleepRejectsOtherMediaAndPersistsDeadline() throws {
@@ -157,15 +161,6 @@ final class CoreTests: XCTestCase {
         let restored = try JSONDecoder().decode(SleepPlan.self, from: JSONEncoder().encode(plan))
         XCTAssertEqual(restored.deadline, plan.deadline)
         XCTAssertTrue(restored.hasExpired(at: Date(timeIntervalSince1970: 1091)))
-    }
-
-    func testSponsorSegmentRejectsBadBoundsAndCategories() {
-        XCTAssertTrue(SponsorSegment(segment: [2, 5], category: "intro").isValid)
-        XCTAssertFalse(SponsorSegment(segment: [5, 2], category: "sponsor").isValid)
-        XCTAssertFalse(SponsorSegment(segment: [-1, 2], category: "outro").isValid)
-        XCTAssertFalse(SponsorSegment(segment: [0, .infinity], category: "selfpromo").isValid)
-        XCTAssertFalse(SponsorSegment(segment: [0, 2], category: "music_offtopic").isValid)
-        XCTAssertFalse(SponsorSegment(segment: [], category: "intro").isValid)
     }
 
     func testSleepCountsOnlyDistinctEventsFromArmedTab() {

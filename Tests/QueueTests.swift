@@ -46,25 +46,3 @@ final class QueueTests: XCTestCase {
         queue.repeatMode = .all; XCTAssertEqual(queue.next(automatic: true)?.id, item.id)
     }
 }
-
-#if !WEBKWEB_NO_DOWNLOADS
-@MainActor
-final class DownloadValidationTests: XCTestCase {
-    func testDownloadsRejectLoginHTMLAndStreamingManifests() throws {
-        let mp4 = try XCTUnwrap(DirectMedia(source: "https://example.com/video.mp4", contentType: "video/mp4", encrypted: false))
-        XCTAssertTrue(DownloadStore.supports(mp4))
-        XCTAssertTrue(DownloadStore.validResponse("video/mp4", expected: mp4))
-        XCTAssertTrue(DownloadStore.validResponse("application/octet-stream", expected: mp4))
-        XCTAssertFalse(DownloadStore.validResponse("text/html", expected: mp4))
-        XCTAssertFalse(DownloadStore.validResponse("application/vnd.apple.mpegurl", expected: mp4))
-        let hls = try XCTUnwrap(DirectMedia(source: "https://example.com/master.m3u8", contentType: "application/vnd.apple.mpegurl", encrypted: false))
-        XCTAssertFalse(DownloadStore.supports(hls))
-        let http = try XCTUnwrap(DirectMedia(source: "http://example.com/video.mp4", contentType: "video/mp4", encrypted: false))
-        XCTAssertFalse(DownloadStore.supports(http)) // Native ATS remains enforced.
-    }
-    func testFilenameCannotEscapeDownloadDirectory() {
-        let name = DownloadStore.filename(title: "../../secret/Hello:Film", type: "video/mp4", source: URL(string: "https://example.com/path")!)
-        XCTAssertFalse(name.contains("/")); XCTAssertFalse(name.contains("..")); XCTAssertTrue(name.hasSuffix(".mp4"))
-    }
-}
-#endif
