@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "--cast" ) ]]; then
-  echo "Aufruf: ./Scripts/check-macos.sh [--cast]" >&2
+if [[ $# -ne 0 ]]; then
+  echo "Aufruf: ./Scripts/check-macos.sh" >&2
   exit 2
 fi
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -24,13 +24,6 @@ fi
 if (( node_major < 18 )); then echo "Node.js 18+ erforderlich (gefunden: ${node_major})." >&2; exit 1; fi
 xcodegen generate
 project_args=(-project WebKWeb.xcodeproj)
-if [[ "${1:-}" == "--cast" ]]; then
-  command -v pod >/dev/null || { echo "Bitte CocoaPods installieren." >&2; exit 1; }
-  pod install
-  project_args=(-workspace WebKWeb.xcworkspace)
-elif [[ -f WebKWeb.xcworkspace/contents.xcworkspacedata ]]; then
-  project_args=(-workspace WebKWeb.xcworkspace)
-fi
 node --test Tests/*.test.cjs
 destination="${WEBKWEB_SIMULATOR_DESTINATION:-}"
 if [[ -z "$destination" ]]; then
@@ -50,5 +43,8 @@ fi
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/Tests-$(date +%s).xcresult" \
+  -test-timeouts-enabled YES \
+  -default-test-execution-time-allowance 120 \
+  -maximum-test-execution-time-allowance 180 \
   CODE_SIGNING_ALLOWED=NO test
 echo "Lokaler Simulator-Build und Tests erfolgreich. Gerätetests bleiben erforderlich."

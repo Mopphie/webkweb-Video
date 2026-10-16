@@ -82,25 +82,21 @@ enum YouTubeAddress {
     }
 }
 
-struct DirectMedia: Equatable {
-    let url: URL
-    let contentType: String
-
-    init?(source: String, contentType: String?, encrypted: Bool) {
-        guard !encrypted, let parts = URLComponents(string: source),
-              ["http", "https"].contains(parts.scheme?.lowercased() ?? ""),
-              let host = parts.host, !host.isEmpty,
-              parts.user == nil, parts.password == nil, let url = parts.url else { return nil }
-        let knownTypes = ["mp4": "video/mp4", "m4v": "video/mp4", "mov": "video/quicktime",
-                          "m3u8": "application/x-mpegURL", "webm": "video/webm",
-                          "mp3": "audio/mpeg", "m4a": "audio/mp4"]
-        let declared = contentType?.split(separator: ";").first.map(String.init)?.lowercased()
-        guard let mime = declared.flatMap({ value in
-            (value.hasPrefix("video/") || value.hasPrefix("audio/") ||
-             ["application/x-mpegurl", "application/vnd.apple.mpegurl"].contains(value)) ? value : nil
-        }) ?? knownTypes[url.pathExtension.lowercased()] else { return nil }
-        self.url = url
-        self.contentType = mime
+/// A user's exit applies to this watch item, including its SPA/BFCache returns.
+/// A different watch item may use the compact presentation again.
+struct WatchPresentationState {
+    private(set) var dismissedVideoID: String?
+    func isImmersive(at url: URL?) -> Bool {
+        YouTubeAddress.isWatchPage(url) && YouTubeAddress.videoID(in: url) != dismissedVideoID
+    }
+    mutating func dismiss(at url: URL?) { dismissedVideoID = YouTubeAddress.videoID(in: url) }
+    mutating func show() { dismissedVideoID = nil }
+    static func exitURL(previous: URL?) -> URL {
+        if let previous, let host = previous.host?.lowercased(),
+           ["https", "http"].contains(previous.scheme ?? ""),
+           previous.user == nil, previous.password == nil,
+           host == "youtube.com" || host.hasSuffix(".youtube.com") { return previous }
+        return URL(string: "https://m.youtube.com/")!
     }
 }
 

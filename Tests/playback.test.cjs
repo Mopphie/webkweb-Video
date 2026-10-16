@@ -11,11 +11,11 @@ function element(tag='VIDEO', options={}) {
   end(){this.ended=true;this.paused=true;listeners.ended?.();}
  },options);
 }
-function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk') {
+function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk',startPaused=false) {
  const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[]; let tick,mutation,clock=Date.now(),queries=0;
  const location=new URL(url);
  const document={title:'Video',baseURI:url,hidden:false,querySelector(){return null;},querySelectorAll(s){queries++;return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
- const sandbox={URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
+ const sandbox={__webkwebStartPaused:startPaused,URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
   window:{webkit:{messageHandlers:{playback:{postMessage(v){messages.push(v);}}}},addEventListener(n,h){windowEvents[n]=h;}},
   setInterval(fn){tick=fn;return 1;},MutationObserver:class {constructor(fn){mutation=fn;}observe(){}}
  };
@@ -23,33 +23,12 @@ function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefgh
  return {api:sandbox.__webkweb,nodes,messages,location,document,documentEvents,windowEvents,shadowHosts,
   tick(){clock+=1000;tick();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
 }
-const segments=[{category:'intro',segment:[2,8]}];
-test('SponsorBlock defaults off; state includes valid source and document/media IDs',()=>{
- const h=harness();assert.ok(h.state().documentID);assert.ok(h.state().mediaID);assert.equal(h.state().source,h.nodes[0].currentSrc);
- h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
+test('state includes document and media IDs without exporting direct media URLs',()=>{
+ const h=harness();assert.ok(h.state().documentID);assert.ok(h.state().mediaID);assert.equal(h.state().hasMedia,true);
+ assert.equal(h.state().source,undefined);assert.equal(h.state().contentType,undefined);
 });
-test('selected category skips a matching segment',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,8);
-});
-test('category exclusions leave playback unchanged',()=>{
- const h=harness();h.api.setSponsorBlock(true,['sponsor']);h.api.setSegments('abcdefghijk',segments);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
-});
-test('SPA clears stale segments and accepts refreshed new-video segments',()=>{
- const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);
- h.location.href='https://m.youtube.com/watch?v=12345678901';h.tick();h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
- h.api.setSegments('abcdefghijk',segments);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
- h.api.setSegments('12345678901',segments);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,8);
-});
-test('spoofed YouTube host cannot use segments',()=>{
- const h=harness(undefined,'https://youtube.com.evil.example/watch?v=abcdefghijk');h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
-});
-test('invalid bounds/categories are rejected and seek is clamped',()=>{
- const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',[{category:'intro',segment:[-2,8]},{category:'sponsor',segment:[8,2]},{category:'unknown',segment:[2,8]}]);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
- h.api.seek(-999);assert.equal(h.nodes[0].currentTime,0);h.api.seek(999);assert.equal(h.nodes[0].currentTime,100);
+test('ordinary seek remains clamped to media duration',()=>{
+ const h=harness();h.api.seek(-999);assert.equal(h.nodes[0].currentTime,0);h.api.seek(999);assert.equal(h.nodes[0].currentTime,100);
 });
 test('live seek stays in seekable range',()=>{
  const h=harness([element('VIDEO',{duration:Infinity,currentTime:150,seekable:{length:1,start:()=>100,end:()=>200}})]);
@@ -58,6 +37,53 @@ test('live seek stays in seekable range',()=>{
 test('timer pause prevents original autoplay until explicit native resume',()=>{
  const h=harness();h.api.pause(true);h.nodes[0].play();assert.equal(h.nodes[0].paused,true);
  h.api.resume();assert.equal(h.nodes[0].paused,false);
+});
+test('trusted semantic website Play releases stop and acknowledges native state',()=>{
+ const v=element(),h=harness([v]),button={tagName:'BUTTON',textContent:'Play'},container={querySelectorAll:()=>[v]};h.api.pause(true);
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[button,container]});v.play();
+ assert.equal(v.paused,false);assert.equal(h.state().playing,true);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+ assert.equal(h.messages.find(m=>m.kind==='userplay').mediaID,h.state().mediaID);
+});
+test('synthetic website clicks and programmatic autoplay cannot release stop',()=>{
+ const v=element(),h=harness([v]),button={tagName:'BUTTON',textContent:'Play'},container={querySelectorAll:()=>[v]};h.api.pause(true);
+ h.documentEvents.click({isTrusted:false,composedPath:()=>[button,container]});v.play();
+ assert.equal(v.paused,true);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+});
+test('trusted native video controls can resume but old input expires',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[v]});
+ h.advance(1501);v.play();assert.equal(v.paused,true);
+ h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[v]});v.play();assert.equal(v.paused,false);
+});
+test('play intent only authorizes its own player and ignores unrelated buttons',()=>{
+ const main=element(),small=element('VIDEO',{width:16,height:16}),h=harness([main,small]);h.api.pause(true);
+ const other={tagName:'BUTTON',textContent:'Subscribe'},container={querySelectorAll:()=>[main]};
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[other,container]});main.play();assert.equal(main.paused,true);
+ h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[main]});small.play();assert.equal(small.paused,true);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+ main.play();assert.equal(main.paused,false);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+});
+test('keyboard Play and quiet restore bootstrap use the same explicit intent boundary',()=>{
+ const v=element(),h=harness([v],'https://example.com/player',true);assert.equal(v.paused,true);v.play();assert.equal(v.paused,true);
+ const button={tagName:'BUTTON',textContent:'Abspielen'},container={querySelectorAll:()=>[v]};
+ h.documentEvents.keydown({key:'Enter',isTrusted:true,composedPath:()=>[button,container]});v.play();assert.equal(v.paused,false);
+});
+test('isolated host touch only arms media at its rectangle and never starts playback itself',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.api.noteHostTouch({x:0.9,y:0.9});v.play();assert.equal(v.paused,true);
+ h.api.noteHostTouch({x:0.1,y:0.1});assert.equal(v.paused,true);v.play();assert.equal(v.paused,false);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+});
+test('invalid or stale host touches do not release timer stop',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ for(const point of [{x:-1,y:0},{x:NaN,y:0},{x:0,y:Infinity},{x:2,y:0}]){h.api.noteHostTouch(point);v.play();assert.equal(v.paused,true);}
+ h.api.noteHostTouch({x:0.1,y:0.1});h.advance(1501);v.play();assert.equal(v.paused,true);
+});
+test('timer tick between synchronous play and its queued event preserves fresh explicit intent',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[v]});
+ // HTMLMediaElement.play sets paused=false before dispatching its play event.
+ v.paused=false;h.tick();assert.equal(v.paused,false);
+ v.listeners.play();assert.equal(v.paused,false);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
 });
 test('new already-playing autoplay video is paused immediately after insertion',()=>{
  const h=harness();h.api.pause(true);const next=element();h.add(next);assert.equal(next.paused,true);
@@ -84,31 +110,12 @@ test('end deduplication and replay produce distinct IDs',()=>{
 test('same-location iframe documents have distinct identities',()=>{
  const a=harness(),b=harness();assert.notEqual(a.state().documentID,b.state().documentID);
 });
-test('source MIME matches currentSrc rather than first source',()=>{
- const sources=[{src:'https://cdn.example/first',type:'video/mp4'},{src:'https://cdn.example/chosen',type:'application/vnd.apple.mpegurl'}];
- const h=harness([element('VIDEO',{sources,currentSrc:sources[1].src})]);assert.equal(h.state().contentType,'application/vnd.apple.mpegurl');
-});
-test('DRM state resets for a new unencrypted source and media ID changes',()=>{
- const h=harness();h.nodes[0].listeners.encrypted();assert.equal(h.state().encrypted,true);const before=h.state().mediaID;
- h.nodes[0].currentSrc='https://cdn.example/clear.mp4';h.tick();assert.equal(h.state().encrypted,false);assert.notEqual(h.state().mediaID,before);
+test('a replacement source receives a new media identity',()=>{
+ const h=harness();const before=h.state().mediaID;
+ h.nodes[0].currentSrc='https://cdn.example/replacement.mp4';h.tick();assert.notEqual(h.state().mediaID,before);
 });
 test('open shadow root media is detected',()=>{
  const h=harness([]),v=element();h.shadowHosts.push({shadowRoot:{querySelectorAll(s){return s==='*'?[]:[v];}}});h.advance(16000);h.tick();assert.equal(h.state().hasMedia,true);
-});
-test('manual skip and undo restore position without immediately reskipping',()=>{
- const h=harness();h.api.setSponsorBlock(true);h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;
- h.api.skip();assert.equal(h.nodes[0].currentTime,8);assert.equal(h.state().canUndo,true);
- h.api.undoSkip();assert.equal(h.nodes[0].currentTime,4);h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);
-});
-test('manual SponsorBlock skip never seeks an audio-only player',()=>{
- const audio=element('AUDIO',{currentSrc:'https://cdn.example/sound.mp3',currentTime:4}),h=harness([audio]);
- h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.api.skip();
- assert.equal(audio.currentTime,4);assert.equal(h.state().canUndo,false);
-});
-test('manual SponsorBlock skip rejects stale video segments before SPA tick',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);
- h.location.href='https://m.youtube.com/watch?v=12345678901';h.nodes[0].currentTime=4;h.api.skip();
- assert.equal(h.nodes[0].currentTime,4);assert.equal(h.state().canUndo,false);
 });
 test('pagehide sends disposal for precisely the same document',()=>{
  const h=harness();const id=h.state().documentID;h.windowEvents.pagehide();const disposal=h.messages.at(-1);assert.equal(disposal.kind,'dispose');assert.equal(disposal.documentID,id);
@@ -170,6 +177,15 @@ test('waiting recovery respects timer latch and preserves mute',()=>{
  h.api.pause(true);h.api.recover();assert.equal(v.paused,true);h.api.clearStop();h.api.recover();assert.equal(v.paused,false);assert.equal(v.muted,true);
  v.listeners.playing();assert.equal(h.state().waiting,false);
 });
+test('paused or ended players never retain a stale buffering indicator',()=>{
+ const v=element('VIDEO',{readyState:2}),h=harness([v]);v.listeners.waiting();assert.equal(h.state().waiting,true);
+ v.pause();assert.equal(h.state().waiting,false);
+ v.play();v.listeners.waiting();v.end();assert.equal(h.state().waiting,false);
+});
+test('stalled network event does not mark an already buffered playing video as loading',()=>{
+ const v=element('VIDEO',{readyState:4}),h=harness([v]);v.listeners.stalled();
+ assert.equal(h.state().waiting,false);assert.equal(h.state().playing,true);
+});
 test('foreground ticks avoid whole-DOM queries until sparse discovery',()=>{
  const h=harness(),before=h.queries();for(let i=0;i<10;i++)h.tick();assert.equal(h.queries(),before);
  h.advance(15000);h.tick();assert.ok(h.queries()>before);
@@ -182,14 +198,6 @@ test('Shorts opt-in rejects route on genuine YouTube only',()=>{
  const h=harness(undefined,'https://m.youtube.com/shorts/abcdefghijk');let redirected='';h.location.replace=url=>{redirected=url;};h.api.setOptions({hideShorts:true});assert.equal(redirected,'https://m.youtube.com/');
  const fake=harness(undefined,'https://youtube.com.evil.example/shorts/abcdefghijk');let fakeRedirect=false;fake.location.replace=()=>{fakeRedirect=true;};fake.api.setOptions({hideShorts:true});assert.equal(fakeRedirect,false);
 });
-test('category change immediately removes already loaded sponsor segments from auto and manual skip',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.api.setSponsorBlock(true,['sponsor']);
- h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();assert.equal(h.nodes[0].currentTime,4);h.api.skip();assert.equal(h.nodes[0].currentTime,4);
-});
-test('disabling SponsorBlock clears undo and loaded skip segments immediately',()=>{
- const h=harness();h.api.setSponsorBlock(true,['intro']);h.api.setSegments('abcdefghijk',segments);h.nodes[0].currentTime=4;h.api.skip();assert.equal(h.state().canUndo,true);
- h.api.setSponsorBlock(false);assert.equal(h.state().canUndo,false);h.nodes[0].currentTime=4;h.nodes[0].listeners.timeupdate();h.api.skip();assert.equal(h.nodes[0].currentTime,4);
-});
 test('repeat identifies the ended primary instead of restarting a surviving loop player',()=>{
  const main=element(),loop=element('VIDEO',{width:16,height:16,loop:true,currentTime:33}),h=harness([main,loop]),id=h.state().mediaID;
  main.end();h.api.restart(id);assert.equal(main.paused,false);assert.equal(main.currentTime,0);assert.equal(loop.currentTime,33);
@@ -201,4 +209,26 @@ test('stale repeat identity and timer stop never restart another source',()=>{
 test('audio demand reports all active elements until every asynchronous pause is acknowledged',()=>{
  const main=element(),audio=element('AUDIO'),h=harness([main,audio]);main.pause();assert.equal(h.state().playing,false);assert.equal(h.state().anyPlaying,true);
  audio.pause();assert.equal(h.state().anyPlaying,false);
+});
+
+test('timer pause immediately finds a player added to an existing open shadow root',()=>{
+ const h=harness([]),video=element();
+ h.shadowHosts.push({shadowRoot:{querySelectorAll(selector){return selector==='*'?[]:[video];}}});
+ h.api.pause(true);assert.equal(video.paused,true);
+});
+test('explicit resume and fullscreen find late open-shadow media without waiting for discovery tick',()=>{
+ let fullscreen=0;const h=harness([]),video=element('VIDEO',{paused:true,webkitEnterFullscreen(){fullscreen++;}});
+ h.shadowHosts.push({shadowRoot:{querySelectorAll(selector){return selector==='*'?[]:[video];}}});
+ h.api.resume();assert.equal(video.paused,false);h.api.fullscreen();assert.equal(fullscreen,1);
+});
+test('pointer selection registers newly exposed shadow media before controlling it',()=>{
+ const main=element(),shadow=element('VIDEO',{width:32,height:32}),h=harness([main]);
+ h.documentEvents.pointerdown({composedPath:()=>[shadow]});h.api.seek(10);
+ assert.equal(shadow.currentTime,10);assert.equal(main.currentTime,0);
+});
+test('background timeupdate events retain sparse heartbeat but publish real pauses immediately',()=>{
+ const h=harness();h.api.setBackground(true);const start=h.messages.length;
+ for(let i=0;i<10;i++){h.advance(1000);h.nodes[0].listeners.timeupdate();}
+ assert.equal(h.messages.slice(start).filter(message=>message.kind==='state').length,2);
+ h.nodes[0].pause();assert.equal(h.state().playing,false);
 });

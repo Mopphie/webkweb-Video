@@ -44,3 +44,10 @@ test('presentation is not injected into embedded players',()=>{
 test('repeated route refresh does not duplicate style elements',()=>{
  const h=harness('https://m.youtube.com/watch?v=abcdefghijk');for(let i=0;i<20;i++)h.api.update();assert.equal(h.styles.size,1);
 });
+test('native exit restores original website masthead and survives SPA and BFCache updates',()=>{
+ const h=harness('https://m.youtube.com/watch?v=abcdefghijk');h.styles.set('site-style',{id:'site-style'});
+ h.api.setImmersive(false);assert.equal(h.watch(),false);assert.ok(h.styles.has('site-style'));assert.equal(h.styles.size,1);
+ h.documentEvents['yt-navigate-finish']();h.windowEvents.pageshow();h.windowEvents.popstate();assert.equal(h.watch(),false);
+ assert.equal(h.content.title,'Real site title');assert.equal(h.content.comments[0],'Real site comment');
+ h.api.setImmersive(true);assert.equal(h.watch(),true);assert.equal(h.styles.size,2);
+});

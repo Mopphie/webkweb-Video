@@ -31,7 +31,5 @@
   <key>NSAppTransportSecurity</key><dict>
     <key>NSAllowsArbitraryLoadsInWebContent</key><true/>
   </dict>
-  <key>NSLocalNetworkUsageDescription</key><string>Ein optionaler Cast-Build sucht nach Fernsehern und Cast-Geräten in deinem lokalen Netzwerk.</string>
-  <key>NSBonjourServices</key><array><string>_googlecast._tcp</string><string>_CC1AD845._googlecast._tcp</string></array>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
 </dict></plist>

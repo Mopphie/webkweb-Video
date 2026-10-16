@@ -59,6 +59,7 @@ def main():
     if uuids[0] == uuids[1]:
         fail('app and widget must use separate profiles')
     options = {'method': 'app-store-connect', 'destination': 'export',
+               'manageAppVersionAndBuildNumber': False,
                'signingStyle': 'manual', 'teamID': TEAM,
                'signingCertificate': 'Apple Distribution',
                'provisioningProfiles': dict(zip(BUNDLES, uuids))}

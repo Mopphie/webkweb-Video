@@ -10,7 +10,49 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertFalse(tab.webView.configuration.websiteDataStore.isPersistent)
         tab.close()
     }
-    func testRestoredTabsRequireUserActionAndKeepPendingAddresses() throws {
+    func testPlayerDiagnosticsExcludePrivatePagesCredentialsQueriesAndTitles() throws {
+        for privateMode in [false, true] {
+            let tab = BrowserTab(isPrivate: privateMode); defer { tab.close() }
+            tab.address = "https://alice:secret@example.com/watch?v=private-token#fragment"
+            tab.title = "Confidential page title"
+            for _ in 0..<60 { tab.notePlaybackEvent("native.play") }
+            let report = tab.mediaDiagnosticReport()
+            for value in ["alice", "secret", "private-token", "fragment", "Confidential page title", "https://"] {
+                XCTAssertFalse(report.contains(value))
+            }
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
+            XCTAssertEqual(json["site"] as? String, privateMode ? "private" : "example.com")
+            XCTAssertEqual((json["events"] as? [[String: String]])?.count, 40)
+        }
+    }
+    func testPrivatePopupRetainsConfiguredWebsiteDataStore() {
+        let configuration = WKWebViewConfiguration()
+        let existingStore = WKWebsiteDataStore.nonPersistent()
+        configuration.websiteDataStore = existingStore
+        let popup = BrowserTab(isPrivate: true, configuration: configuration)
+        defer { popup.close() }
+        XCTAssertTrue(popup.webView.configuration.websiteDataStore === existingStore)
+        XCTAssertTrue(popup.webView.customUserAgent?.isEmpty ?? true,
+                      "Use WebKit's native identity without a custom agent override")
+    }
+    func testCommittedDocumentReplacesPendingAddressForReloadAndRestore() async throws {
+        let tab = BrowserTab(isPrivate: true)
+        defer { tab.close() }
+        tab.load(URL(string: "https://pending.example/original")!)
+        tab.cancelPendingLoad()
+        let destination = URL(string: "https://committed.example/final")!
+        tab.webView.loadHTMLString("<html><body>committed</body></html>", baseURL: destination)
+        var ready = false
+        for _ in 0..<100 {
+            if !tab.webView.isLoading, tab.address == destination.absoluteString,
+               let text = try? await tab.webView.evaluateJavaScript("document.body.textContent") as? String,
+               text == "committed" { ready = true; break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertTrue(ready, "Committed WebKit document did not load")
+        XCTAssertEqual(tab.sessionAddress, destination.absoluteString)
+    }
+    func testRestoredTabsKeepNormalPolicyQuietBootstrapAndPendingAddresses() throws {
         let defaults = UserDefaults.standard, key = "browserSessionV2"
         let old = defaults.data(forKey: key), oldOptions = defaults.data(forKey: PreferencesStorage.key)
         defer { defaults.set(old, forKey: key); defaults.set(oldOptions, forKey: PreferencesStorage.key) }
@@ -19,16 +61,13 @@ final class BrowserIntegrationTests: XCTestCase {
         let second = TabSnapshot(id: UUID(), address: "https://example.com/second", title: "Second")
         defaults.set(try JSONEncoder().encode(BrowserSessionSnapshot(tabs: [first, second], selected: first.id)), forKey: key)
         let browser = BrowserModel(); defer { browser.tabs.forEach { $0.close() } }
-        for tab in browser.tabs { XCTAssertEqual(tab.webView.configuration.mediaTypesRequiringUserActionForPlayback, .all) }
+        for tab in browser.tabs {
+            XCTAssertEqual(tab.webView.configuration.mediaTypesRequiringUserActionForPlayback, [])
+            XCTAssertTrue(tab.webView.configuration.userContentController.userScripts.contains { $0.source == "globalThis.__webkwebStartPaused = true" })
+        }
         browser.persistSession()
         let saved = try JSONDecoder().decode(BrowserSessionSnapshot.self, from: XCTUnwrap(defaults.data(forKey: key)))
         XCTAssertEqual(saved.tabs.map(\.address), [first.address, second.address])
-    }
-    func testNavigationRevisionInvalidatesOldPlayerActionsImmediately() {
-        let tab = BrowserTab(); defer { tab.close() }
-        let old = tab.navigationRevision
-        tab.load(URL(string: "https://example.com/next")!)
-        XCTAssertNotEqual(tab.navigationRevision, old)
     }
     func testIntentRouterDrainsExactlyOnceInOrder() {
         // Isolate this queue from the live BrowserView subscriber, which drains the shared router.

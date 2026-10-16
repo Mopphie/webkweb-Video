@@ -1,24 +1,23 @@
 # DevnTube (internes Xcode-Ziel: WebKWeb)
 
-Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Entwicklungsversion mit noch ausstehenden Apple-Build- und Gerätetests.
+Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; **[TestFlight 0.1.0 (Build 5)](https://appstoreconnect.apple.com/apps/6822711093/testflight)** erfolgreich hochgeladen und von Apple mit `VALID / READY_FOR_BETA_TESTING` bestätigt. [46 native Tests und 3 UI-Tests bestanden](https://github.com/Mopphie/webkweb-Video/actions/runs/38880644099), einschließlich längerer Wiedergabe mit Ton und Resume nach Pause. Die Zuordnung zur bestehenden internen Testgruppe konnte der API-Schlüssel nicht durchführen oder prüfen; falls der Build nicht erscheint, ist sie in App Store Connect nachzuholen. Die konkrete YouTube-Wiedergabe am Nutzergerät bleibt zu bestätigen.
 
 Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und Favoriten/Verlauf/Timer/Einstellungen. Alle acht Startseiten-Icons sind schlichte lokale Glyphs ohne Glass-/Materialflächen oder Randblasen. Die transparente Trefferfläche bleibt groß; Suchpille und funktionale Browserbuttons behalten ihr Material. Lokale Icons erzeugen keine Favicon-Anfragen. Mit iOS-26-SDK/Compiler 6.2 nutzt die Oberfläche Liquid Glass, sonst Systemmaterial. Transparenz reduzieren, große Schrift und iPad erhalten eigene Layoutanpassungen.
 
 ## Funktionen
 
 - URL oder Suche mit Google, DuckDuckGo oder Bing; `canOpenURL`, Zurück/Vorwärts, Teilen, Popup-Tabs und normale Tab-Wiederherstellung. URLs mit Zugangsdaten werden nicht als Suchbegriff übertragen. Private Tabs verwenden einen eigenen nicht persistenten WebKit-Speicher und erscheinen weder im Verlauf noch im wiederhergestellten Zustand.
-- Mobiler oder Desktop-Safari-User-Agent und Seitenzoom. Inline/Autoplay/PiP/AirPlay sind konfiguriert. Eine isolierte Bridge steuert HTML-Medien auch in Frames und offenen Shadow Roots; native Play/Pause/Seek, Systemlautstärke und optionale Gestenfläche.
-- Mehrteilige WebKit-Netzwerkfilter ohne alphabetische Domainbegrenzung, unverlierbare Basisregeln und YouTube-Ad-Endpunkte. AdGuard DNS, HaGeZi und StevenBlack sind auswählbare Quellen; HTTPS-Quellen und Textimport, tägliche Vordergrund-/manuelle Updates, Quellcache, Diagnose und Seiten-Ausnahmen sind vorhanden. Unterstützte AdGuard/EasyList-Netzwerkregeln und Ausnahmen werden konservativ übersetzt; unbekannte Ausnahmen verwerfen die Quelle. Keine Scriptlets oder vollständige EasyList-Kompatibilität.
-- Optionales SponsorBlock: vier Kategorien, eingebettete YouTube-Player, SPA-Wechsel, Seiten-Ausnahmen sowie Skip und Rückgängig. Standardmäßig aus; native cookie-freie Abfragen.
+- Öffentliche mobile/Desktop-WebKit-Inhaltspräferenz mit echter aktueller Browserkennung und Seitenzoom. Inline/Autoplay/PiP/AirPlay sind konfiguriert. Eine isolierte Bridge steuert HTML-Medien auch in Frames und offenen Shadow Roots; native Play/Pause/Seek, Systemlautstärke und optionale Gestenfläche.
+- Mehrteilige WebKit-Netzwerkfilter ohne alphabetische Domainbegrenzung, unverlierbare Basisregeln ohne dienstspezifische YouTube-Ad-Endpunkte. AdGuard DNS und HaGeZi sind auswählbare Quellen; HTTPS-Quellen und Textimport, tägliche Vordergrund-/manuelle Updates, Quellcache, Diagnose und Seiten-Ausnahmen sind vorhanden. Unterstützte AdGuard/EasyList-Netzwerkregeln und Ausnahmen werden konservativ übersetzt; unbekannte Ausnahmen verwerfen die Quelle. Keine Scriptlets oder vollständige EasyList-Kompatibilität.
 - Sleep-Timer mit freier Dauer bis 24 Stunden, Anzahl primärer Videos oder Ende des aktuellen Videos. Nach Ablauf verhindert eine lokale Sperre auch Autoplay neu eingefügter Player. Zeit-/Anzahlpläne normaler Tabs werden wiederhergestellt; ein Plan für den alten konkreten Player wird beim Neustart verworfen und gemeldet.
 - SwiftData-Verlauf mit abschaltbarer Aufzeichnung und maximal 500 nicht favorisierten Einträgen; Favoriten bearbeiten/sortieren. Geteilte Favoriten werden bei Besuchen, Bearbeitung und iCloud-Änderungen für Siri und das konfigurierbare Widget aktualisiert. Cookie-/Website-Daten-Löschen schließt vorher die aktiven Dokumente.
 - Vier App Intents/Siri-Kurzbefehle, Sperrbildschirm-Medienmetadaten, Remote Play/Pause/Stop/Seek und Audio-Unterbrechungsbehandlung. Private Seitentitel erscheinen nicht in Now Playing.
-- Echter optionaler Google-Cast-SDK-Build: Geräteauswahl, direkte Medienquelle mit passendem MIME-Typ, Receiver-Status, Fehler, Play/Pause/Seek/Trennen und Übergabe erst nach erfolgreicher Ladeanfrage. Standardbuild ohne Cast-Abhängigkeit.
+- Audio-Unterbrechungen setzen keine dauerhafte Autoplay-Sperre. Webseiten-Play behält WebKits Audiositzung; die App aktiviert ihre eigene Sitzung bei ausdrücklichem nativem Play. Eine freiwillige lokale Playerdiagnose enthält Zustände und höchstens 40 Ereignisse, ohne vollständige URLs, Titel oder Cookies.
 - Optionales CloudKit für Verlauf/Favoriten mit CloudKit-tauglichem Modell. Erst nach Konfiguration eines echten, provisionierten Containers aktivierbar; Umschalten gilt beim Neustart. Private Tabs und Browsersitzungen werden nicht synchronisiert.
 
 ## YouTube-Watch-Ansicht
 
-Auf echten YouTube-`/watch?v=...`-Seiten entfällt die App-Adress-/Tab-/Player-/Timer-/Fußleiste. Der echte WKWebView zeigt YouTubes Player, ein-/ausblendbare Controls, Titel, Kanal, Abos, Aktionen, Kommentare und Empfehlungen. Ein deckend roter 44-pt-Menübutton liegt unten rechts innerhalb der Safe Area (14 pt rechts/18 pt unten); Navigation, Adresse, Tabs und App-Funktionen liegen im Menü. Masthead und Playerrahmen werden über begrenzte öffentliche DOM/CSS-Anpassungen gestaltet; die App erzeugt keine eigenen YouTube-Inhaltskarten. Routewechsel per SPA/History/BFCache entfernen oder erneuern die Anpassung. Andere Webseiten behalten ihre Browseroberfläche. YouTube-Layout/A/B-Varianten und reale Apple-Darstellung müssen auf Geräten geprüft werden; keine pixelgenaue Zusage.
+Auf echten YouTube-`/watch?v=...`-Seiten entfällt die App-Adress-/Tab-/Player-/Timer-/Fußleiste. Der echte WKWebView zeigt YouTubes Player, ein-/ausblendbare Controls, Titel, Kanal, Abos, Aktionen, Kommentare und Empfehlungen. Ein deckend roter 44-pt-Menübutton liegt unten rechts innerhalb der Safe Area (14 pt rechts/18 pt unten) und öffnet ein modales Bedienfeld. Zurück und YouTube-Start sind zusätzlich direkt erreichbar; Abwärtsswipe aus dem oberen Videobereich verlässt die Videoansicht. „Normale YouTube-Ansicht“ stellt Website-Masthead und Browserleisten derselben Seite wieder her. Adresse, Tabs und weitere App-Funktionen liegen im Bedienfeld. Masthead und Playerrahmen werden über begrenzte öffentliche DOM/CSS-Anpassungen gestaltet; die App erzeugt keine eigenen YouTube-Inhaltskarten. Routewechsel per SPA/History/BFCache entfernen oder erneuern die Anpassung. Andere Webseiten behalten ihre Browseroberfläche. YouTube-Layout/A/B-Varianten und reale Apple-Darstellung müssen auf Geräten geprüft werden; keine pixelgenaue Zusage.
 
 Erneuter Funktionsaudit vom 14.10.2026: [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md). HIG-/App-Review-Prüfung und konkrete offene Release-Bedingungen: [APP-REVIEW-DESIGN.md](Docs/APP-REVIEW-DESIGN.md). Öffentlich erreichbare Privacy-/Support-URL und Betreiberkontakt sind statisch über die historisch benannten Schlüssel `WebKWebPrivacyURL`, `WebKWebSupportURL`, `WebKWebOperatorContact` in `App/Info.plist` hinterlegt. Diese Angaben sind nicht vom App-Endnutzer editierbar. Die In-App-Datenschutzhinweise bleiben verfügbar.
 
@@ -26,7 +25,7 @@ Erneuter Funktionsaudit vom 14.10.2026: [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md). H
 
 Im Menü erreichbar: lokale URL-/Favoriten-Queue mit vollständigem Shuffle und Repeat Aus/Ein/Alle, Next/Previous über RemoteCommands; Hintergrund-Linköffnung per Longpress. Playeroptionen bieten getrenntes Vollbild/PiP, Geschwindigkeit, verfügbare HTML-Untertitel-/Audiospuren und Buffering-/Fehleranzeige. Auto-PiP, Shorts-Ausblenden und Original-Audio sind optionale Einstellungen. Kein interner YouTube-API-Zugriff oder erfundener 1080p-Schalter.
 
-**Nur Entwicklungsbuild:** Direkte HTTPS-Audio-/Videodateien lassen sich in Debug herunterladen, abbrechen, erneut laden, teilen und löschen. Der Vordergrunddownload nutzt keine Browser-Cookies, prüft HTTP/MIME und lehnt Streaming-Manifeste ab. Mangels belegter Drittquellenrechte ist der Downloader im einheitlichen Release-Build für alle Nutzer per `WEBKWEB_NO_DOWNLOADS` aus dem kompilierten Produkt ausgeschlossen; die Mac-Binärprüfung steht noch aus. [Variante und Prüfpfad](Docs/NO-DOWNLOAD-VARIANT.md). Keine Stream-/DRM-Extraktion und kein garantierter Hintergrunddownload.
+Native Medien-Downloads, SponsorBlock und Google Cast wurden vollständig aus allen Konfigurationen entfernt. Bereits früher lokal gespeicherte Nutzerdateien bleiben unangetastet. [Entfernung und Prüfpfad](Docs/NO-DOWNLOAD-VARIANT.md); [Kommerzielle Nutzung und Lizenzbedingungen](Docs/COMMERCIAL-USE.md).
 
 Die Bridge verwaltet Medien über Mutationserfassung und cached Nodes; offene Shadow Roots werden sichtbar höchstens alle 15 Sekunden zusätzlich gesucht. Nicht sichtbare Frames senden nur alle fünf Sekunden einen Heartbeat. Diese DOM-/Nachrichtenreduktion wurde im Harness geprüft; tatsächliche CPU/Batterie/CarPlay/TV/Rotation bleiben Gerätetests. Vergleich und kurzer Funktionsaudit: [VIDEO-LITE-COMPARISON.md](Docs/VIDEO-LITE-COMPARISON.md).
 
@@ -40,9 +39,9 @@ xcodegen generate
 open WebKWeb.xcodeproj
 ```
 
-Für App und Widget dasselbe Development Team setzen. Die expliziten IDs `de.mopphie.devntube` und `de.mopphie.devntube.favorites` sowie die Gruppe `group.de.mopphie.devntube` sind im Apple-Portal unter Team `HUN9MS832X` registriert; die App-Group-Zuordnung beider Kennungen wurde nach erneutem Öffnen geprüft. Bundle-IDs, beide Entitlements und `FavoriteStorage.groupID` stimmen damit im Quellcode überein. App-Store-Profile und echte Geräte-Signierung stehen noch aus.
+Für App und Widget dasselbe Development Team setzen. Die expliziten IDs `de.mopphie.devntube` und `de.mopphie.devntube.favorites` sowie die Gruppe `group.de.mopphie.devntube` sind im Apple-Portal unter Team `HUN9MS832X` registriert; die App-Group-Zuordnung beider Kennungen wurde nach erneutem Öffnen geprüft. Bundle-IDs, beide Entitlements und `FavoriteStorage.groupID` stimmen damit im Quellcode überein. Beide App-Store-Profile und das Zertifikat wurden beim erfolgreichen signierten TestFlight-Build 5 geprüft. Echte Gerätetests bleiben erforderlich.
 
-Optionales Cast benötigt CocoaPods und den vorhandenen `Podfile`; [CAST.md](Docs/CAST.md) enthält den Workspace-Build. Für CloudKit eine bereits im eigenen Apple-Konto angelegte Container-ID konfigurieren:
+Für CloudKit eine bereits im eigenen Apple-Konto angelegte Container-ID konfigurieren:
 
 ```bash
 ./Scripts/configure-cloudkit.py --container DEINE_BEREITS_PROVISIONIERTE_ICLOUD_CONTAINER_ID
@@ -51,17 +50,16 @@ xcodegen generate
 
 Der Parameter muss eine echte `iCloud.*`-ID sein. Das Skript setzt Plist/Entitlements; iCloud-, Push- und App-Group-Capabilities sowie Signierung bleiben im Apple-Portal einzurichten. In den App-Einstellungen anschließend iCloud aktivieren und neu starten. Derselbe lokale SwiftData-Store wird verwendet; beim Ausfall startet die App lokal mit einer Meldung. Vor Produktivnutzung Migration und Zwei-Geräte-Sync prüfen.
 
-## Lokal prüfen – keine GitHub Actions
+## Lokal prüfen
 
-Es gibt keine Workflows. **GitHub Actions dürfen nur mit ausdrücklichem OK des Nutzers eingerichtet oder ausgeführt werden.**
+Der TestFlight-Workflow unterstützt manuellen Dispatch und den ausdrücklich beauftragten Release-Branch `codex/testflight-2026-10-16`; normale Entwicklungs-/Main-Pushes laden nichts zu Apple hoch. **Seit 16.10.2026 sind GitHub Actions für Builds und Tests ausdrücklich jederzeit freigegeben.** Der Validierungsworkflow prüft den Entwicklungsbranch ohne Signing oder Upload.
 
 ```bash
 node --test Tests/*.test.cjs
 ./Scripts/check-macos.sh
-./Scripts/check-macos.sh --cast
 ```
 
-Das macOS-Skript generiert das Projekt, wählt einen vorhandenen iPhone-Simulator und führt `xcodebuild test` aus. `--cast` installiert die Pods und prüft den Workspace. Ein Simulator lässt sich über `WEBKWEB_SIMULATOR_DESTINATION='platform=iOS Simulator,name=iPhone 16'` wählen. Nach erneuter Projektgenerierung einen bestehenden Cast-Workspace erneut mit `pod install` aktualisieren.
+Das macOS-Skript generiert das Projekt, wählt einen vorhandenen iPhone-Simulator und führt `xcodebuild test` aus. Ein Simulator lässt sich über `WEBKWEB_SIMULATOR_DESTINATION='platform=iOS Simulator,name=iPhone 16'` wählen.
 
 Direkter Standardbuild:
 
@@ -69,12 +67,20 @@ Direkter Standardbuild:
 xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Auf Windows wurden 50 Node-Bridge-Tests ausgeführt und Swift-Syntax/Projekt-/Pliststruktur geprüft. Die 38 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. Lokaler Prüfbericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py --swift-frontend <Pfad zum Swift-Frontend>`. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet ältere Änderungen zu; [RELEASE.md](Docs/RELEASE.md) nennt die offenen Prüfungen.
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Der aktuelle lokale Stand besteht 55 Node-Tests mit den originalen Seitenskripten und 19 Chromium-Medientests sowie Projekt-/Plistprüfungen. Der frühere Stand bestand [38/38 native XCTest-Fälle und den Release-Simulatorbuild](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443) mit Xcode 26.6 auf einem iPhone-17-Pro-Simulator (iOS 26.5). Die Nachbesserung erweitert die native Prüfung auf 46 Unit-/WK-Methoden und drei XCUITests; das aktuelle tatsächliche Ergebnis steht in [RELEASE.md](Docs/RELEASE.md). Die Syntaxprüfung unter Linux wird separat vom echten Apple-SDK-Build ausgewiesen. Lokaler Bericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py`; ein vorhandenes Swift-Frontend lässt sich mit `--swift-frontend` angeben. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet die Änderungen zu.
 
 ## Grenzen und Datenschutz
 
-WebKit und Webseiten entscheiden über Autoplay, PiP, AirPlay, DRM und Hintergrundwiedergabe. `AVAudioSession.playback` und Audio-Hintergrundmodus garantieren keine dauerhaft laufende WKWebView. Während iOS die App suspendiert, kann ein Timer erst beim Fortsetzen pausieren. Die Clock-Aktion „Wiedergabe stoppen“ wird über öffentliche Remote-Stop-/Pause-Befehle behandelt, sofern iOS sie zustellt; keine garantierte Clock-Steuerung. Videozählung benötigt primäre HTML-video-Endereignisse und gilt weder für Audio/Live-Streams noch den Cast-Empfänger.
+WebKit und Webseiten entscheiden über Autoplay, PiP, AirPlay, DRM und Hintergrundwiedergabe. `AVAudioSession.playback` und Audio-Hintergrundmodus garantieren keine dauerhaft laufende WKWebView. Während iOS die App suspendiert, kann ein Timer erst beim Fortsetzen pausieren. Die Clock-Aktion „Wiedergabe stoppen“ wird über öffentliche Remote-Stop-/Pause-Befehle behandelt, sofern iOS sie zustellt; keine garantierte Clock-Steuerung. Videozählung benötigt primäre HTML-video-Endereignisse und gilt nicht für Audio/Live-Streams.
 
-Serverseitig in Streams eingefügte Werbung wird nicht zuverlässig entfernt. SponsorBlock-Daten können fehlen oder falsch sein. Cast braucht einen vom Empfänger erreichbaren HTTP(S)-Medienlink und passende Codecs; Cookies, besondere Header und DRM-Lizenzen werden nicht übertragen. `blob:`/MSE und YouTube-Watch-URLs sind keine direkten Dateien.
+Serverseitig in Streams eingefügte Werbung wird nicht zuverlässig entfernt. Webseiten und iOS entscheiden über Medienfunktionen; die App extrahiert keine Medienlinks zum Speichern oder zur Übergabe an ein Drittanbieter-SDK. Die Lizenzen der verbleibenden Filterquellen sind in der App und im Repository dokumentiert.
 
 [PRIVACY.md](PRIVACY.md) beschreibt die Datenflüsse. Öffentliche [Datenschutzerklärung](https://mopphie.github.io/webkweb-privacy/), [Supportseite](https://mopphie.github.io/webkweb-privacy/support/) und [Impressum](https://mopphie.github.io/webkweb-privacy/impressum/) sind online und in `App/Info.plist` hinterlegt. Eine App-Store-Zulassung wird nicht zugesagt; die rechtlichen Texte müssen mit dem finalen Build abgeglichen werden. [TestFlight-Secrets und offene Signierung](Docs/TESTFLIGHT-SECRETS.md).
+
+## Wiedergabefixes und echte Medienprüfung (16.10.2026)
+
+Explizite Medienbefehle und Pointer-Auswahl erkennen neu eingefügte offene Shadow-Player sofort. Hintergrund-Zeitmeldungen werden gedrosselt; normale Pausemeldungen bleiben sofort sichtbar. Die App verwendet die echte WebKit-Kennung statt einer fest eingebauten Safari-17-Version; Desktop-/Mobilmodus nutzt öffentliche Navigationseinstellungen. Private Popups übernehmen ihre vorhandene Sitzung. Reload/Session verwenden nach Redirects die tatsächlich bestätigte Adresse.
+
+`python Scripts/check-browser.py` prüft originale Playback.js mit echter lokaler Chromium-Dekodierung und selbst erzeugtem Testvideo. Python Playwright, Chromium und ffmpeg müssen installiert sein; keine fremden Accounts/Videos oder Werbesysteme werden automatisiert. 19 Fälle bestanden lokal, einschließlich echten Webseiten-Play-Klicks nach einer Stop-Sperre. Der Chromiumtest für native Controls emuliert den Host-Callback; echte UIKit-Eingaben werden separat durch XCUITest geprüft. Native Medientests verwenden `Tests/Fixtures/sample.mp4` in einem sichtbaren WKWebView und prüfen tatsächlichen Fortschritt, Pause/Seek, natürliches Ende, Timerstop, ruhigen Restore und dieselbe normale Website nach Watch-Exit. Die ersten beiden Medientests bestanden bereits im [früheren nativen Simulatorlauf](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443); es wurden echte HTML-Videos dekodiert, keine Medien-APIs gemockt. Aktuelle Ergebnisse und Plattformgrenzen stehen in der [Funktionsmatrix](Docs/FUNCTION-TEST-MATRIX.md).
+
+Der Nutzer hat Actions am 16.10.2026 ausdrücklich freigegeben. `validate.yml` startet auf dem Entwicklungsbranch Debug/XCTest und unsigned Release-Build; kein Signing oder Upload. Der frühere manuelle Dispatchzugriff lieferte HTTP 403; Push-CI startete erfolgreich. [Erfolgreicher Lauf](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443), [unsigned Release-Simulator-App](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029370391) und [native .xcresult-Testresultate](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029320581) für Code `24d961f`. Das App-Artefakt ist für den Mac-Simulator, keine auf einem iPhone installierbare IPA; GitHub bewahrt die Artefakte sieben Tage auf.

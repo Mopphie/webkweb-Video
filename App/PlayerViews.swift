@@ -7,7 +7,6 @@ struct QueueView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \SavedPage.favoriteOrder) private var pages: [SavedPage]
     @State private var address = ""
-    @ObservedObject private var cast = CastService.shared
     var body: some View {
         NavigationStack {
             List {
@@ -18,7 +17,7 @@ struct QueueView: View {
                         Button { browser.previousQueue() } label: { Image(systemName: "backward.end.fill").frame(width: 44, height: 44) }.accessibilityLabel("Vorheriger Titel").disabled(!browser.queue.canPrevious || browser.queueTabID == nil)
                         Spacer()
                         Button { browser.nextQueue() } label: { Image(systemName: "forward.end.fill").frame(width: 44, height: 44) }.accessibilityLabel("Nächster Titel").disabled(!browser.queue.canNext || browser.queueTabID == nil)
-                    }.disabled(cast.isControllingMedia)
+                    }
                 }
                 Section("Queue") {
                     if browser.queue.entries.isEmpty { Text("Noch keine Titel").foregroundStyle(.secondary) }
@@ -45,7 +44,7 @@ struct QueueView: View {
                     }.disabled(!pages.contains(where: \.favorite))
                 }
                 Section {
-                    Text("Die lokale Queue umfasst ihre gesamten Einträge. Webseiten müssen einen HTML-Player mit Endereignissen bereitstellen. Private Tabs werden nicht übernommen. Queue-Steuerung ist bei Cast aus; YouTube-Playlists werden nicht ausgelesen.").font(.caption).foregroundStyle(.secondary)
+                    Text("Die lokale Queue umfasst ihre gesamten Einträge. Webseiten müssen einen HTML-Player mit Endereignissen bereitstellen. Private Tabs werden nicht übernommen. YouTube-Playlists werden nicht ausgelesen.").font(.caption).foregroundStyle(.secondary)
                 }
             }.navigationTitle("Queue")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }; ToolbarItem(placement: .primaryAction) { EditButton() } }
@@ -58,7 +57,6 @@ struct PlayerOptionsView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var tab: BrowserTab
-    @ObservedObject private var cast = CastService.shared
     var body: some View {
         NavigationStack {
             Form {
@@ -67,73 +65,38 @@ struct PlayerOptionsView: View {
                         Button("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right") { tab.runMedia("globalThis.__webkweb?.fullscreen()"); dismiss() }
                         Spacer()
                         Button("PiP", systemImage: "pip") { tab.runMedia("globalThis.__webkweb?.pip()"); dismiss() }
-                    }.disabled(tab.activeMediaKind != "video" || cast.isControllingMedia)
+                    }.disabled(tab.activeMediaKind != "video")
                     Picker("Geschwindigkeit", selection: Binding(get: { tab.playbackRate }, set: { tab.runMedia("globalThis.__webkweb?.setRate(\($0))") })) {
                         ForEach(Array(Set([0.5, 0.75, 1.0, 1.25, 1.5, 2.0, tab.playbackRate])).sorted(), id: \.self) { Text("\($0.formatted())×").tag($0) }
-                    }.disabled(!tab.hasMedia || CastService.shared.isControllingMedia)
+                    }.disabled(!tab.hasMedia)
                     if !tab.resolution.isEmpty { LabeledContent("Quelldimension", value: tab.resolution) }
                     if tab.muted { Text("Der Webseitenplayer ist stummgeschaltet.").font(.caption).foregroundStyle(.secondary) }
                     if tab.waiting { Label("Player lädt …", systemImage: "hourglass") }
                     if !tab.mediaError.isEmpty { Text(tab.mediaError).foregroundStyle(.red) }
-                    Button("Wiedergabe erneut versuchen") { tab.runMedia("globalThis.__webkweb?.recover()") }.disabled(!tab.hasMedia || CastService.shared.isControllingMedia)
-                    if !cast.isControllingMedia {
-                        NativeVolumeControl().frame(minHeight: 44).accessibilityLabel("Systemlautstärke")
-                        if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
-                    }
+                    Button("Wiedergabe erneut versuchen") { tab.runMedia("globalThis.__webkweb?.recover()") }.disabled(!tab.hasMedia)
+                    NativeVolumeControl().frame(minHeight: 44).accessibilityLabel("Systemlautstärke")
+                    if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
                 }
                 Section("Untertitel") {
                     Picker("Spur", selection: Binding(get: { tab.captions.first(where: \.selected)?.id ?? -1 }, set: { tab.runMedia("globalThis.__webkweb?.setCaption(\($0))") })) {
                         Text("Aus").tag(-1)
                         ForEach(tab.captions) { Text($0.title).tag($0.id) }
-                    }.disabled(tab.captions.isEmpty || CastService.shared.isControllingMedia)
+                    }.disabled(tab.captions.isEmpty)
                     if tab.captions.isEmpty { Text("Der Player stellt keine HTML-Untertitelspuren bereit. Nutze seine eigenen Untertitel.").font(.caption).foregroundStyle(.secondary) }
                 }
                 Section("Audio") {
                     Picker("Spur", selection: Binding(get: { tab.audioTracks.first(where: \.selected)?.id ?? -1 }, set: { tab.runMedia("globalThis.__webkweb?.setAudio(\($0))") })) {
                         if tab.audioTracks.isEmpty { Text("Webseitenplayer").tag(-1) }
                         ForEach(tab.audioTracks) { Text($0.title).tag($0.id) }
-                    }.disabled(tab.audioTracks.isEmpty || CastService.shared.isControllingMedia)
+                    }.disabled(tab.audioTracks.isEmpty)
                     Toggle("Original bevorzugen", isOn: $browser.options.preferOriginalAudio)
                     Text("Nur verfügbar, wenn der Webseitenplayer eine Originalspur anbietet.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
-                    Text("Qualität wird vom Webseitenplayer gewählt. Cast und AirPlay behalten die aktuelle Quelle; 1080p lässt sich ohne passende Quelle nicht erzwingen. HTML-Untertitel können im nativen Vollbild erscheinen, Webseiten-Overlays möglicherweise nicht.").font(.caption).foregroundStyle(.secondary)
+                    Text("Qualität wird vom Webseitenplayer gewählt. AirPlay behält die aktuelle Quelle; 1080p lässt sich ohne passende Quelle nicht erzwingen. HTML-Untertitel können im nativen Vollbild erscheinen, Webseiten-Overlays möglicherweise nicht.").font(.caption).foregroundStyle(.secondary)
                 }
             }.navigationTitle("Player")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
         }
     }
 }
-
-#if !WEBKWEB_NO_DOWNLOADS
-@MainActor
-struct DownloadsView: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var store = DownloadStore.shared
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach(store.jobs.filter { $0.state != .finished }) { job in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(job.title).lineLimit(2)
-                        if job.state == .running { ProgressView(value: job.progress); Button("Abbrechen") { store.cancel(job.id) } }
-                        else { Text(job.state == .cancelled ? "Abgebrochen" : job.error).font(.caption); Button("Erneut versuchen") { store.retry(job.id) } }
-                    }.swipeActions { Button("Entfernen", role: .destructive) { store.dismissJob(job.id) } }
-                }
-                Section("Dateien") {
-                    if store.files.isEmpty { Text("Noch keine Dateien").foregroundStyle(.secondary) }
-                    ForEach(store.files) { file in
-                        HStack {
-                            VStack(alignment: .leading) { Text(file.title).lineLimit(2); Text(ByteCountFormatter.string(fromByteCount: file.bytes, countStyle: .file)).font(.caption).foregroundStyle(.secondary) }
-                            Spacer(); ShareLink(item: file.url) { Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44) }.accessibilityLabel("Datei teilen")
-                        }.swipeActions { Button("Löschen", role: .destructive) { store.delete(file) } }
-                    }
-                }
-                Section { Text("Nur ausdrücklich gespeicherte direkte HTTPS-Dateien ohne Browser-Cookies/DRM. Keine HLS-/DASH-Playlists oder YouTube-Extraktion. Vordergrunddownload: iOS kann beim Appwechsel unterbrechen; erneuter Versuch startet neu. Quelldaten bleiben nur bis Prozessende im Arbeitsspeicher.").font(.caption).foregroundStyle(.secondary) }
-            }.navigationTitle("Downloads")
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
-                .alert("Download", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("OK") { store.error = nil } } message: { Text(store.error ?? "") }
-        }
-    }
-}
-#endif

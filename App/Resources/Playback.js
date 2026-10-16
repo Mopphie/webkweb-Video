@@ -6,9 +6,14 @@
   const knownMedia = new Set(), observedRoots = new WeakSet();
   let background = false, autoPiP = false, preferOriginal = false, hideShorts = false, queueManaged = false;
   let lastDiscovery = 0, lastHeartbeat = 0, lastState = 0, lastSignature = "";
-  let serial = 0, sponsorEnabled = false, categories = ["sponsor", "intro", "outro", "selfpromo"];
-  let segmentID = null, segments = [], lastAddress = "", stopped = false, selected = null;
-  let interactionAt = 0, lastPrimary = null, undo = null, ignoredSegment = null;
+  let serial = 0;
+  let lastAddress = "", stopped = Boolean(globalThis.__webkwebStartPaused), selected = null;
+  let interactionAt = 0, lastPrimary = null;
+  let playIntent = null;
+  const hasPlayIntent = v => {
+    const elapsed = playIntent ? Date.now() - playIntent.at : -1;
+    return playIntent?.media === v && elapsed >= 0 && elapsed <= 1500;
+  };
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
@@ -57,7 +62,7 @@
     if (!e) return null;
     const sourceKey = (v.currentSrc || "") + ":" + (videoID() || "");
     if (sourceKey !== e.sourceKey) {
-      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.encrypted = false; e.waiting = false;
+      e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.waiting = false;
       // Keep the page's pre-queue loop preference until queue management ends.
       if (!queueManaged) e.originalLoop = null;
     }
@@ -66,33 +71,33 @@
   const mediaID = v => { const e = entry(v); return e ? `${documentID}:${e.id}:${e.cycle}` : ""; };
   const tracks = (list, audio = false) => Array.from(list || []).slice(0, 100).map((track, id) => ({id,
     title: track.label || track.language || `Spur ${id + 1}`, selected: audio ? Boolean(track.enabled) : track.mode === "showing"}));
+  const buffering = v => Boolean(v && !v.paused && !v.ended && entry(v)?.waiting &&
+    (typeof v.readyState !== "number" || v.readyState < 3));
   const state = (force = true) => {
     const v = media(); lastPrimary = v;
     if (queueManaged && v) { const e = entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); v.loop = false; }
-    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.encrypted, entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
-    const now = Date.now(); if (!force && signature === lastSignature && now - lastState < 1000) return;
+    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", buffering(v), v?.readyState, v?.networkState, v?.error?.code, v?.playbackRate].join(":");
+    const now = Date.now(), interval = background || document.hidden ? 5000 : 1000;
+    if (!force && signature === lastSignature && now - lastState < interval) return;
     lastState = now; lastSignature = signature;
-    let mime = "";
-    if (v) {
-      const match = [...v.querySelectorAll("source")].find(s => {
-        try { return new URL(s.src || s.getAttribute("src"), document.baseURI || location.href).href === v.currentSrc; } catch (_) { return false; }
-      });
-      mime = match?.type || v.getAttribute?.("type") || "";
-    }
     post("state", {title: document.title, hasMedia: Boolean(v), playing: v ? !v.paused && !v.ended : false,
       anyPlaying: nodes().some(node => !node.paused && !node.ended),
       time: Number.isFinite(v?.currentTime) ? v.currentTime : 0, duration: Number.isFinite(v?.duration) ? v.duration : null,
-      source: v?.currentSrc || "", contentType: mime, encrypted: v ? Boolean(entry(v)?.encrypted || v.mediaKeys) : false,
       mediaID: v ? mediaID(v) : "", mediaKind: v?.tagName === "VIDEO" ? "video" : "audio",
       priority: v ? (v.tagName === "VIDEO" ? 1000000 : 0) + area(v) : 0,
-      interactionAt, videoID: videoID() || "", canUndo: Boolean(undo),
+      interactionAt,
       captions: tracks(v?.textTracks), audioTracks: tracks(v?.audioTracks, true),
       rate: v?.playbackRate || 1, width: v?.videoWidth || 0, height: v?.videoHeight || 0,
-      muted: Boolean(v?.muted), waiting: Boolean(entry(v)?.waiting),
+      muted: Boolean(v?.muted), waiting: buffering(v),
+      paused: v ? Boolean(v.paused) : true, ended: Boolean(v?.ended), stopLatched: stopped,
+      readyState: Number.isInteger(v?.readyState) ? v.readyState : null,
+      networkState: Number.isInteger(v?.networkState) ? v.networkState : null,
+      decodedFrames: Number(v?.getVideoPlaybackQuality?.().totalVideoFrames) || 0,
+      sourceKind: v?.currentSrc ? v.currentSrc.split(":", 1)[0] : "none",
       mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };
   const seek = seconds => {
-    const v = media();
+    const v = commandMedia();
     if (!v || !Number.isFinite(seconds)) return;
     let target = Math.max(0, v.currentTime + seconds);
     if (Number.isFinite(v.duration)) target = Math.min(target, v.duration);
@@ -100,29 +105,31 @@
     try { v.currentTime = target; } catch (_) {}
     state();
   };
-  const skipTo = (v, segment) => {
-    undo = {id: mediaID(v), videoID: videoID(), time: v.currentTime, segment};
-    try { v.currentTime = Math.min(segment.segment[1], Number.isFinite(v.duration) ? v.duration : segment.segment[1]); } catch (_) {}
-    state();
-  };
   function attach() {
     nodes().forEach(v => {
-      if (stopped && !v.paused) v.pause();
+      if (stopped && !v.paused && !hasPlayIntent(v)) v.pause();
       if (attached.has(v)) return;
-      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, encrypted: false, waiting: false});
+      attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, waiting: false});
       entry(v);
       // A new element may already have started before its play listener exists.
-      v.addEventListener("encrypted", () => { entry(v).encrypted = true; state(); });
       v.addEventListener("play", () => {
-        if (stopped) { v.pause(); return; }
+        if (stopped) {
+          // A media `play` event is also trusted for script/autoplay. Only an
+          // earlier real input on this player's controls may release the latch.
+          if (!hasPlayIntent(v)) { v.pause(); return; }
+          playIntent = null;
+          stopped = false;
+          post("userplay", {mediaID: mediaID(v)});
+        }
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
         state();
       });
-      v.addEventListener("pause", state);
+      v.addEventListener("pause", () => { entry(v).waiting = false; state(); });
       v.addEventListener("loadedmetadata", () => { entry(v); applyOriginal(v); state(); });
       v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
       v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
       v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("canplay", state);
       v.addEventListener("error", state);
       v.addEventListener("ratechange", state);
       v.addEventListener("volumechange", state);
@@ -130,12 +137,7 @@
       v.audioTracks?.addEventListener?.("change", state);
       v.audioTracks?.addEventListener?.("addtrack", () => { applyOriginal(v); state(); });
       applyOriginal(v);
-      v.addEventListener("timeupdate", () => {
-        if (!sponsorEnabled || segmentID !== videoID() || v !== media() || v.tagName !== "VIDEO" || v.paused || v.seeking || isAd()) return;
-        if (ignoredSegment && v.currentTime >= ignoredSegment.segment[1]) ignoredSegment = null;
-        const match = segments.find(s => s !== ignoredSegment && v.currentTime >= s.segment[0] && v.currentTime < s.segment[1]);
-        if (match) skipTo(v, match);
-      });
+      v.addEventListener("timeupdate", () => state(false));
       v.addEventListener("ended", () => {
         const e = entry(v);
         if (e.ended || isAd() || v !== lastPrimary) return;
@@ -145,12 +147,36 @@
       });
     });
   }
+  function commandMedia() {
+    // User/timer commands must see media inserted into a newly opened shadow
+    // root immediately. Periodic discovery remains sparse during playback.
+    discover(document); attach();
+    return media();
+  }
   const choose = event => {
     const path = event.composedPath?.() || [event.target];
-    const v = path.find(node => node?.tagName === "VIDEO" || node?.tagName === "AUDIO");
-    if (v) { selected = v; interactionAt = Date.now(); state(); }
+    let v = path.find(node => node?.tagName === "VIDEO" || node?.tagName === "AUDIO");
+    if (!v && stopped && event.isTrusted) {
+      const button = path.find(node => node?.tagName === "BUTTON" || node?.getAttribute?.("role") === "button" ||
+        (node?.tagName === "INPUT" && ["button", "submit"].includes(node.type)));
+      const name = button && [button.getAttribute?.("aria-label"), button.getAttribute?.("title"), button.textContent, button.value].filter(Boolean).join(" ");
+      if (/\b(play|resume|abspielen|fortsetzen|wiedergeben|wiedergabe)\b/i.test(name || "")) {
+        // Associate semantic controls with the closest player container. This
+        // works for open shadow roots without relying on provider internals.
+        for (const ancestor of path.slice(path.indexOf(button) + 1)) {
+          const candidates = Array.from(ancestor?.querySelectorAll?.("video,audio") || []);
+          if (candidates.length) { v = candidates.includes(media()) ? media() : candidates[0]; break; }
+        }
+      }
+    }
+    if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
+    if (v && stopped && event.isTrusted) playIntent = {media: v, at: Date.now()};
   };
   document.addEventListener("pointerdown", choose, true);
+  document.addEventListener("click", choose, true);
+  document.addEventListener("keydown", event => {
+    if (event.key === " " || event.key === "Enter") choose(event);
+  }, true);
   function applyOriginal(v) {
     if (!preferOriginal || !v.audioTracks) return;
     const list = Array.from(v.audioTracks), original = list.find(t => /\boriginal(?:ton| audio)?\b/i.test(t.label || ""));
@@ -169,26 +195,26 @@
     }
   }
   globalThis.__webkweb = {
-    setSponsorBlock(enabled, chosenCategories = categories) {
-      const next = Array.isArray(chosenCategories) ? [...new Set(chosenCategories)].filter(c => ["sponsor", "intro", "outro", "selfpromo"].includes(c)) : categories;
-      const changed = sponsorEnabled !== Boolean(enabled) || categories.join(",") !== next.join(",");
-      sponsorEnabled = Boolean(enabled); categories = next;
-      segments = sponsorEnabled ? segments.filter(s => categories.includes(s.category)) : [];
-      if (!sponsorEnabled) segmentID = null;
-      if (!sponsorEnabled || (undo && !categories.includes(undo.segment.category))) undo = null;
-      if (!sponsorEnabled || (ignoredSegment && !categories.includes(ignoredSegment.category))) ignoredSegment = null;
-      if (changed) state();
+    pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); playIntent = null; commandMedia(); nodes().forEach(v => v.pause()); state(); },
+    clearStop() { stopped = false; playIntent = null; },
+    resume() { stopped = false; playIntent = null; const v = commandMedia(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
+    toggle() { const v = commandMedia(); if (v) v.paused ? this.resume() : this.pause(); },
+    noteHostTouch(point = {}) {
+      // WebKit's own media controls may consume all DOM input events. The
+      // native host calls this isolated-world method on an actual UIKit touch.
+      // Do not substitute navigator.userActivation: it can remain set for 5s.
+      if (!stopped || !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
+          point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return;
+      commandMedia();
+      const viewport = globalThis.visualViewport;
+      const x = (viewport?.offsetLeft || 0) + point.x * (viewport?.width || innerWidth);
+      const y = (viewport?.offsetTop || 0) + point.y * (viewport?.height || innerHeight);
+      const v = nodes().filter(node => {
+        const r = node.getBoundingClientRect?.();
+        return r && r.right > r.left && r.bottom > r.top && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      }).sort((a, b) => area(a) - area(b))[0];
+      if (v) { selected = v; interactionAt = Date.now(); playIntent = {media: v, at: Date.now()}; }
     },
-    setSegments(id, value) {
-      if (id !== videoID() || !Array.isArray(value)) return;
-      segmentID = id;
-      segments = value.filter(s => categories.includes(s.category) && Array.isArray(s.segment) && s.segment.length === 2 &&
-        s.segment.every(Number.isFinite) && s.segment[0] >= 0 && s.segment[1] > s.segment[0]);
-    },
-    pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); nodes().forEach(v => v.pause()); state(); },
-    clearStop() { stopped = false; },
-    resume() { stopped = false; const v = media(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
-    toggle() { const v = media(); if (v) v.paused ? this.resume() : this.pause(); },
     seek,
     setOptions(options = {}) {
       autoPiP = Boolean(options.autoPiP); preferOriginal = Boolean(options.preferOriginal); hideShorts = Boolean(options.hideShorts);
@@ -202,19 +228,20 @@
     },
     restart(id) {
       if (stopped) return;
+      commandMedia();
       const v = typeof id === "string" ? nodes().find(node => mediaID(node) === id) : media();
       if (v) { selected = v; v.currentTime = 0; v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); }
     },
-    setRate(value) { const v = media(); if (v && Number.isFinite(value) && value >= 0.25 && value <= 3) { v.playbackRate = value; state(); } },
-    setCaption(id) { const v = media(); if (!v) return; Array.from(v.textTracks || []).forEach((t, index) => { t.mode = index === id ? "showing" : "disabled"; }); state(); },
+    setRate(value) { const v = commandMedia(); if (v && Number.isFinite(value) && value >= 0.25 && value <= 3) { v.playbackRate = value; state(); } },
+    setCaption(id) { const v = commandMedia(); if (!v) return; Array.from(v.textTracks || []).forEach((t, index) => { t.mode = index === id ? "showing" : "disabled"; }); state(); },
     setAudio(id) {
-      const v = media(), list = Array.from(v?.audioTracks || []);
+      const v = commandMedia(), list = Array.from(v?.audioTracks || []);
       if (!list.some((_, index) => index === id)) return;
       list.forEach((t, index) => { t.enabled = index === id; }); state();
     },
-    recover() { const v = media(); if (!v) return; if (stopped) return post("notice", {text: "Wiedergabe ist gestoppt. Tippe auf Play."}); this.resume(); },
+    recover() { const v = commandMedia(); if (!v) return; if (stopped) return post("notice", {text: "Wiedergabe ist gestoppt. Tippe auf Play."}); this.resume(); },
     fullscreen() {
-      const v = media(); if (!v || v.tagName !== "VIDEO") return;
+      const v = commandMedia(); if (!v || v.tagName !== "VIDEO") return;
       try {
         if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
         else if (v.requestFullscreen) v.requestFullscreen().catch(() => post("notice", {text: "Vollbild ist hier nicht verfügbar."}));
@@ -222,29 +249,20 @@
       } catch (_) { post("notice", {text: "Tippe für Vollbild auf den Webseitenplayer."}); }
     },
     autoPiP() {
-      const v = media();
-      if (!autoPiP || stopped || !v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
+      if (!autoPiP || stopped) return;
+      const v = commandMedia();
+      if (!v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
       try { this.pip(); } catch (_) {} // User gesture / background timing remains iOS-dependent.
     },
-    skip() {
-      const v = media();
-      if (!sponsorEnabled || segmentID !== videoID() || !v || v.tagName !== "VIDEO" || isAd()) return;
-      const match = segments.find(s => s.segment[1] > v.currentTime);
-      if (match) skipTo(v, match);
-    },
-    undoSkip() {
-      const v = media(); if (!v || !undo || undo.id !== mediaID(v) || undo.videoID !== videoID()) return;
-      ignoredSegment = undo.segment; v.currentTime = undo.time; undo = null; state();
-    },
     pip() {
-      const v = media(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
+      const v = commandMedia(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
       try {
         if (v.webkitSupportsPresentationMode?.("picture-in-picture")) v.webkitSetPresentationMode("picture-in-picture");
         else if (v.requestPictureInPicture) v.requestPictureInPicture().catch(() => post("notice", {text: "Bild-in-Bild ist hier nicht verfügbar."}));
         else post("notice", {text: "Dieser Player unterstützt kein Bild-in-Bild."});
       } catch (_) { post("notice", {text: "Tippe für Bild-in-Bild auf den Webseitenplayer."}); }
     },
-    airplay() { const v = media(); if (v?.webkitShowPlaybackTargetPicker) v.webkitShowPlaybackTargetPicker(); else post("notice", {text: "Nutze AirPlay im Kontrollzentrum."}); },
+    airplay() { const v = commandMedia(); if (v?.webkitShowPlaybackTargetPicker) v.webkitShowPlaybackTargetPicker(); else post("notice", {text: "Nutze AirPlay im Kontrollzentrum."}); },
     state
   };
   const tick = () => {
@@ -252,15 +270,13 @@
     if (hidden && now - lastHeartbeat < 5000) return;
     lastHeartbeat = now;
     if (lastAddress !== location.href) {
-      const oldID = lastAddress ? (() => { try { const u = new URL(lastAddress); return u.searchParams.get("v") || u.pathname.split("/").at(-1); } catch (_) { return null; } })() : null;
       lastAddress = location.href;
-      if (segmentID !== videoID() || oldID !== videoID()) { segments = []; segmentID = null; undo = null; ignoredSegment = null; }
-      post("navigation", {videoID: videoID() || ""});
+      post("navigation");
       shortsPolicy();
     }
     if (!hidden && now - lastDiscovery >= 15000) { discover(document); lastDiscovery = now; }
     attach();
-    if (stopped) nodes().forEach(v => { if (!v.paused) v.pause(); });
+    if (stopped) nodes().forEach(v => { if (!v.paused && !hasPlayIntent(v)) v.pause(); });
     state(false);
   };
   discover(document); lastDiscovery = Date.now(); post("ready"); tick();

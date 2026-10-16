@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="de"><meta charset="utf-8"><title>DevnTube local media fixture</title>
+<style>body{margin:20px;background:#111;color:#eee;font-family:system-ui}video{width:640px;max-width:100%;height:360px}button{padding:12px;margin:6px}iframe{width:340px;height:260px;border:0}</style>
+<main id="players"></main>
+<button id="play" onclick="globalThis.__webkweb.resume()">Play</button>
+<button id="fullscreen" onclick="globalThis.__webkweb.fullscreen()">Fullscreen</button>
+<button id="pip" onclick="globalThis.__webkweb.pip()">PiP</button>
+<button id="airplay" onclick="globalThis.__webkweb.airplay()">AirPlay</button>
+<script>
+// Only local, generated test media. No platform pages, accounts or ad requests.
+const mode = new URL(location.href).searchParams.get('mode') || 'video';
+globalThis.fixture = {
+  video(parent = document.querySelector('#players'), id = 'main') {
+    const v = document.createElement('video');
+    v.id = id; v.controls = true; v.muted = true; v.playsInline = true;
+    v.preload = 'auto'; v.src = '/media.mp4'; parent.append(v); return v;
+  },
+  shadow() {
+    const host = document.createElement('section'); document.querySelector('#players').append(host);
+    return this.video(host.attachShadow({mode: 'open'}));
+  }
+};
+if (mode === 'video') fixture.video();
+if (mode === 'audio') {
+  const a = document.createElement('audio'); a.id = 'main'; a.controls = true;
+  a.src = '/media.mp4'; document.querySelector('#players').append(a);
+}
+if (mode === 'frames') {
+  for (const host of ['127.0.0.1', 'localhost']) {
+    const f = document.createElement('iframe'); f.src = `http://${host}:${location.port}/fixture.html?mode=video`;
+    document.querySelector('#players').append(f);
+  }
+}
+</script></html>

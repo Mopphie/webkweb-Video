@@ -12,9 +12,9 @@ enum MediaPolicy {
         if let queueID, candidates.contains(where: { $0.id == queueID && $0.hasMedia }) { return queueID }
         return currentID
     }
-    static func requiresAudioSession(localPlaying: Bool, explicitPlay: Bool = false, casting: Bool, stopped: Bool, alreadyActive: Bool = false) -> Bool {
+    static func requiresAudioSession(localPlaying: Bool, explicitPlay: Bool = false, stopped: Bool, alreadyActive: Bool = false) -> Bool {
         if alreadyActive && localPlaying { return true } // Await the actual asynchronous pause acknowledgement.
-        return !casting && !stopped && (localPlaying || explicitPlay)
+        return !stopped && (localPlaying || explicitPlay)
     }
     static func nowPlayingRate(playing: Bool, rate: Double) -> Double {
         playing ? (rate.isFinite && rate > 0 ? rate : 1) : 0

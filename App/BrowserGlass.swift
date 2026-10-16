@@ -61,27 +61,10 @@ enum HomeSite: String, CaseIterable, Identifiable {
     }
 }
 
-/// Small local glyphs; rendering the homepage never fetches third-party favicons.
+/// Neutral SF Symbols identify bookmarks without reproducing platform logos.
 struct HomeSiteGlyph: View {
     let site: HomeSite
     var body: some View {
-        switch site {
-        case .youtube:
-            ZStack {
-                RoundedRectangle(cornerRadius: 8).fill(Color(red: 1, green: 0.1, blue: 0.14)).frame(width: 36, height: 26)
-                Image(systemName: "play.fill").font(.system(size: 13)).foregroundStyle(.white)
-            }
-        case .twitch:
-            ZStack {
-                Image(systemName: "bubble.left.fill").font(.system(size: 33)).foregroundStyle(Color(red: 0.6, green: 0.32, blue: 1))
-                Image(systemName: "pause.fill").font(.system(size: 14, weight: .black)).foregroundStyle(.white).offset(y: -2)
-            }
-        case .tiktok:
-            Image(systemName: "music.note").font(.system(size: 31, weight: .bold)).foregroundStyle(.white)
-                .shadow(color: Color(red: 0.1, green: 0.86, blue: 0.9), radius: 0, x: -1.5, y: -1)
-                .shadow(color: Color(red: 1, green: 0.2, blue: 0.36), radius: 0, x: 1.5, y: 1)
-        case .rumble:
-            Image(systemName: "play.circle.fill").font(.system(size: 34)).foregroundStyle(Color(red: 0.45, green: 0.78, blue: 0.2))
-        }
+        Image(systemName: "globe").font(.system(size: 31, weight: .regular)).foregroundStyle(.white)
     }
 }

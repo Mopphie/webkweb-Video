@@ -26,7 +26,6 @@ struct WebKWebApp: App {
             } else { failure = error.localizedDescription }
         }
         container = localContainer; storageError = failure; cloudWarning = warning
-        CastService.shared.configure()
     }
 
     var body: some Scene {
