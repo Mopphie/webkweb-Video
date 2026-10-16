@@ -204,6 +204,14 @@ jobs:
           INTERNAL_STATE: ${{ steps.verified.outputs.internal_state }}
         run: |
           printf 'Processing: %s; internal: %s\n%s\n' "$PROCESSING_STATE" "$INTERNAL_STATE" "$GROUP_RESULT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve native test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-native-test-results
+          path: build/*.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Remove runner-local signing material
         if: always()
         run: |

@@ -45,9 +45,7 @@ struct LibraryHubView: View {
                     Section { Label("Normale Mediathek", systemImage: "exclamationmark.shield"); Text("Speichern und Abspielen sind hier nicht privat. Inhalte deines privaten Tabs werden nicht automatisch übernommen.").font(.footnote) }
                 }
                 Section {
-                    NavigationLink("Favoriten und Verlauf", systemImage: "star") {
-                        LibraryView(open: { browser.open($0); dismiss() }, didChange: { try? context.save() })
-                    }
+                    favoritesAndHistoryLink
                     Picker("Inhalt", selection: $filter) { ForEach(["Alle", "Dateien", "Links", "Weitersehen", "Favoriten"], id: \.self) { Text($0) } }
                     Toggle("Neueste zuerst", isOn: $newestFirst)
                 }
@@ -134,6 +132,21 @@ struct LibraryHubView: View {
             .alert("Mediathek", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) { Button("OK") { message = nil } } message: { Text(message ?? "") }
         }
     }
+    private var favoritesAndHistoryLink: some View {
+        NavigationLink {
+            LibraryView(open: openSavedPage, didChange: saveSavedPages)
+        } label: {
+            Label("Favoriten und Verlauf", systemImage: "star")
+        }
+    }
+
+    private func openSavedPage(_ address: String) {
+        browser.open(address)
+        dismiss()
+    }
+
+    private func saveSavedPages() { try? context.save() }
+
     private func performImport() {
         defer { pendingImport = nil }
         do {
