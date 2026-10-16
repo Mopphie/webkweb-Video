@@ -180,6 +180,13 @@ final class BrowserActionsUITests: XCTestCase {
         let app = try launchFixture(audible: true)
         let identity = try mediaIdentity(app)
         try requireSustainedPlayback(app)
+        // Stabilize native controls through a real deliberate Pause, as in the
+        // existing AVPlayer journey. A running player auto-hides them between
+        // XCTest's existence query and tap.
+        app.buttons["browser.actions"].tap()
+        let pause = app.buttons["Alles pausieren"]
+        reveal(pause, in: app); pause.tap()
+        XCTAssertTrue(app.staticTexts["Video pausiert"].waitForExistence(timeout: 5))
         let before = try mediaTime(app), wall = Date()
         app.buttons["Website-Systemplayer"].tap()
         // Native WebKit video fullscreen, including on an iPhone whose HTML

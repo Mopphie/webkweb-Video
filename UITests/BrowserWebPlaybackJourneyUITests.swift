@@ -57,6 +57,12 @@ final class BrowserWebPlaybackJourneyUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 15))
         return app
     }
+    private func pauseFromWebsiteBrowser(_ app: XCUIApplication) {
+        app.buttons["browser.actions"].tap()
+        let pause = app.buttons["Alles pausieren"]
+        XCTAssertTrue(pause.waitForExistence(timeout: 5)); pause.tap()
+        XCTAssertTrue(app.staticTexts["Video pausiert"].waitForExistence(timeout: 5))
+    }
 
     func testElementFullscreenAndReturnWhenDocumentReportsSupport() throws {
         continueAfterFailure = false; executionTimeAllowance = 300
@@ -64,13 +70,15 @@ final class BrowserWebPlaybackJourneyUITests: XCTestCase {
         try XCTSkipIf(app.staticTexts["Element-Vollbild nicht unterstützt"].exists,
                       "The actual WebKit document reports no Element Fullscreen API. Element journey NOT EXECUTED; video system fullscreen is tested separately.")
         XCTAssertTrue(app.staticTexts["Element-Vollbild unterstützt"].exists)
+        pauseFromWebsiteBrowser(app)
         let initial = try report(app)
         app.buttons["Website-Vollbild"].tap()
         // Only a real fullscreenchange with document.fullscreenElement makes
         // this fixture-owned exit visible. No configuration-only pass.
         let exit = app.buttons["Website-Vollbild verlassen"]
         XCTAssertTrue(exit.waitForExistence(timeout: 8)); exit.tap()
-        XCTAssertTrue(exit.waitForNonExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["Element-Vollbild beendet"].waitForExistence(timeout: 8),
+                      "An actual fullscreenchange must report document.fullscreenElement is empty")
         XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable)
         XCTAssertEqual(try report(app).id, initial.id)
     }
@@ -86,10 +94,17 @@ final class BrowserWebPlaybackJourneyUITests: XCTestCase {
         let initial = try report(app)
         XCTAssertFalse(initial.id.isEmpty)
         XCTAssertGreaterThan(initial.duration, 59)
+        pauseFromWebsiteBrowser(app)
         app.buttons["Website-Systemplayer"].tap()
         systemButton(".*(Picture.?in.?Picture|Bild.?in.?Bild|Video minimieren).*", identifier: "PIP Button", in: app).tap()
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 12))
         wait { (try? self.report(app).mode) == "picture-in-picture" }
+        // Enter with stable paused system controls, then explicitly resume the
+        // same HTML element through the actual website button. Never call an
+        // app/native player API to manufacture WebKit playback or PiP.
+        app.buttons["Videostart"].tap()
+        XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 15))
+        wait { (try? self.report(app).playing) == true && (try? self.report(app).mode) == "picture-in-picture" }
         let before = try report(app), wall = Date()
         print("WEBKIT_PIP_BEFORE time=\(before.time) mode=\(before.mode) playing=\(before.playing)")
         XCTAssertEqual(before.id, initial.id)

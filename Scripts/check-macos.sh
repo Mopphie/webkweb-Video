@@ -95,16 +95,24 @@ try:
     parent=git('rev-parse','HEAD^')
     allowed={'Tests/MediaPlaybackIntegrationTests.swift','Scripts/check-macos.sh',
              'Docs/YOUTUBE_WATCH_RETURN.md','Docs/FEATURE_MATRIX.md',
+             'Docs/Evidence/youtube-watch-actions-usage.json',
              'App/BrowserSession.swift','UITests/BrowserActionsUITests.swift',
              'UITests/BrowserWebPlaybackJourneyUITests.swift','UITests/NativePlaybackJourneyUITests.swift'}
     changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
     app_files={path for path in changes if path.startswith('App/')}
     tree=git('rev-parse',parent+'^{tree}')
     valid=(git('status','--porcelain')=='' and
-           tree in {'8dc2b48b76f73135faed30f685e8b060acaee0eb','06281a11fa41be866b9e0f1749082b21dc60805f'} and
+           tree in {'8dc2b48b76f73135faed30f685e8b060acaee0eb','06281a11fa41be866b9e0f1749082b21dc60805f','4dde4e2fd9e5cd95d66ab4ff24808ea3c1c87743'} and
            bool(changes) and changes <= allowed and
            all(release(git('show',parent+':'+path))==release(git('show','HEAD:'+path)) for path in app_files))
-    print(('media' if tree=='06281a11fa41be866b9e0f1749082b21dc60805f' else 'single') if valid else 'false')
+    mode='media' if tree=='06281a11fa41be866b9e0f1749082b21dc60805f' else 'single'
+    if tree=='4dde4e2fd9e5cd95d66ab4ff24808ea3c1c87743':
+        controls={'App/BrowserSession.swift','Scripts/check-macos.sh','UITests/BrowserActionsUITests.swift',
+                  'UITests/BrowserWebPlaybackJourneyUITests.swift','Docs/YOUTUBE_WATCH_RETURN.md',
+                  'Docs/FEATURE_MATRIX.md','Docs/Evidence/youtube-watch-actions-usage.json'}
+        valid=valid and changes <= controls
+        mode='controls'
+    print(mode if valid else 'false')
 except (subprocess.CalledProcessError,ValueError): print('false')
 PY
 )"
@@ -132,6 +140,7 @@ sys.exit("Kein verfügbarer iPhone-Simulator. Installiere eine iOS-Runtime in Xc
 ')"
 fi
 if [[ "$native_recheck" != true ]]; then
+if [[ "$website_recheck" != controls ]]; then
 unit_scope=(-only-testing:WebKWebTests)
 if [[ "$website_recheck" == single ]]; then
   unit_scope=(-only-testing:WebKWebTests/MediaPlaybackIntegrationTests/testRealAutoplayInOtherTabCannotInterruptTheResumedPlayer)
@@ -152,11 +161,18 @@ if ! xcodebuild "${project_args[@]}" -scheme WebKWeb \
   unit_checks_failed=true
   echo '::error::Native unit/integration tests failed. Continuing independent UI checks; upload remains blocked.' >&2
 fi
+else
+  echo 'Exact unchanged Release source: run 38975208350 passed eight Blob media cases, seven Browser UI cases (fullscreen retried) and both native iPad journeys; other 66 native cases remain from 38969843875. Recheck the changed fullscreen case and both WebKit journeys only.'
+fi
 # WebKit's hosted simulator process became unresponsive after the integration
 # suite in run 38917664541. Use a clean device boot for the independent UI
 # process, without erasing persistent data or touching local users' sessions.
 if [[ "${CI:-}" == true && "$destination" == *id=* ]]; then
   xcrun simctl shutdown "${destination##*id=}" || true
+fi
+browser_scope=(-only-testing:WebKWebUITests/BrowserActionsUITests)
+if [[ "$website_recheck" == controls ]]; then
+  browser_scope=(-only-testing:WebKWebUITests/BrowserActionsUITests/testWebsiteSystemFullscreenReturnsToSameVideoAndBrowser)
 fi
 if ! xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
@@ -165,7 +181,7 @@ if ! xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -default-test-execution-time-allowance 120 \
   -maximum-test-execution-time-allowance 300 \
   -retry-tests-on-failure -test-iterations 2 \
-  -only-testing:WebKWebUITests/BrowserActionsUITests \
+  "${browser_scope[@]}" \
   CODE_SIGNING_ALLOWED=NO test; then
   browser_checks_failed=true
   echo '::error::iPhone browser tests failed. Continuing independent iPad checks; upload remains blocked.' >&2
@@ -202,7 +218,9 @@ if [[ "${CI:-}" == true && "$ipad_destination" == *id=* ]]; then
 fi
 echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
 journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests)
-if [[ "$native_recheck" == true ]]; then
+if [[ "$website_recheck" == controls ]]; then
+  journey_scope=(-only-testing:WebKWebUITests/BrowserWebPlaybackJourneyUITests)
+elif [[ "$native_recheck" == true ]]; then
   journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests/testVideoFullscreenBackPiPOtherAppQueueNextAndSearch)
 else
   journey_scope+=(-only-testing:WebKWebUITests/BrowserWebPlaybackJourneyUITests)

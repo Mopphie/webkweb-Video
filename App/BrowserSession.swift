@@ -671,8 +671,9 @@ final class BrowserModel: ObservableObject {
         <button aria-label="Website-Systemplayer" onclick="document.getElementById('player').webkitEnterFullscreen()">Systemplayer</button>
         <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p><p>\(audible ? "Ton aktiv" : "Stumm")</p>
         <p id="fullscreen-capability"></p>
+        <p id="fullscreen-state">Element-Vollbild inaktiv</p>
         <script>let lastTime=0,lastFrames=0;document.title='Lokale Medienfixture';setInterval(()=>{const s=document.getElementById('state'),v=document.getElementById('player'),frames=v.getVideoPlaybackQuality?.().totalVideoFrames||0,progress=frames>lastFrames||Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;lastFrames=frames;if(s.textContent!==next)s.textContent=next;},1000);</script>
-        <script>document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen-exit').style.display=document.fullscreenElement?'block':'none';});</script>
+        <script>document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen-exit').style.display=document.fullscreenElement?'block':'none';document.getElementById('fullscreen-state').textContent=document.fullscreenElement?'Element-Vollbild aktiv':'Element-Vollbild beendet';});</script>
         <script>document.getElementById('fullscreen-capability').textContent=document.fullscreenEnabled&&typeof document.getElementById('container').requestFullscreen==='function'?'Element-Vollbild unterstützt':'Element-Vollbild nicht unterstützt';</script>
         <div style="height:1400px">Testkommentare</div>
         <script>\(scrolled ? "window.scrollTo(0,160);" : "")</script>
