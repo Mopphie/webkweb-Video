@@ -63,6 +63,10 @@ final class AudioController {
     }
     func updateDemand(explicitPlay: Bool = false) {
         guard let browser, !isInterrupted else { return }
+        // WebKit has already activated its own audio when a website reports
+        // play. Activating the host in response can interrupt that same player.
+        // Only an explicit native Play may acquire a host-owned session.
+        guard ownsActiveSession || explicitPlay else { return }
         let required = MediaPolicy.requiresAudioSession(localPlaying: browser.tabs.contains(where: \.hasActivePlayback), explicitPlay: explicitPlay, stopped: browser.playbackStopped, alreadyActive: ownsActiveSession)
         if required { deactivationTask?.cancel(); deactivationTask = nil }
         guard required != ownsActiveSession else { return }

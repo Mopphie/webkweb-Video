@@ -10,7 +10,9 @@ final class BrowserActionsUITests: XCTestCase {
 
     private func launchFixture(audible: Bool = false) throws -> XCUIApplication {
         continueAfterFailure = false
-        executionTimeAllowance = 120
+        // A cold CI simulator completed the menu assertions but spent 132s
+        // including launch/quiescence. Keep the functional wait limits intact.
+        executionTimeAllowance = 180
         let app = XCUIApplication()
         let url = try XCTUnwrap(Bundle(for: BrowserActionsUITests.self).url(forResource: "sample", withExtension: "mp4"))
         app.launchArguments = ["--ui-test-browser"]
