@@ -1,6 +1,6 @@
 # DevnTube (internes Xcode-Ziel: WebKWeb)
 
-Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Debug/XCTest und Release-Simulatorbuild geprüft, reale Geräte-/Diensteprüfungen stehen noch aus.
+Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; **[TestFlight 0.1.0 (Build 3)](https://appstoreconnect.apple.com/apps/6822711093/testflight)** erfolgreich hochgeladen und von Apple mit `IN_BETA_TESTING` bestätigt. [Build-/Testnachweis](https://github.com/Mopphie/webkweb-Video/actions/runs/38862276281); reale Geräte-/Diensteprüfungen stehen noch aus.
 
 Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und Favoriten/Verlauf/Timer/Einstellungen. Alle acht Startseiten-Icons sind schlichte lokale Glyphs ohne Glass-/Materialflächen oder Randblasen. Die transparente Trefferfläche bleibt groß; Suchpille und funktionale Browserbuttons behalten ihr Material. Lokale Icons erzeugen keine Favicon-Anfragen. Mit iOS-26-SDK/Compiler 6.2 nutzt die Oberfläche Liquid Glass, sonst Systemmaterial. Transparenz reduzieren, große Schrift und iPad erhalten eigene Layoutanpassungen.
 

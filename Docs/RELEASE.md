@@ -1,5 +1,16 @@
 # Prüfung vor einem Release
 
+## TestFlight 0.1.0 (Build 3), 16.10.2026
+
+Der [freigegebene TestFlight-Lauf 38862276281](https://github.com/Mopphie/webkweb-Video/actions/runs/38862276281) für Release-Commit `ff827ff` ist erfolgreich abgeschlossen. Die App-/Widget-/Bridgequellen entsprechen dem zuvor geprüften Stand; geändert wurden ausschließlich Releasepipeline und Dokumentation.
+
+- 10/10 Pipeline-Helper-Tests, 44/44 Node-Tests und erneut **38/38 native Simulator-XCTests** bestanden.
+- App Store Connect bestimmte Buildnummer **3**. Beide Distribution-Profile und das Zertifikat wurden geprüft; signiertes Gerätearchiv und IPA-Export bestanden. Die exportierten App-/Widget-Plists bestätigen übereinstimmend Version **0.1.0 / Build 3**.
+- Apple meldete **`UPLOAD SUCCEEDED with no errors`** und danach **`processingState=VALID`**, **`internalBuildState=IN_BETA_TESTING`**. Build-ID: `7a7fe28c-9dbe-4fd6-9f4a-9b480522cda2`.
+- [Build in App Store Connect / TestFlight öffnen](https://appstoreconnect.apple.com/apps/6822711093/testflight). Einzelne Beta-Gruppen konnte der API-Schlüssel wegen HTTP 403 nicht lesen oder verwalten. Eine konkrete Testgruppenzuordnung oder jeder einzelne Testerzugang wird deshalb nicht als geprüft bezeichnet; der Apple-Buildstatus ist bestätigt. Es wurden keine Gruppen erstellt oder Tester eingeladen.
+
+Signierungsmaterial wurde anschließend vom Runner entfernt. Der Upload ist eine TestFlight-Beta und keine App-Store-Veröffentlichung. Reale iPhone-/iPad-/Diensteprüfungen und Release-Metadaten bleiben getrennt vom erfolgreichen Build-/Uploadnachweis.
+
 ## Wiedergabeprüfung ab 16.10.2026
 
 Actions sind seit der ausdrücklichen Nutzerfreigabe am 16.10.2026 für Builds und Tests jederzeit erlaubt. Der [native Lauf 38860463443](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443) für Code `24d961f` ist erfolgreich abgeschlossen:
@@ -40,6 +51,6 @@ Auf einem autorisierten Mac: vollständiges Xcode 26+ auswählen, iOS-26-SDK und
 
 Vor Veröffentlichung: App-Store-Datenschutzauskunft einschließlich optionalem iCloud mit dem finalen Build abgleichen, Signierung/Icons/**echte Gerätescreenshots**/Altersfreigabe nach Apples aktualisiertem Fragebogen prüfen und Dienstbedingungen/Rechte beachten. Die frühere native Medien-Downloadfunktion sowie SponsorBlock und Google Cast wurden vollständig entfernt, einschließlich Debug und Tests nur für diese Integrationen. Vorhandene Nutzerdateien bleiben unangetastet. Die verbleibenden Filterquellen sind unter ihren Lizenzbedingungen zu verwenden; Hinweise stehen in der App und [COMMERCIAL-USE.md](COMMERCIAL-USE.md). `ITSAppUsesNonExemptEncryption=false` setzt übliche ausgenommene System-/TLS-Verschlüsselung voraus. Keine Zugehörigkeit zu den verlinkten Diensten oder garantierte App-Store-Zulassung behaupten.
 
-**Status dieser bereinigten Fassung:** Noch kein signiertes `.xcarchive`, keine `.ipa`, keine echten iPhone-/iPad-Screenshots und kein TestFlight-Upload. Der frühere TestFlight-Build ist oben getrennt dokumentiert. [APP-STORE-DRAFT.md](APP-STORE-DRAFT.md) enthält vorbereitete Metadaten ohne erfundene Angaben. PR/Dokumentation sind Vorbereitung, keine Einreichungsfreigabe.
+**Status dieser bereinigten Fassung:** Signiertes Gerätearchiv, IPA-Export und TestFlight-Upload 0.1.0 (Build 3) sind oben nachgewiesen. Echte iPhone-/iPad-Screenshots und reale Diensteprüfungen stehen noch aus. Die früheren TestFlight-Builds sind davon getrennt dokumentiert. [APP-STORE-DRAFT.md](APP-STORE-DRAFT.md) enthält vorbereitete Metadaten ohne erfundene Angaben. PR/Dokumentation sind Vorbereitung, keine Einreichungsfreigabe.
 
 Sachliche Beschreibung: „Browser für iPhone und iPad mit Tabs, Favoriten, nativer Video-Steuerung, AirPlay und Sleep-Timer. Unterstützte Webseiten können Inline-Video und Bild-in-Bild nutzen. Ein optionaler Netzwerkfilter reduziert bestimmte Anfragen. Funktionen hängen von Webseite, iOS und Wiedergabequelle ab.“
