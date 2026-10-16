@@ -60,6 +60,7 @@ test('play intent only authorizes its own player and ignores unrelated buttons',
  h.documentEvents.click({isTrusted:true,composedPath:()=>[other,container]});main.play();assert.equal(main.paused,true);
  h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[main]});small.play();assert.equal(small.paused,true);
  assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+ main.play();assert.equal(main.paused,false);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
 });
 test('keyboard Play and quiet restore bootstrap use the same explicit intent boundary',()=>{
  const v=element(),h=harness([v],'https://example.com/player',true);assert.equal(v.paused,true);v.play();assert.equal(v.paused,true);
@@ -76,6 +77,13 @@ test('invalid or stale host touches do not release timer stop',()=>{
  const v=element(),h=harness([v]);h.api.pause(true);
  for(const point of [{x:-1,y:0},{x:NaN,y:0},{x:0,y:Infinity},{x:2,y:0}]){h.api.noteHostTouch(point);v.play();assert.equal(v.paused,true);}
  h.api.noteHostTouch({x:0.1,y:0.1});h.advance(1501);v.play();assert.equal(v.paused,true);
+});
+test('timer tick between synchronous play and its queued event preserves fresh explicit intent',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[v]});
+ // HTMLMediaElement.play sets paused=false before dispatching its play event.
+ v.paused=false;h.tick();assert.equal(v.paused,false);
+ v.listeners.play();assert.equal(v.paused,false);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
 });
 test('new already-playing autoplay video is paused immediately after insertion',()=>{
  const h=harness();h.api.pause(true);const next=element();h.add(next);assert.equal(next.paused,true);

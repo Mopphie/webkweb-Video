@@ -10,6 +10,10 @@
   let lastAddress = "", stopped = Boolean(globalThis.__webkwebStartPaused), selected = null;
   let interactionAt = 0, lastPrimary = null;
   let playIntent = null;
+  const hasPlayIntent = v => {
+    const elapsed = playIntent ? Date.now() - playIntent.at : -1;
+    return playIntent?.media === v && elapsed >= 0 && elapsed <= 1500;
+  };
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
@@ -96,7 +100,7 @@
   };
   function attach() {
     nodes().forEach(v => {
-      if (stopped && !v.paused) v.pause();
+      if (stopped && !v.paused && !hasPlayIntent(v)) v.pause();
       if (attached.has(v)) return;
       attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, waiting: false});
       entry(v);
@@ -105,9 +109,8 @@
         if (stopped) {
           // A media `play` event is also trusted for script/autoplay. Only an
           // earlier real input on this player's controls may release the latch.
-          const allowed = playIntent?.media === v && Date.now() - playIntent.at <= 1500;
+          if (!hasPlayIntent(v)) { v.pause(); return; }
           playIntent = null;
-          if (!allowed) { v.pause(); return; }
           stopped = false;
           post("userplay", {mediaID: mediaID(v)});
         }
@@ -265,7 +268,7 @@
     }
     if (!hidden && now - lastDiscovery >= 15000) { discover(document); lastDiscovery = now; }
     attach();
-    if (stopped) nodes().forEach(v => { if (!v.paused) v.pause(); });
+    if (stopped) nodes().forEach(v => { if (!v.paused && !hasPlayIntent(v)) v.pause(); });
     state(false);
   };
   discover(document); lastDiscovery = Date.now(); post("ready"); tick();
