@@ -11,7 +11,6 @@ import hashlib
 import importlib.util
 import os
 from pathlib import Path
-import plistlib
 import subprocess
 import sys
 import tempfile
@@ -49,13 +48,14 @@ def run(p12, output, bootstrap):
     else:
         bundle = bundles[0]
     bundle_id = bundle['id']
+    print('Reading registered Share capabilities.', flush=True)
     capabilities = client.records('/v1/bundleIds/' + bundle_id + '/bundleIdCapabilities', {'limit': 50})
     if not any(c['attributes'].get('capabilityType') == 'APP_GROUPS' for c in capabilities):
         if not bootstrap:
             raise RuntimeError('Share App Groups capability is missing; run authorized setup')
-        client.request('/v1/bundleIdCapabilities', method='POST', body={'data': {'type': 'bundleIdCapabilities',
-            'attributes': {'capabilityType': 'APP_GROUPS'}, 'relationships': {'bundleId': {'data': {'type': 'bundleIds', 'id': bundle_id}}}}})
-        print('Enabled App Groups for the Share bundle ID.')
+        # The public API can reject provisioning of App Groups. Let Xcode,
+        # which also associates the existing group, configure this capability.
+        print('Xcode must enable and associate the existing App Group.', flush=True)
     if bootstrap:
         # Xcode is the supported route to associate the already existing App
         # Group. This relationship is not exposed in the public ASC REST API.
@@ -65,6 +65,7 @@ def run(p12, output, bootstrap):
                    '-authenticationKeyIssuerID', client.issuer, 'CODE_SIGN_STYLE=Automatic',
                    'DEVELOPMENT_TEAM=' + signing.TEAM, 'CODE_SIGN_IDENTITY=Apple Development',
                    'PROVISIONING_PROFILE_SPECIFIER=', 'REGISTER_APP_GROUPS=YES', 'build']
+        print('Starting authorized Xcode automatic signing for Share only.', flush=True)
         with tempfile.TemporaryFile() as log:
             code = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=False).returncode
             print('Xcode Share signing setup exit status:', code)
