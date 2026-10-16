@@ -12,7 +12,11 @@
   let playIntent = null;
   const hasPlayIntent = v => {
     const elapsed = playIntent ? Date.now() - playIntent.at : -1;
-    return playIntent?.media === v && elapsed >= 0 && elapsed <= 1500;
+    // Audio startup can block inside the very same real input dispatch. That
+    // dispatch remains proof of user intent, not a longer autoplay timeout.
+    const event = playIntent?.event;
+    const dispatching = event?.isTrusted && [1, 2, 3].includes(event.eventPhase) && elapsed <= 15000;
+    return playIntent?.media === v && elapsed >= 0 && (elapsed <= 1500 || dispatching);
   };
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
@@ -21,15 +25,24 @@
   // system interruption or user caused them. Never resume on visibility alone.
   const observed = event => post("mediaevent", {event, stopLatched: stopped});
   const acknowledgeRequestedPlay = intent => {
-    // Run in the first task after real input, once the site's target/bubble
-    // handlers have requested play. A capture-listener microtask can run too
-    // early, before those handlers. The media play event can arrive seconds
+    // Observe a real requested play before its event, which can arrive seconds
     // later. Never call play() here, or widen the 1.5s intent window; a newer
     // Stop also invalidates this particular acknowledgement's identity.
     if (!intent || playIntent !== intent || !stopped || !hasPlayIntent(intent.media) || intent.media.paused || intent.media.ended) return;
     stopped = false; playIntent = null;
-    post("userplay", {mediaID: mediaID(intent.media)});
+    post("userplay", {mediaID: mediaID(intent.media), inputAt: intent.at});
     state();
+  };
+  const observeRequestedPlay = intent => {
+    // A single cross-world task may still run before the site's play request
+    // becomes visible. Sample only this exact fresh input for at most 1.5s.
+    // No media start, visibility resume, deadline extension or recurring loop.
+    let remaining = 30;
+    const sample = () => {
+      acknowledgeRequestedPlay(intent);
+      if (remaining-- > 0 && playIntent === intent && stopped && hasPlayIntent(intent.media)) setTimeout(sample, 50);
+    };
+    setTimeout(sample, 0);
   };
   function discover(root) {
     if (root?.tagName === "VIDEO" || root?.tagName === "AUDIO") knownMedia.add(root);
@@ -128,9 +141,10 @@
           // A media `play` event is also trusted for script/autoplay. Only an
           // earlier real input on this player's controls may release the latch.
           if (!hasPlayIntent(v)) { observed("stop-rejected"); v.pause(); return; }
+          const inputAt = playIntent.at;
           playIntent = null;
           stopped = false;
-          post("userplay", {mediaID: mediaID(v)});
+          post("userplay", {mediaID: mediaID(v), inputAt});
         }
         post("started", {mediaID: mediaID(v)});
         observed("play");
@@ -199,9 +213,9 @@
     if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
     if (v && event.isTrusted) {
       observed("input");
-      const intent = {media: v, at: Date.now()}; playIntent = intent;
-      if (!stopped) post("userplay", {mediaID: mediaID(v)});
-      else setTimeout(() => acknowledgeRequestedPlay(intent), 0);
+      const intent = {media: v, at: Date.now(), event}; playIntent = intent;
+      if (!stopped) post("userplay", {mediaID: mediaID(v), inputAt: intent.at});
+      else observeRequestedPlay(intent);
     }
   };
   document.addEventListener("pointerdown", choose, true);
@@ -209,6 +223,11 @@
   document.addEventListener("keydown", event => {
     if (event.key === " " || event.key === "Enter") choose(event);
   }, true);
+  for (const type of ["pointerdown", "click", "keydown"]) {
+    window.addEventListener(type, event => {
+      if (event.isTrusted && playIntent?.event === event) acknowledgeRequestedPlay(playIntent);
+    });
+  }
   globalThis.__webkweb = {
     pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); playIntent = null; commandMedia(); nodes().forEach(v => v.pause()); state(); },
     clearStop() { stopped = false; playIntent = null; },
@@ -233,7 +252,7 @@
         intent = {media: v, at: Date.now()}; playIntent = intent;
       }
       attach();
-      if (intent) setTimeout(() => acknowledgeRequestedPlay(intent), 0);
+      if (intent) observeRequestedPlay(intent);
     },
     seek,
     setBackground(value) { background = Boolean(value); },

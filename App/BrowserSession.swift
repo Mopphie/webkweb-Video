@@ -93,6 +93,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     private var autoplayNavigation: WKNavigation?
     private var backgroundOpening: Bool
     private(set) var playbackStopLatched: Bool
+    private var playbackStopAt = 0.0
     private var playbackEvents: [[String: String]] = []
     private var playbackControlEvents: [[String: String]] = []
     var sessionAddress: String { lastRequestedURL?.absoluteString ?? address }
@@ -194,6 +195,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         webView.setAllMediaPlaybackSuspended(false, completionHandler: nil)
     }
     func pausePlayback(blockAutoplay: Bool = true, reason: String) {
+        if blockAutoplay { playbackStopAt = Date().timeIntervalSince1970 * 1000 }
         if playbackStopLatched != blockAutoplay {
             playbackStopLatched = blockAutoplay
             Self.installScripts(in: webView.configuration.userContentController, startPaused: backgroundOpening || blockAutoplay)
@@ -373,6 +375,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             }
         case "started", "userplay":
             guard let mediaID = body["mediaID"] as? String, mediaID.hasPrefix(documentID + ":") else { return }
+            // A real input can finish after a synchronous WebKit audio stall.
+            // Its original timestamp must still be newer than our latest Stop,
+            // including a Stop queued while WebContent was blocked.
+            if kind == "userplay", !MediaPolicy.acceptsPlaybackInput(finite(body["inputAt"]),
+                after: playbackStopAt, now: Date().timeIntervalSince1970 * 1000) {
+                pausePlayback(reason: "stale-input"); return
+            }
             browser?.didStartFromWebsite(in: id, userInitiated: kind == "userplay")
         case "mediaevent":
             let allowed = ["play", "pause", "waiting", "playing", "emptied", "error", "hidden", "visible", "input", "stop-rejected"]

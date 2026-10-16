@@ -6,6 +6,12 @@ struct PlaybackCandidate {
     let playing: Bool
 }
 enum MediaPolicy {
+    static func acceptsPlaybackInput(_ inputAt: Double?, after stopAt: Double, now: Double) -> Bool {
+        guard let inputAt, inputAt.isFinite, stopAt.isFinite, now.isFinite,
+              inputAt >= 0, inputAt >= stopAt,
+              inputAt <= now + 1000, inputAt >= now - 30000 else { return false }
+        return true
+    }
     static func playbackOwner(currentID: UUID, queueID: UUID?, candidates: [PlaybackCandidate]) -> UUID {
         if candidates.contains(where: { $0.id == currentID && $0.hasMedia }) { return currentID }
         if let playing = candidates.first(where: { $0.hasMedia && $0.playing }) { return playing.id }

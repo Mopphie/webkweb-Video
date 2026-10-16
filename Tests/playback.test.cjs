@@ -21,7 +21,7 @@ function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefgh
  };
  vm.createContext(sandbox);vm.runInContext(source,sandbox);
  return {api:sandbox.__webkweb,nodes,messages,location,document,documentEvents,windowEvents,shadowHosts,
-  tick(){clock+=1000;tick();},flushInputTasks(){while(inputTasks.length)inputTasks.shift()();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
+  tick(){clock+=1000;tick();},stepInputTask(){inputTasks.shift()?.();},flushInputTasks(){while(inputTasks.length)inputTasks.shift()();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
 }
 test('state includes document and media IDs without exporting direct media URLs',()=>{
  const h=harness();assert.ok(h.state().documentID);assert.ok(h.state().mediaID);assert.equal(h.state().hasMedia,true);
@@ -119,6 +119,45 @@ test('input task does not start media or authorize a later autoplay',()=>{
  h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});h.flushInputTasks();
  assert.equal(v.paused,true);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
  h.advance(1501);v.play();assert.equal(v.paused,true);
+});
+test('requested play can become active after the first input task before its delayed play event',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});h.stepInputTask();
+ // The first cross-world task still sees paused. The website's real request
+ // becomes observable shortly afterwards; only its play event is six seconds late.
+ h.advance(80);v.paused=false;h.flushInputTasks();
+ assert.equal(h.state().stopLatched,false);
+ h.advance(6000);v.listeners.play();assert.equal(v.paused,false);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+});
+test('bounded pending input sampling cannot survive a newer Stop',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.api.noteHostTouch({x:0.1,y:0.1});h.stepInputTask();h.api.pause(true);
+ h.advance(80);v.paused=false;h.flushInputTasks();v.listeners.play();
+ assert.equal(v.paused,true);assert.equal(h.state().stopLatched,true);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+});
+test('a still-dispatching trusted Play input is not confused with later autoplay after audio startup blocks',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ const event={isTrusted:true,eventPhase:1,composedPath:()=>[v]};
+ h.documentEvents.click(event);const originalInputAt=h.state().interactionAt;
+ h.advance(6000);event.eventPhase=2;v.paused=false;
+ v.listeners.play();event.eventPhase=0;
+ assert.equal(v.paused,false);assert.equal(h.state().stopLatched,false);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+ assert.equal(h.messages.find(m=>m.kind==='userplay').inputAt,originalInputAt);
+});
+test('a completed trusted event does not authorize later script playback',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ const event={isTrusted:true,eventPhase:1,composedPath:()=>[v]};
+ h.documentEvents.click(event);event.eventPhase=0;h.advance(6000);v.play();
+ assert.equal(v.paused,true);assert.equal(h.state().stopLatched,true);
+});
+test('a pathological trusted handler cannot keep play authorization indefinitely',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ const event={isTrusted:true,eventPhase:1,composedPath:()=>[v]};
+ h.documentEvents.click(event);event.eventPhase=2;h.advance(15001);v.play();
+ assert.equal(v.paused,true);assert.equal(h.state().stopLatched,true);
 });
 test('isolated real host touch acknowledges an already requested native-control play',()=>{
  const v=element(),h=harness([v]);h.api.pause(true);v.paused=false;

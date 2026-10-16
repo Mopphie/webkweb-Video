@@ -6,6 +6,13 @@ import XCTest
 #endif
 
 final class MediaPolicyTests: XCTestCase {
+    func testDelayedTrustedInputCannotOverrideNewerNativeStop() {
+        XCTAssertTrue(MediaPolicy.acceptsPlaybackInput(2000, after: 1000, now: 9000))
+        XCTAssertFalse(MediaPolicy.acceptsPlaybackInput(2000, after: 5000, now: 9000))
+        for input in [nil, .nan, .infinity, -1, 11001, -30001] as [Double?] {
+            XCTAssertFalse(MediaPolicy.acceptsPlaybackInput(input, after: 0, now: 10000))
+        }
+    }
     func testIdleLaunchAndForegroundDoNotClaimLocalAudio() {
         XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, stopped: false))
         XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: false, explicitPlay: true, stopped: false))

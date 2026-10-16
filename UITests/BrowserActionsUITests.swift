@@ -176,8 +176,18 @@ final class BrowserActionsUITests: XCTestCase {
         app.buttons["Website-Systemplayer"].tap()
         // Native WebKit video fullscreen, including on an iPhone whose HTML
         // Element Fullscreen API may be unavailable. Actual system control.
-        let exit = app.buttons["Close Button"]
-        XCTAssertTrue(exit.waitForExistence(timeout: 8))
+        let exit = app.buttons.matching(NSPredicate(format:
+            "identifier == 'Close Button' OR label MATCHES[c] '(Done|Fertig|Close|Schließen|.*Exit Full.?Screen.*|.*Vollbild beenden.*)'"
+        )).firstMatch
+        if !exit.exists || !exit.isHittable {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap()
+        }
+        let visible = exit.waitForExistence(timeout: 8)
+        if !visible {
+            print("WEBKIT_IPHONE_FULLSCREEN_CONTROLS \(app.debugDescription)")
+            capturePlayerDiagnostic(app)
+        }
+        XCTAssertTrue(visible)
         XCTAssertTrue(exit.isHittable)
         exit.tap()
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 8))

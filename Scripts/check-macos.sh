@@ -69,6 +69,7 @@ try:
 except (subprocess.CalledProcessError,ValueError): print('false')
 PY
 )"
+browser_checks_failed=false
 if [[ "$native_recheck" == true ]]; then
   parent_tree="$(git rev-parse 'HEAD^^{tree}')"
   if [[ "$parent_tree" == 968ae7458412a74610230d5e7a6f0475047a6c7e || "$parent_tree" == e49923fba7e50cb8dd4e49616e02843e6ed4986d ]]; then
@@ -108,7 +109,7 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
 if [[ "${CI:-}" == true && "$destination" == *id=* ]]; then
   xcrun simctl shutdown "${destination##*id=}" || true
 fi
-xcodebuild "${project_args[@]}" -scheme WebKWeb \
+if ! xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/Browser-Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES -parallel-testing-enabled NO \
@@ -116,7 +117,10 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -maximum-test-execution-time-allowance 300 \
   -retry-tests-on-failure -test-iterations 2 \
   -only-testing:WebKWebUITests/BrowserActionsUITests \
-  CODE_SIGNING_ALLOWED=NO test
+  CODE_SIGNING_ALLOWED=NO test; then
+  browser_checks_failed=true
+  echo '::error::iPhone browser tests failed. Continuing independent iPad checks; upload remains blocked.' >&2
+fi
 fi
 ipad_destination="$(xcrun simctl list devices available --json | python3 -c '
 import json, sys
@@ -162,4 +166,5 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -maximum-test-execution-time-allowance 600 \
   "${journey_scope[@]}" \
   CODE_SIGNING_ALLOWED=NO test
+if [[ "$browser_checks_failed" == true ]]; then exit 1; fi
 echo "Simulator-Prüfung erfolgreich (gezielte Wiederholung: $native_recheck). Vorherige Nachweise ggf. wiederverwendet; Gerätetests bleiben erforderlich."
