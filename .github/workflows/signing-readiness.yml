@@ -35,3 +35,37 @@ jobs:
             fi
           done
           exit "$missing"
+      - uses: actions/checkout@v4
+        if: always()
+        with:
+          persist-credentials: false
+      - name: Read existing Apple extension registration and profiles
+        if: always()
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64, importlib.util, os, pathlib, sys, tempfile
+          spec = importlib.util.spec_from_file_location('asc_readiness', 'Scripts/app-store-connect.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          with tempfile.TemporaryDirectory(prefix='asc-readiness-') as directory:
+              key = pathlib.Path(directory) / 'key.p8'
+              key.write_bytes(base64.b64decode(''.join(os.environ['APP_STORE_CONNECT_API_KEY_BASE64'].split()), validate=True))
+              key.chmod(0o600)
+              os.environ['ASC_KEY_PATH'] = str(key)
+              try:
+                  client = module.Client()
+                  bundles = client.records('/v1/bundleIds', {'filter[identifier]': 'de.mopphie.devntube.share', 'limit': 10})
+                  print('SHARE_BUNDLE_REGISTERED:', bool(bundles))
+                  if bundles:
+                      profiles = client.records('/v1/profiles', {'filter[profileType]': 'IOS_APP_STORE', 'filter[profileState]': 'ACTIVE', 'fields[profiles]': 'profileState,profileType,bundleId', 'limit': 200})
+                      identifiers = {bundle['id'] for bundle in bundles}
+                      count = sum(profile.get('relationships', {}).get('bundleId', {}).get('data', {}).get('id') in identifiers for profile in profiles)
+                      print('SHARE_ACTIVE_DISTRIBUTION_PROFILES:', count)
+              except module.APIError as error:
+                  print('::error::Read-only Apple signing lookup returned HTTP', error.status)
+                  sys.exit(1)
+          PY
