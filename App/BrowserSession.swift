@@ -659,6 +659,7 @@ final class BrowserModel: ObservableObject {
         <button id="fullscreen-exit" aria-label="Website-Vollbild verlassen" style="display:none;position:absolute;top:0;left:0"
         onclick="document.exitFullscreen()">Zurück</button></div>
         <button aria-label="Website-Vollbild" onclick="document.getElementById('container').requestFullscreen()">Vollbild</button>
+        <button aria-label="Website-Systemplayer" onclick="document.getElementById('player').webkitEnterFullscreen()">Systemplayer</button>
         <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p><p>\(audible ? "Ton aktiv" : "Stumm")</p>
         <script>let lastTime=0,lastFrames=0;document.title='Lokale Medienfixture';setInterval(()=>{const s=document.getElementById('state'),v=document.getElementById('player'),frames=v.getVideoPlaybackQuality?.().totalVideoFrames||0,progress=frames>lastFrames||Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;lastFrames=frames;if(s.textContent!==next)s.textContent=next;},1000);</script>
         <script>document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen-exit').style.display=document.fullscreenElement?'block':'none';});</script>
