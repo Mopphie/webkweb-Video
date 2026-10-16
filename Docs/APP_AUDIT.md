@@ -1,5 +1,7 @@
 > Aktueller Nachtrag: Teilen-Erweiterung entfernt, DevnTube 0.1.0 (6) signiert hochgeladen und VALID / IN_BETA_TESTING. Vollständige native PiP-/Appwechsel-/Queue-Reise im Simulator bestanden. Die frühere lokale Inventar-/0-CI-Baseline bleibt historisch; konkrete neue Nachweise, Kostenaktionen und offene öffentliche Releaseblocker: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
 
+**Aktueller Folgestand:** DevnTube 0.1.0 (7) intern VALID / IN_BETA_TESTING. Runtime-/Diagnose-/CI-Korrekturen, tatsächliche Prüfungen, unveränderte Grenzen und Kostenaktionen: [Build-6-Fehlerfolge und Build-7-Ergebnis](PLAYBACK_BUILD6_FOLLOWUP.md). Die folgende Bestandsaufnahme enthält historische Baselineangaben. YouTube-Hintergrundstopp bleibt offen.
+
 # App-Audit — 16.10.2026
 
 Gegenstand ist der vorhandene Quellstand von **DevnTube** (internes Projekt/Schema **WebKWeb**), nicht die auf dem iPhone installierte Version. Der gemeldete Stopp beim Appwechsel gehört zum Prüfauftrag. Aktuelle Ergebnisse und Grenzen stehen in [TEST_REPORT.md](TEST_REPORT.md), alle 31 Featureentscheidungen in [FEATURE_MATRIX.md](FEATURE_MATRIX.md).

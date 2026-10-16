@@ -1,9 +1,11 @@
-> Aktuell: DevnTube 0.1.0 (6) ist hochgeladen und von Apple als VALID / IN_BETA_TESTING bestätigt. Teilen-Erweiterung entfernt; Release-IPA enthält App + Widget. Der abschließende Nachweis steht unten, ältere Zwischenstände sind historisch.
+> Aktuell: **DevnTube 0.1.0 (7) ist VALID / IN_BETA_TESTING**, unabhängig per Apple-API bestätigt am 16.10.2026 um 18:45:44 UTC. [Build-7-Folgeprüfung, Nachweise und Abschluss A–J](PLAYBACK_BUILD6_FOLLOWUP.md). YouTube-Stopp beim Appwechsel weiterhin offen. Die folgenden Build-6-Angaben dokumentieren den vorherigen abgeschlossenen Uploadauftrag.
+
+> Vorheriger Abschluss: DevnTube 0.1.0 (6) ist hochgeladen und von Apple als VALID / IN_BETA_TESTING bestätigt. Teilen-Erweiterung entfernt; Release-IPA enthält App + Widget. Der abschließende Nachweis steht unten, ältere Zwischenstände sind historisch.
 
 # TestFlight-Auftrag — Ausführungsstand 16.10.2026
 
 
-## Aktuelles Endergebnis — 16.10.2026, 16:40 UTC
+## Historischer Abschluss Build 6 — 16.10.2026, 16:40 UTC
 
 **DevnTube 0.1.0 (6) ist für interne TestFlight-Tests aktiv.** Apple meldet `processing_state=VALID`, `internal_state=IN_BETA_TESTING`, Build-ID `04af9e86-bc98-4dd5-87f9-15f0a73736a5`. [Erfolgreicher vollständiger Uploadlauf](https://github.com/Mopphie/webkweb-Video/actions/runs/38932003655). Keine App-Store-Einreichung und keine umfassende Rechts-/Gerätefreigabe.
 
