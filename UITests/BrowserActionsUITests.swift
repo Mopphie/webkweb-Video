@@ -23,6 +23,15 @@ final class BrowserActionsUITests: XCTestCase {
         add(attachment)
     }
 
+    private func mediaIdentity(_ app: XCUIApplication) throws -> String {
+        let text = try XCTUnwrap(app.buttons["browser.actions"].value as? String)
+        let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        let native = try XCTUnwrap(report["native"] as? [String: Any])
+        let id = try XCTUnwrap(native["media_id"] as? String)
+        XCTAssertFalse(id.isEmpty)
+        return id
+    }
+
     private func requireSustainedPlayback(_ app: XCUIApplication) throws {
         func snapshot() throws -> (time: Double, duration: Double, valid: Bool) {
             let text = try XCTUnwrap(app.buttons["browser.actions"].value as? String)
@@ -50,7 +59,7 @@ final class BrowserActionsUITests: XCTestCase {
         }
     }
 
-    private func launchFixture(audible: Bool = false) throws -> XCUIApplication {
+    private func launchFixture(audible: Bool = false, scrolled: Bool = false) throws -> XCUIApplication {
         continueAfterFailure = false
         // A cold CI simulator completed the menu assertions but spent 132s
         // including launch/quiescence. Keep the functional wait limits intact.
@@ -60,6 +69,7 @@ final class BrowserActionsUITests: XCTestCase {
         app.launchArguments = ["--ui-test-browser"]
         app.launchEnvironment["WEBKWEB_UI_TEST_MEDIA"] = try Data(contentsOf: url).base64EncodedString()
         app.launchEnvironment["WEBKWEB_UI_TEST_AUDIBLE"] = audible ? "1" : "0"
+        app.launchEnvironment["WEBKWEB_UI_TEST_SCROLLED"] = scrolled ? "1" : "0"
         milestone("Launch local real-video fixture")
         app.launch()
         milestone("App launched; wait for browser actions and decoded playback")
@@ -110,6 +120,67 @@ final class BrowserActionsUITests: XCTestCase {
         XCTAssertFalse(app.buttons["browser.watch.exit"].exists)
         XCTAssertTrue(app.staticTexts["Lokale UI-Testfixture"].exists)
         milestone("Normal website and native browser controls are reachable")
+    }
+
+    func testDownSwipeOnScrolledVideoRestoresBrowserAndKeepsPlayback() throws {
+        let app = try launchFixture(scrolled: true)
+        let identity = try mediaIdentity(app)
+        let web = app.webViews.firstMatch
+        let start = app.buttons["Videostart"]
+        // Start below the overlay and above the native video seek controls.
+        // The fixture has a 260px header and scrollY=160: the video is neither
+        // at y=0 nor at the document's upper edge (both old assumptions fail).
+        let point = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: start.frame.minX + 200, dy: start.frame.minY + 80))
+        milestone("Pull down from actual video on scrolled website")
+        point.press(forDuration: 0.05, thenDragTo: point.withOffset(CGVector(dx: 0, dy: 115)))
+        XCTAssertTrue(app.textFields["Suchen oder Adresse"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["browser.watch.exit"].exists)
+        XCTAssertTrue(web.exists)
+        XCTAssertTrue(app.staticTexts["Lokale UI-Testfixture"].exists)
+        XCTAssertEqual(try mediaIdentity(app), identity)
+        try requireSustainedPlayback(app)
+        milestone("Swipe restored normal browser without a page navigation or player restart")
+    }
+
+    func testVisibleReturnButtonKeepsSameWebsiteAndPlayback() throws {
+        let app = try launchFixture()
+        let identity = try mediaIdentity(app)
+        app.buttons["browser.watch.exit"].tap()
+        XCTAssertTrue(app.textFields["Suchen oder Adresse"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["browser.watch.exit"].exists)
+        XCTAssertTrue(app.staticTexts["Lokale UI-Testfixture"].exists)
+        XCTAssertEqual(try mediaIdentity(app), identity)
+        try requireSustainedPlayback(app)
+    }
+
+    func testCommentsKeepScrollingAndNativeHeaderCanRestoreBrowser() throws {
+        let app = try launchFixture()
+        let web = app.webViews.firstMatch
+        let start = web.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.75))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 85)))
+        XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable,
+                      "An ordinary pull in comments must not leave the watch presentation")
+        let header = app.buttons["browser.watch.exit"]
+            .coordinate(withNormalizedOffset: CGVector(dx: 3.5, dy: 0.5))
+        header.press(forDuration: 0.05, thenDragTo: header.withOffset(CGVector(dx: 0, dy: 95)))
+        XCTAssertTrue(app.textFields["Suchen oder Adresse"].waitForExistence(timeout: 8))
+        try requireSustainedPlayback(app)
+    }
+
+    func testWebsiteCanEnterAndExitItsOwnElementFullscreen() throws {
+        let app = try launchFixture()
+        app.buttons["Website-Vollbild"].tap()
+        // This button is hidden until a real fullscreenchange event reports
+        // document.fullscreenElement; ordinary inline playback cannot pass.
+        let exit = app.buttons["Website-Vollbild verlassen"]
+        XCTAssertTrue(exit.waitForExistence(timeout: 8))
+        XCTAssertTrue(exit.isHittable)
+        exit.tap()
+        XCTAssertTrue(exit.waitForNonExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable)
+        try requireSustainedPlayback(app)
     }
 
     func testFirstRealHostTouchResumesStoppedWebsiteVideo() throws {

@@ -7,7 +7,7 @@ import AVKit
 struct BrowserWebView: UIViewRepresentable {
     let tab: BrowserTab
     var watchPresentation = false
-    var leaveWatch: () -> Void = {}
+    var restoreBrowser: () -> Void = {}
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeUIView(context: Context) -> WKWebView {
         context.coordinator.attach(to: tab.webView)
@@ -18,7 +18,7 @@ struct BrowserWebView: UIViewRepresentable {
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) { coordinator.detach() }
     private func configure(_ view: WKWebView, coordinator: Coordinator) {
         coordinator.enabled = watchPresentation
-        coordinator.leaveWatch = leaveWatch
+        coordinator.restoreBrowser = restoreBrowser
         coordinator.playerTouch = { point in
             guard view.bounds.width > 0, view.bounds.height > 0 else { return }
             tab.prepareForPlayback()
@@ -33,8 +33,16 @@ struct BrowserWebView: UIViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var enabled = false
-        var leaveWatch: () -> Void = {}
+        var restoreBrowser: () -> Void = {}
         var playerTouch: (CGPoint) -> Void = { _ in }
+        private final class Pull {
+            let url: URL?
+            let restore: () -> Void
+            var beganOnVideo = false
+            var ended = false
+            init(url: URL?, restore: @escaping () -> Void) { self.url = url; self.restore = restore }
+        }
+        private var pull: Pull?
         private weak var webView: WKWebView?
         private lazy var pan = UIPanGestureRecognizer(target: self, action: #selector(swiped(_:)))
         private lazy var touchObserver: PlayerTouchObserver = {
@@ -49,22 +57,64 @@ struct BrowserWebView: UIViewRepresentable {
             touchObserver.cancelsTouchesInView = false
             view.addGestureRecognizer(touchObserver)
         }
-        func detach() { webView?.removeGestureRecognizer(pan); webView?.removeGestureRecognizer(touchObserver); webView = nil; playerTouch = { _ in }; leaveWatch = {}; enabled = false }
+        func detach() { webView?.removeGestureRecognizer(pan); webView?.removeGestureRecognizer(touchObserver); webView = nil; playerTouch = { _ in }; restoreBrowser = {}; enabled = false; pull = nil }
         func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
             guard enabled, let view = webView, let pan = gesture as? UIPanGestureRecognizer else { return false }
-            let velocity = pan.velocity(in: view), point = pan.location(in: view), delta = pan.translation(in: view)
-            let startY = point.y - delta.y
-            let videoHeight = min(view.bounds.width * 9 / 16, view.bounds.height * 0.6)
-            // Comments keep their normal scroll behavior. Only pull down from
-            // the top video area while the document is at its upper edge.
-            return velocity.y > abs(velocity.x) * 1.4 && startY >= 0 && startY <= videoHeight &&
-                view.scrollView.contentOffset.y <= -view.scrollView.adjustedContentInset.top + 8
+            let velocity = pan.velocity(in: view)
+            return velocity.y > abs(velocity.x) * 1.4
         }
         func gestureRecognizer(_ gesture: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
         @objc private func swiped(_ pan: UIPanGestureRecognizer) {
-            guard enabled, pan.state == .ended, let view = webView else { return }
+            guard enabled, let view = webView else { pull = nil; return }
             let delta = pan.translation(in: view)
-            if delta.y >= 72 && delta.y > abs(delta.x) * 1.4 { leaveWatch() }
+            switch pan.state {
+            case .began:
+                let point = pan.location(in: view)
+                let start = CGPoint(x: point.x - delta.x, y: point.y - delta.y)
+                let candidate = Pull(url: view.url, restore: restoreBrowser)
+                pull = candidate
+                // Read the real visible video rectangle, not an assumed 16:9
+                // box at y=0. YouTube headers and document scroll offsets vary.
+                // No DOM changes, playback calls, stream URLs or iframe access.
+                guard view.bounds.width > 0, view.bounds.height > 0 else { pull = nil; return }
+                view.callAsyncJavaScript("""
+                    const viewport = window.visualViewport;
+                    const x = fractionX * (viewport?.width || innerWidth) + (viewport?.offsetLeft || 0);
+                    const y = fractionY * (viewport?.height || innerHeight) + (viewport?.offsetTop || 0);
+                    return Array.from(document.querySelectorAll('video')).some(video => {
+                        const r = video.getBoundingClientRect(), style = getComputedStyle(video);
+                        return r.width > 0 && r.height > 0 && Number(style.opacity) > 0 && style.visibility === 'visible' &&
+                            style.display !== 'none' && x >= r.left && x <= r.right &&
+                            y >= r.top - 12 && y <= r.bottom;
+                    });
+                    """, arguments: ["fractionX": Double(start.x / view.bounds.width), "fractionY": Double(start.y / view.bounds.height)],
+                    in: nil, in: BrowserTab.world) { [weak self] result in
+                        Task { @MainActor in
+                            guard let self, self.pull === candidate else { return }
+                            if case .success(let value) = result { candidate.beganOnVideo = value as? Bool == true }
+                            self.finishPull(candidate)
+                        }
+                    }
+            case .ended:
+                guard let pull else { return }
+                pull.ended = delta.y >= 72 && delta.y > abs(delta.x) * 1.4
+                if pull.ended {
+                    finishPull(pull)
+                    // A delayed WebContent reply must not change the UI long
+                    // after the user has finished this gesture.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                        if self?.pull === pull { self?.pull = nil }
+                    }
+                } else { self.pull = nil }
+            case .cancelled, .failed: pull = nil
+            default: break
+            }
+        }
+        private func finishPull(_ candidate: Pull) {
+            guard pull === candidate, candidate.ended, candidate.beganOnVideo,
+                  enabled, webView?.url == candidate.url else { return }
+            pull = nil
+            candidate.restore()
         }
     }
 

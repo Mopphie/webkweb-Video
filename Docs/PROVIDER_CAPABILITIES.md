@@ -17,6 +17,8 @@ Die native Watch-Ansicht verändert nur App-Chrome. YouTube-Masthead, Kommentare
 
 ## Hintergrund, PiP, AirPlay und Audio — getrennte Zusagen
 
+Aktueller YouTube-Nutzerbefund und konkrete Rückweg-/Website-Vollbildkorrektur: [YOUTUBE_WATCH_RETURN.md](YOUTUBE_WATCH_RETURN.md). Website-PiP und Appwechsel bleiben offen; öffentliche Element-Vollbildfreigabe ist kein Nachweis für diese beiden Funktionen.
+
 - **System-PiP:** AVKit bietet es für native berechtigte Medien nach Systemverfügbarkeit an; Wiederherstellung verweist auf denselben Player. Kein extrahierter Website-Stream und kein universeller PiP-Button.
 - **App-Miniplayer:** Derselbe AVPlayer bleibt beim Navigieren in der App erhalten; Größe/Fokus ändern nur die Darstellung. Kein zweiter Player. Ein beginnender Websiteplayer beendet den nativen Player; umgekehrt wartet native Wiedergabe auf WebKits Pausebestätigungen.
 - **Hintergrund-Audio:** Native AVPlayer-Richtlinie `audiovisualBackgroundPlaybackPolicy = .continuesIfPossible` (öffentliche API seit iOS 15) und `.playback`-Session werden nur für berechtigte native Medien eingesetzt; die Session wird bei tatsächlichem Start aktiviert und bei Ruhe wieder freigegeben. Der Appwechsel pausiert normale native Medien nicht. Websiteanbieter können ihre Wiedergabe selbst anhalten. Ein Timer beweist keine ununterbrochene iOS-Ausführung.

@@ -80,7 +80,7 @@ struct BrowserView: View {
             browser.enforceSleepDeadline()
             shield.update(phase: phase, browser: browser)
             if phase == .active { Task { await browser.foreground() } }
-            else { if phase == .inactive { browser.playbackTab.attemptAutoPiP() }; browser.persistSession() }
+            else { browser.persistSession() }
         }
         .onReceive(router.$revision) { _ in
             for command in router.drain() {
@@ -224,7 +224,7 @@ private struct BrowserScreen: View {
             }
             ZStack {
                 if isHome { home }
-                else { BrowserWebView(tab: tab, watchPresentation: isWatch, leaveWatch: tab.leaveWatch) }
+                else { BrowserWebView(tab: tab, watchPresentation: isWatch, restoreBrowser: tab.showNormalWebsite) }
                 if let error = tab.error {
                     ContentUnavailableView {
                         Label("Seite nicht geladen", systemImage: "wifi.exclamationmark")
@@ -255,11 +255,11 @@ private struct BrowserScreen: View {
 
     private var watchNavigation: some View {
         HStack(spacing: 8) {
-            Button { tab.leaveWatch() } label: {
+            Button { tab.showNormalWebsite() } label: {
                 Image(systemName: "chevron.down").frame(width: 44, height: 44)
-            }.accessibilityLabel("Video verlassen und zurück zu YouTube")
+            }.accessibilityLabel("Normale YouTube-Ansicht anzeigen")
                 .accessibilityIdentifier("browser.watch.exit")
-                .accessibilityHint("Du kannst auch vom oberen Videobereich nach unten wischen")
+                .accessibilityHint("Dasselbe Video bleibt geöffnet. Du kannst auch auf dem Video oder dieser Leiste nach unten wischen.")
             Button {
                 tab.showNormalWebsite()
                 browser.open("https://m.youtube.com/")
@@ -269,6 +269,12 @@ private struct BrowserScreen: View {
             Spacer()
         }.font(.system(size: 19, weight: .medium)).buttonStyle(.plain)
             .padding(.horizontal, 8).background(Color(.systemBackground))
+            .contentShape(Rectangle())
+            .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
+                if gesture.translation.height >= 72 && gesture.translation.height > abs(gesture.translation.width) * 1.4 {
+                    tab.showNormalWebsite()
+                }
+            })
     }
 
     private var addressBar: some View {

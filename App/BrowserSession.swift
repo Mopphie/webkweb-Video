@@ -123,6 +123,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             "app_build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
             "site": isPrivate ? "private" : (URL(string: address)?.host ?? ""),
             "native": ["playing": playing, "waiting": waiting, "has_media": hasMedia,
+                       "media_id": activeMediaID,
                        "time": playbackTime, "stop_latched": browser?.playbackStopped ?? false,
                        "duration": duration ?? 0,
                        "restore_suspended": backgroundOpening,
@@ -145,6 +146,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         if isPrivate && config.websiteDataStore.isPersistent { config.websiteDataStore = .nonPersistent() }
         config.defaultWebpagePreferences.preferredContentMode = !isPrivate && PreferencesStorage.load().desktop ? .desktop : .mobile
         config.allowsInlineMediaPlayback = true
+        // Permit the website's own public Fullscreen API. WebKit defaults this
+        // to false; this is not a forced player, PiP or background-play request.
+        config.preferences.isElementFullscreenEnabled = true
         // A tab's initial background/restore state must not permanently change
         // WebKit's playback policy after the user selects or navigates that tab.
         config.mediaTypesRequiringUserActionForPlayback = []
@@ -215,7 +219,6 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         run("globalThis.__webkweb?.setBackground(\(browser.selectedID == id ? "false" : "true"))", allFrames: true)
         if backgroundOpening || playbackStopLatched { run("globalThis.__webkweb?.pause(true)", allFrames: true) }
     }
-    func attemptAutoPiP() {} // Website PiP belongs to its own player controls.
     func cancelAutoplay() { requestedAutoplay = false; committedAutoplay = false; autoplayNavigation = nil }
     private func attemptAutoplay() {
         guard committedAutoplay, hasMedia else { return }
@@ -643,16 +646,24 @@ final class BrowserModel: ObservableObject {
         // generated H.264/AAC signal. Release contains no fixture launch path.
         let encoded = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_MEDIA"] ?? ""
         let audible = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_AUDIBLE"] == "1"
+        let scrolled = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_SCROLLED"] == "1"
         guard let data = Data(base64Encoded: encoded), !data.isEmpty else { return }
         let html = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-        <body style="margin:0;background:black;color:white"><div style="position:relative;width:320px;height:180px">
+        <body style="margin:0;background:black;color:white"><header style="height:\(scrolled ? 260 : 0)px"></header>
+        <div id="container" style="position:relative;width:320px;height:180px">
         <video id="player" controls playsinline \(audible ? "" : "muted autoplay") loop style="width:320px;height:180px"
         src="data:video/mp4;base64,\(data.base64EncodedString())"></video>
         <button aria-label="Videostart" style="position:absolute;top:40px;left:40px;width:140px;height:64px"
-        onclick="document.getElementById('player').play()">Start</button></div>
+        onclick="document.getElementById('player').play()">Start</button>
+        <button id="fullscreen-exit" aria-label="Website-Vollbild verlassen" style="display:none;position:absolute;top:0;left:0"
+        onclick="document.exitFullscreen()">Zurück</button></div>
+        <button aria-label="Website-Vollbild" onclick="document.getElementById('container').requestFullscreen()">Vollbild</button>
         <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p><p>\(audible ? "Ton aktiv" : "Stumm")</p>
         <script>let lastTime=0,lastFrames=0;document.title='Lokale Medienfixture';setInterval(()=>{const s=document.getElementById('state'),v=document.getElementById('player'),frames=v.getVideoPlaybackQuality?.().totalVideoFrames||0,progress=frames>lastFrames||Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;lastFrames=frames;if(s.textContent!==next)s.textContent=next;},1000);</script>
+        <script>document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen-exit').style.display=document.fullscreenElement?'block':'none';});</script>
+        <div style="height:1400px">Testkommentare</div>
+        <script>\(scrolled ? "window.scrollTo(0,160);" : "")</script>
         </body></html>
         """
         current.webView.loadHTMLString(html, baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))

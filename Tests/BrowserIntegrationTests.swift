@@ -10,6 +10,14 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertFalse(tab.webView.configuration.websiteDataStore.isPersistent)
         tab.close()
     }
+    func testWebsiteFullscreenIsAllowedWithoutEnablingPrivatePiP() {
+        for isPrivate in [false, true] {
+            let tab = BrowserTab(isPrivate: isPrivate); defer { tab.close() }
+            XCTAssertTrue(tab.webView.configuration.preferences.isElementFullscreenEnabled)
+            XCTAssertTrue(tab.webView.configuration.allowsInlineMediaPlayback)
+            XCTAssertEqual(tab.webView.configuration.allowsPictureInPictureMediaPlayback, !isPrivate)
+        }
+    }
     func testWebsiteStartReleasesOnlyItsOwnStopAndRejectsStaleOtherTabStart() {
         let browser = BrowserModel(); defer { browser.tabs.forEach { $0.close() } }
         let first = browser.current, second = browser.addTab(background: true)
