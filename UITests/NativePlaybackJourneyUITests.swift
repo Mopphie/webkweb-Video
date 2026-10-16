@@ -127,10 +127,10 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         try queueNextAndSearch(app, status: status, identity: identity)
     }
     func testVideoFullscreenBackPiPOtherAppQueueNextAndSearch() throws {
-        // Use the lightweight independent Clock app. Settings failed to launch
-        // on the hosted simulator in run 38942074355. The real foreground-app,
-        // AVKit callback, elapsed clock and video identity checks remain exact.
-        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.mobiletimer")
+        // The CI script verifies Safari is installed before the test. Clock
+        // is absent in this simulator; Settings launch was unreliable. Real
+        // foreground-app, AVKit, clock and identity assertions remain exact.
+        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
         otherApp.activate()
         XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 20))
         let app = try launchNativeFixture(), status = app.buttons["native.expand"]

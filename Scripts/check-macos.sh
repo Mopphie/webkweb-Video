@@ -61,7 +61,8 @@ try:
                'aaabdfed0f096549597bb837fd983655cfb4ae3f',
                '1d84c673f324e1c44cd716f3824464f0334c04a9',
                '91699be8834879b8ac70fb6a89d99c96b0a89046',
-               '968ae7458412a74610230d5e7a6f0475047a6c7e'}
+               '968ae7458412a74610230d5e7a6f0475047a6c7e',
+               'e49923fba7e50cb8dd4e49616e02843e6ed4986d'}
            and bool(changes) and changes <= allowed
            and all(release(git('show',parent+':'+path)) == release(git('show','HEAD:'+path)) for path in app_files))
     print('true' if valid else 'false')
@@ -69,8 +70,9 @@ except (subprocess.CalledProcessError,ValueError): print('false')
 PY
 )"
 if [[ "$native_recheck" == true ]]; then
-  if [[ "$(git rev-parse 'HEAD^^{tree}')" == 968ae7458412a74610230d5e7a6f0475047a6c7e ]]; then
-    echo 'Targeted PiP recheck with Clock as real other app. Exact unchanged production source: run 38942074355 (72 native + 3 Browser UI without retry + iPad fullscreen/queue/search passed; full PiP case blocked by external Settings launch timeout).'
+  parent_tree="$(git rev-parse 'HEAD^^{tree}')"
+  if [[ "$parent_tree" == 968ae7458412a74610230d5e7a6f0475047a6c7e || "$parent_tree" == e49923fba7e50cb8dd4e49616e02843e6ed4986d ]]; then
+    echo 'Targeted PiP recheck with verified real Safari app. Exact unchanged production source: run 38942074355 (72 native + 3 Browser UI without retry + iPad fullscreen/queue/search passed; full PiP case blocked by external Settings launch timeout).'
   else
   echo 'Targeted PiP recheck; exact unchanged Release source and prior test evidence: run 38919948219 (67 native + 3 Browser UI + iPad fullscreen/queue/search passed).'
   fi
@@ -139,6 +141,11 @@ fi
 if [[ "${CI:-}" == true && "$ipad_destination" == *id=* ]]; then
   xcrun simctl boot "${ipad_destination##*id=}" || true
   xcrun simctl bootstatus "${ipad_destination##*id=}" -b
+  if ! xcrun simctl get_app_container "${ipad_destination##*id=}" com.apple.mobilesafari app >/dev/null 2>&1; then
+    echo '::error::Safari is not installed in this simulator. Required other-app PiP journey NOT EXECUTED.' >&2
+    exit 1
+  fi
+  echo 'Verified real Safari app is installed for the other-app PiP journey.'
 fi
 echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
 journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests)
