@@ -79,11 +79,11 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         // Actual labels observed in run 38925655317. Controls arrive after the
         // overlay animation; an immediate exists/isHittable query races it.
-        let restore = springboard.buttons.matching(NSPredicate(format: "label IN %@",
-            ["Restore fullscreen", "Vollbild wiederherstellen"])).firstMatch
+        let restore = springboard.buttons.matching(NSPredicate(format:
+            "label == 'Restore fullscreen' OR label == 'Vollbild wiederherstellen'")).firstMatch
         if !restore.waitForExistence(timeout: 1) {
-            let window = springboard.windows.matching(NSPredicate(format: "label IN %@",
-                ["Picture in Picture", "Bild in Bild"])).firstMatch
+            let window = springboard.windows.matching(NSPredicate(format:
+                "label == 'Picture in Picture' OR label == 'Bild in Bild'")).firstMatch
             XCTAssertTrue(window.waitForExistence(timeout: 5))
             window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
         }

@@ -55,7 +55,8 @@ try:
            and git('rev-parse',parent+'^{tree}') in {
                'f2287ef80b6f4e8373eeba2f04176cbcf9cd04c5',
                'e59a1302b9bc5246f076cc270c9a1535b46e1d62',
-               '2c48454322ec1711f909901b1424bede2ca0b858'}
+               '2c48454322ec1711f909901b1424bede2ca0b858',
+               'aaabdfed0f096549597bb837fd983655cfb4ae3f'}
            and bool(changes) and changes <= allowed
            and release(git('show',parent+':'+panel)) == release(git('show','HEAD:'+panel)))
     print('true' if valid else 'false')
