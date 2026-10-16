@@ -42,12 +42,27 @@ sys.exit("Kein verfügbarer iPhone-Simulator. Installiere eine iOS-Runtime in Xc
 fi
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
-  -resultBundlePath "build/Tests-$(date +%s).xcresult" \
+  -resultBundlePath "build/Unit-Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES \
   -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
   -maximum-test-execution-time-allowance 180 \
-  -skip-testing:WebKWebUITests/NativePlaybackJourneyUITests \
+  -only-testing:WebKWebTests \
+  CODE_SIGNING_ALLOWED=NO test
+# WebKit's hosted simulator process became unresponsive after the integration
+# suite in run 38917664541. Use a clean device boot for the independent UI
+# process, without erasing persistent data or touching local users' sessions.
+if [[ "${CI:-}" == true && "$destination" == *id=* ]]; then
+  xcrun simctl shutdown "${destination##*id=}" || true
+fi
+xcodebuild "${project_args[@]}" -scheme WebKWeb \
+  -destination "$destination" -derivedDataPath build/DerivedData \
+  -resultBundlePath "build/Browser-Tests-$(date +%s).xcresult" \
+  -test-timeouts-enabled YES -parallel-testing-enabled NO \
+  -default-test-execution-time-allowance 120 \
+  -maximum-test-execution-time-allowance 300 \
+  -retry-tests-on-failure -test-iterations 2 \
+  -only-testing:WebKWebUITests/BrowserActionsUITests \
   CODE_SIGNING_ALLOWED=NO test
 ipad_destination="$(xcrun simctl list devices available --json | python3 -c '
 import json, sys
@@ -72,7 +87,7 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -resultBundlePath "build/iPad-Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
-  -maximum-test-execution-time-allowance 180 \
+  -maximum-test-execution-time-allowance 300 \
   -only-testing:WebKWebUITests/NativePlaybackJourneyUITests \
   CODE_SIGNING_ALLOWED=NO test
 echo "Lokaler Simulator-Build und Tests erfolgreich. Gerätetests bleiben erforderlich."

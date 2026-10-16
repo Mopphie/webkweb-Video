@@ -38,7 +38,7 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         return button
     }
     private func launchNativeFixture() throws -> XCUIApplication {
-        continueAfterFailure = false; executionTimeAllowance = 180
+        continueAfterFailure = false; executionTimeAllowance = 300
         let app = XCUIApplication()
         let clip = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "audible", withExtension: "mp4"))
         app.launchArguments = ["--ui-test-native"]

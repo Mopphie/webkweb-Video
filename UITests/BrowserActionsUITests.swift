@@ -54,7 +54,7 @@ final class BrowserActionsUITests: XCTestCase {
         continueAfterFailure = false
         // A cold CI simulator completed the menu assertions but spent 132s
         // including launch/quiescence. Keep the functional wait limits intact.
-        executionTimeAllowance = 180
+        executionTimeAllowance = 300
         let app = XCUIApplication()
         let url = try XCTUnwrap(Bundle(for: BrowserActionsUITests.self).url(forResource: audible ? "audible" : "sample", withExtension: "mp4"))
         app.launchArguments = ["--ui-test-browser"]
@@ -64,10 +64,15 @@ final class BrowserActionsUITests: XCTestCase {
         app.launch()
         milestone("App launched; wait for browser actions and decoded playback")
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 20))
+        // A native toolbar does not prove the cold WebContent document is ready.
+        // Keep document startup separate from the functional playback deadline.
+        let start = app.buttons["Videostart"]
+        let documentReady = start.waitForExistence(timeout: 45)
+        if !documentReady { capturePlayerDiagnostic(app) }
+        XCTAssertTrue(documentReady)
         if audible {
             milestone("Start unmuted media with an actual user Play gesture")
-            XCTAssertTrue(app.buttons["Videostart"].waitForExistence(timeout: 15))
-            app.buttons["Videostart"].tap()
+            start.tap()
         }
         let running = app.staticTexts["Video läuft"].waitForExistence(timeout: 15)
         if !running { capturePlayerDiagnostic(app) }
@@ -116,7 +121,7 @@ final class BrowserActionsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Video pausiert"].waitForExistence(timeout: 5))
         milestone("Pause confirmed; perform first real UIKit touch in video rectangle")
         // The button deliberately says "Start", not semantic Play/Abspielen.
-        // Only the real UIKit touch inside the media rectangle arms the bridge.
+        // Actual input inside the media rectangle must arm the bridge before play.
         app.buttons["Videostart"].tap()
         let resumed = app.staticTexts["Video läuft"].waitForExistence(timeout: 8)
         if !resumed { capturePlayerDiagnostic(app) }

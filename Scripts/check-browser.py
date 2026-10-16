@@ -70,7 +70,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError): pass
 
 
-async def run_checks(executable, playback_script=None):
+async def run_checks(executable, playback_script=None, only_case=None):
     from playwright.async_api import async_playwright
     prepare_media(); REPORT.mkdir(parents=True, exist_ok=True)
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
@@ -167,6 +167,27 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             await p.click('#website-play')
             assert await p.evaluate('window.websiteTrustedClick === true')
             await p.wait_for_function('!document.querySelector("video").paused && document.querySelector("video").currentTime > 0.2', timeout=2500)
+
+        async def overlay_play_after_stop(p):
+            await p.evaluate('''() => {
+                const v = document.querySelector('video');
+                const player = document.createElement('div');
+                v.before(player); player.append(v);
+                player.style.cssText = 'position:relative;width:640px;height:360px';
+                const button = document.createElement('button');
+                button.id = 'overlay-start'; button.textContent = 'Start';
+                button.style.cssText = 'position:absolute;left:40px;top:40px;width:140px;height:64px';
+                button.onclick = event => { window.websiteTrustedClick=event.isTrusted; v.play().catch(()=>{}); };
+                player.append(button); __webkweb.pause(true);
+            }''')
+            await p.evaluate('document.querySelector("#overlay-start").click()')
+            await p.wait_for_timeout(100)
+            assert await p.eval_on_selector('video', 'v => v.paused'), 'Synthetic overlay click bypassed stop'
+            # No native-host callback: real DOM input must arrive before play.
+            await p.click('#overlay-start')
+            await p.wait_for_function('!document.querySelector("video").paused && document.querySelector("video").currentTime > 0.2', timeout=2500)
+            assert await p.evaluate('window.websiteTrustedClick === true')
+            assert await p.evaluate('__messages.filter(m=>m.kind==="userplay").length === 1')
 
         async def native_web_controls_after_stop(p):
             await p.evaluate('''() => {
@@ -342,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
 
         checks = [('play-pause-seek-rate','video',playback), ('captions','video',captions),
                   ('website-play-after-native-stop','video',website_play_after_stop),
+                  ('real-overlay-input-after-stop','video',overlay_play_after_stop),
                   ('host-touch-and-native-web-controls-after-stop','video',native_web_controls_after_stop),
                   ('natural-end-replay','video',replay), ('timer-stop-latch','video',stop_latch),
                   ('queue-loop-source-restore','video',queue_loop), ('rapid-new-player','empty',rapid_player),
@@ -351,6 +373,9 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
                   ('fullscreen-or-fallback','video',fullscreen), ('no-forced-website-routes','video',no_forced_routes)]
         checks += [('buffered-network-stall','video',buffered_network_stall),
                    ('segmented-stream-pause-recovery','video',segmented_stream_pause_recovery)]
+        if only_case:
+            checks = [check for check in checks if check[0] == only_case]
+            if not checks: raise ValueError('Unknown browser test case: ' + only_case)
         for name, mode, check in checks: await case(name, mode, check)
         version = browser.version
         await browser.close()
@@ -372,6 +397,7 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--chromium',default=shutil.which('chromium') or shutil.which('google-chrome'))
     parser.add_argument('--playback-script',type=pathlib.Path,help='Optional saved bridge for before/after regression checks')
+    parser.add_argument('--case',help='Run one named case for a targeted before/after regression')
     args=parser.parse_args()
     if not args.chromium: parser.error('Install Chromium or pass --chromium /path/to/browser')
-    raise SystemExit(asyncio.run(run_checks(args.chromium,args.playback_script)))
+    raise SystemExit(asyncio.run(run_checks(args.chromium,args.playback_script,args.case)))
