@@ -4,7 +4,7 @@ Stand: 16. Oktober 2026. Prüfung des Quelltexts und der öffentlich abrufbaren 
 
 ## YouTube-Referenz
 
-Die vom Nutzer vorgegebene Watch-Ansicht zeigt die echte YouTube-Seite mit einem vollbreiten Video, den ein- und ausblendbaren Webseiten-Controls, Titel/Kanal/Aktionen, Kommentaren und Empfehlungen. Als App-Bedienelement bleibt ein roter runder Menüknopf unten rechts. Eine zweite native Playerleiste, Adresszeile und Browser-Fußleiste würden diese Vorlage verändern und werden in dieser Ansicht ausgeblendet. Alle Browserfunktionen bleiben über das Menü erreichbar.
+Die vom Nutzer vorgegebene Watch-Ansicht zeigt die echte YouTube-Seite mit einem vollbreiten Video, den ein- und ausblendbaren Webseiten-Controls, Titel/Kanal/Aktionen, Kommentaren und Empfehlungen. Der rote runde Menüknopf unten rechts öffnet nach den Gerätefehlermeldungen ein stabiles modales Bedienfeld. Direkte Zurück-/YouTube-Start-Aktionen und ein begrenzter Abwärtsswipe sichern den Rückweg; die normale Website kann auf derselben URL wiederhergestellt werden. Eine zweite native Playerleiste, Adresszeile und Browser-Fußleiste würden diese Vorlage verändern und werden in dieser Ansicht ausgeblendet. Alle Browserfunktionen bleiben über das Menü erreichbar.
 
 Die App ersetzt die Webseiteninhalte nicht durch nachgebaute Videotitel, Zähler oder Interaktionen. Sprache, Account, Bildschirmgröße, Werbung und YouTube-Experimente können die echte Website verändern. Identische Pixel für beliebige Videos lassen sich deshalb durch WKWebView allein nicht garantieren. Beide Zustände der Webseiten-Controls sowie Wechsel Watch → Suche/Start → Watch, Zurück/Vorwärts, private Tabs, Querformat und iPad müssen auf Geräten geprüft werden.
 

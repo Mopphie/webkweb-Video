@@ -37,7 +37,7 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertTrue(ready, "Committed WebKit document did not load")
         XCTAssertEqual(tab.sessionAddress, destination.absoluteString)
     }
-    func testRestoredTabsRequireUserActionAndKeepPendingAddresses() throws {
+    func testRestoredTabsKeepNormalPolicyQuietBootstrapAndPendingAddresses() throws {
         let defaults = UserDefaults.standard, key = "browserSessionV2"
         let old = defaults.data(forKey: key), oldOptions = defaults.data(forKey: PreferencesStorage.key)
         defer { defaults.set(old, forKey: key); defaults.set(oldOptions, forKey: PreferencesStorage.key) }
@@ -46,7 +46,10 @@ final class BrowserIntegrationTests: XCTestCase {
         let second = TabSnapshot(id: UUID(), address: "https://example.com/second", title: "Second")
         defaults.set(try JSONEncoder().encode(BrowserSessionSnapshot(tabs: [first, second], selected: first.id)), forKey: key)
         let browser = BrowserModel(); defer { browser.tabs.forEach { $0.close() } }
-        for tab in browser.tabs { XCTAssertEqual(tab.webView.configuration.mediaTypesRequiringUserActionForPlayback, .all) }
+        for tab in browser.tabs {
+            XCTAssertEqual(tab.webView.configuration.mediaTypesRequiringUserActionForPlayback, [])
+            XCTAssertTrue(tab.webView.configuration.userContentController.userScripts.contains { $0.source == "globalThis.__webkwebStartPaused = true" })
+        }
         browser.persistSession()
         let saved = try JSONDecoder().decode(BrowserSessionSnapshot.self, from: XCTUnwrap(defaults.data(forKey: key)))
         XCTAssertEqual(saved.tabs.map(\.address), [first.address, second.address])

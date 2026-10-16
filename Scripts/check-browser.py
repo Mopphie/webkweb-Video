@@ -3,10 +3,10 @@
 
 Needs Python Playwright, Chromium and ffmpeg. Runs only against a loopback fixture
 and locally generated test media; no third-party accounts, videos or ad systems.
-Generated media and reports stay under ignored build/. No GitHub Actions.
+Generated media and reports stay under ignored build/. This script starts no Actions.
 """
 from __future__ import annotations
-import argparse, asyncio, datetime, http.server, json, pathlib
+import argparse, asyncio, datetime, hashlib, http.server, json, pathlib
 import shutil, subprocess, threading, time
 from urllib.parse import urlparse
 
@@ -62,13 +62,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError): pass
 
 
-async def run_checks(executable):
+async def run_checks(executable, playback_script=None):
     from playwright.async_api import async_playwright
     prepare_media(); REPORT.mkdir(parents=True, exist_ok=True)
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     base = f'http://127.0.0.1:{server.server_port}'
-    bridge = (ROOT / 'App' / 'Resources' / 'Playback.js').read_text()
+    bridge = (playback_script or ROOT / 'App' / 'Resources' / 'Playback.js').read_text()
     injection = '''window.__messages = [];
 window.webkit = {messageHandlers: {playback: {postMessage(m) { window.__messages.push(m); }}}};
 document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''.replace('BRIDGE', bridge)
@@ -96,8 +96,16 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             except Exception as error:
                 shot = REPORT / ('browser-' + name + '.png')
                 await page.screenshot(path=str(shot))
+                diagnostics = await page.evaluate('''() => ({
+                    trustedClick: window.websiteTrustedClick,
+                    playEvents: window.websitePlayEvents,
+                    media: [...document.querySelectorAll('video,audio')].map(v => ({
+                        paused:v.paused, time:v.currentTime, readyState:v.readyState,
+                        error:v.error ? v.error.code : null})),
+                    messages: (window.__messages || []).slice(-8)
+                })''')
                 results.append({'case': name, 'status': 'FAIL', 'error': str(error)[:1500],
-                                'page_errors': errors, 'screenshot': str(shot)})
+                                'page_errors': errors, 'diagnostics': diagnostics, 'screenshot': str(shot)})
             finally:
                 await context.close()
             print(results[-1]['status'] + ': ' + name, flush=True)
@@ -123,6 +131,63 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             assert await p.eval_on_selector('video', 'v => v.textTracks[0].mode') == 'showing'
             await p.evaluate('__webkweb.setCaption(-1)')
             assert await p.eval_on_selector('video', 'v => v.textTracks[0].mode') == 'disabled'
+
+        async def website_play_after_stop(p):
+            # A site's own play control calls HTMLMediaElement.play(), rather
+            # than the app's __webkweb.resume() shortcut used by #play.
+            await p.evaluate('''() => {
+                const v = document.querySelector('video');
+                const player = document.createElement('div');
+                v.before(player); player.append(v);
+                player.style.cssText = 'position:relative;width:640px;height:360px';
+                const button = document.createElement('button');
+                button.id = 'website-play'; button.textContent = 'Play';
+                button.setAttribute('aria-label', 'Play');
+                button.style.cssText = 'position:absolute;left:270px;top:140px';
+                button.onclick = event => {
+                    window.websiteTrustedClick = event.isTrusted;
+                    v.play().catch(() => {});
+                };
+                player.append(button); __webkweb.pause(true);
+            }''')
+            await p.evaluate('document.querySelector("video").play().catch(() => {})')
+            await p.wait_for_timeout(100)
+            assert await p.eval_on_selector('video', 'v => v.paused'), 'Autoplay bypassed stop latch'
+            await p.evaluate('document.querySelector("#website-play").click()')
+            await p.wait_for_timeout(100)
+            assert await p.eval_on_selector('video', 'v => v.paused'), 'Synthetic click bypassed stop latch'
+            await p.click('#website-play')
+            assert await p.evaluate('window.websiteTrustedClick === true')
+            await p.wait_for_function('!document.querySelector("video").paused && document.querySelector("video").currentTime > 0.2', timeout=2500)
+
+        async def native_web_controls_after_stop(p):
+            await p.evaluate('''() => {
+                const v = document.querySelector('video');
+                window.websitePlayEvents = 0;
+                v.addEventListener('play', () => window.websitePlayEvents++);
+                __webkweb.pause(true);
+            }''')
+            video = p.locator('video')
+            await video.hover()
+            bounds = await video.bounding_box()
+            await p.evaluate('''() => {
+                __webkweb.noteHostTouch?.({x:0.99,y:0.99});
+                document.querySelector('video').play().catch(() => {});
+            }''')
+            await p.wait_for_timeout(100)
+            assert await p.eval_on_selector('video', 'v => v.paused'), 'A touch outside media bypassed the stop'
+            await p.evaluate('window.websitePlayEvents=0')
+            viewport = await p.evaluate('({width:innerWidth,height:innerHeight})')
+            point = {'x': (bounds['x'] + 24) / viewport['width'],
+                     'y': (bounds['y'] + bounds['height'] - 48) / viewport['height']}
+            # Chromium's built-in media controls hide pointer events from DOM.
+            # Emulate the native host's isolated touch callback, then click the
+            # actual Chromium play control. This does not test UIKit itself.
+            await p.evaluate('(point) => __webkweb.noteHostTouch?.(point)', point)
+            assert await p.eval_on_selector('video', 'v => v.paused'), 'Touch notification started playback itself'
+            await video.click(position={'x': 24, 'y': bounds['height'] - 48})
+            await p.wait_for_function('window.websitePlayEvents > 0', timeout=2500)
+            await p.wait_for_function('!document.querySelector("video").paused && document.querySelector("video").currentTime > 0.2', timeout=2500)
 
         async def replay(p):
             await p.click('#play')
@@ -211,6 +276,8 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             await p.wait_for_function('__messages.some(m=>m.kind==="notice" && m.text.includes("AirPlay"))')
 
         checks = [('play-pause-seek-rate','video',playback), ('captions','video',captions),
+                  ('website-play-after-native-stop','video',website_play_after_stop),
+                  ('host-touch-and-native-web-controls-after-stop','video',native_web_controls_after_stop),
                   ('natural-end-replay','video',replay), ('timer-stop-latch','video',stop_latch),
                   ('queue-loop-source-restore','video',queue_loop), ('rapid-new-player','empty',rapid_player),
                   ('rapid-open-shadow-player','empty',shadow_player), ('source-identity','video',source_identity),
@@ -223,11 +290,14 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
         await browser.close()
     server.shutdown(); server.server_close()
     report = {'created_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'playback_sha256':hashlib.sha256(bridge.encode()).hexdigest(),
               'engine':'Chromium', 'version':version, 'real_media_decode':any(r['case']=='play-pause-seek-rate' and r['status']=='PASS' for r in results),
               'media_provenance':'Locally generated testsrc2/sine; no third-party media',
               'network_scope':'loopback only', 'checks':results,
+              'native_host_touch':'Chromium invokes the isolated host callback; UIKit is not exercised by this script',
               'ios_webkit':'NOT_RUN', 'provider_playback':'NOT_RUN',
-              'provider_ad_removal':'NOT_TESTED_OR_PROMISED', 'github_actions':'NOT_USED'}
+              'provider_ad_removal':'NOT_TESTED_OR_PROMISED',
+              'github_actions':'NOT_STARTED_BY_THIS_SCRIPT; see workflow runs for repository build status'}
     (REPORT/'browser-check.json').write_text(json.dumps(report,indent=2),encoding='utf8')
     return int(any(r['status']=='FAIL' for r in results))
 
@@ -235,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--chromium',default=shutil.which('chromium') or shutil.which('google-chrome'))
+    parser.add_argument('--playback-script',type=pathlib.Path,help='Optional saved bridge for before/after regression checks')
     args=parser.parse_args()
     if not args.chromium: parser.error('Install Chromium or pass --chromium /path/to/browser')
-    raise SystemExit(asyncio.run(run_checks(args.chromium)))
+    raise SystemExit(asyncio.run(run_checks(args.chromium,args.playback_script)))

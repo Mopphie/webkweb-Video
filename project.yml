@@ -68,10 +68,23 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: WebKWeb
+  WebKWebUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+      - path: Tests/Fixtures/sample.mp4
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: de.mopphie.devntube.uitests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: WebKWeb
 schemes:
   WebKWeb:
     build:
       targets:
         WebKWeb: all
     test:
-      targets: [WebKWebTests]
+      targets: [WebKWebTests, WebKWebUITests]

@@ -1,5 +1,17 @@
 # Prüfung vor einem Release
 
+
+## Nachbesserung nach TestFlight-Build 3
+
+Der Nutzer meldete YouTube mit Vorschaubild/Ladekreis, fehlenden Swipe-Rückweg und ein springendes, unbedienbares ⋯-Popup. Ein erfolgreicher Fixture-/Uploadtest wird deshalb ausdrücklich nicht als Bestätigung dieser realen Gerätefunktionen gewertet.
+
+- Das Popup wird durch ein modales Bedienfeld mit festen, großen Aktionen ersetzt. Zurück und YouTube-Start sind im Videomodus direkt erreichbar; ein Abwärtsswipe aus dem oberen Videobereich verlässt die Ansicht. Die normale Website derselben URL lässt sich wiederherstellen.
+- Ein echter Play-Tipp darf eine vorherige native Pause-/Timer-Sperre lösen. Script-Autoplay und synthetische Klicks bleiben blockiert. WebKit-eigene Controls werden über eine echte UIKit-Berührung und die isolierte Medien-Bridge erfasst.
+- Wiederhergestellte Tabs erhalten dieselbe WebKit-Wiedergabepolicy wie neue Tabs. Öffentliche Laufzeit-Suspension und ein isolierter Start-Pause-Bootstrap halten passive Tabs bis zu einer bewussten Nutzeraktion still. Explizites Öffnen/Play hängt nicht mehr dauerhaft an der strengeren Startkonfiguration.
+- „Ohne Filter neu laden“ ist als gezielte Wiederherstellung erreichbar. Ein genereller CDN-Block der aktuellen Standardliste wurde nicht nachgewiesen.
+
+**Lokaler Prüfstand:** 52/52 Node-Tests und 17/17 Chromium-Medientests bestanden. Der Webseiten-Play-Regressionstest war mit der unveränderten Build-3-Bridge rot. Der Chromiumtest für native Mediencontrols emuliert nur den Host-Callback; UIKit wird erst durch XCUITest geprüft. Vorbereitet sind 42 native Unit-/WK-Testmethoden und zwei echte UI-Tests, darunter das Bedienfeld unter laufender Wiedergabe und der erste UIKit-Tipp nach Pause. Deren Ergebnis zählt erst nach dem tatsächlichen Mac-Lauf. Die konkrete YouTube-Wiedergabe am Gerät bleibt gesondert zu bestätigen.
+
 ## TestFlight 0.1.0 (Build 3), 16.10.2026
 
 Der [freigegebene TestFlight-Lauf 38862276281](https://github.com/Mopphie/webkweb-Video/actions/runs/38862276281) für Release-Commit `ff827ff` ist erfolgreich abgeschlossen. Die App-/Widget-/Bridgequellen entsprechen dem zuvor geprüften Stand; geändert wurden ausschließlich Releasepipeline und Dokumentation.

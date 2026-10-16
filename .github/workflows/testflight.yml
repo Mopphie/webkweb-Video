@@ -10,6 +10,12 @@ on:
       - Scripts/app-store-connect.py
       - Scripts/ci-signing.py
       - Scripts/Tests/**
+      - App/**
+      - Shared/**
+      - Widgets/**
+      - Tests/**
+      - project.yml
+      - Scripts/check-macos.sh
   workflow_dispatch:
     inputs:
       mode:

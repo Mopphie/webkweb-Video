@@ -7,13 +7,75 @@ import AVKit
 struct BrowserWebView: UIViewRepresentable {
     let tab: BrowserTab
     var watchPresentation = false
-    func makeUIView(context: Context) -> WKWebView { configure(tab.webView); return tab.webView }
-    func updateUIView(_ view: WKWebView, context: Context) { configure(view) }
-    private func configure(_ view: WKWebView) {
+    var leaveWatch: () -> Void = {}
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeUIView(context: Context) -> WKWebView {
+        context.coordinator.attach(to: tab.webView)
+        configure(tab.webView, coordinator: context.coordinator)
+        return tab.webView
+    }
+    func updateUIView(_ view: WKWebView, context: Context) { configure(view, coordinator: context.coordinator) }
+    static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) { coordinator.detach() }
+    private func configure(_ view: WKWebView, coordinator: Coordinator) {
+        coordinator.enabled = watchPresentation
+        coordinator.leaveWatch = leaveWatch
+        coordinator.playerTouch = { point in
+            guard view.bounds.width > 0, view.bounds.height > 0 else { return }
+            tab.prepareForPlayback()
+            tab.run("globalThis.__webkweb?.noteHostTouch({x:\(Double(point.x / view.bounds.width)),y:\(Double(point.y / view.bounds.height))})")
+        }
         view.isOpaque = !watchPresentation
         view.backgroundColor = watchPresentation ? .black : .systemBackground
         view.scrollView.backgroundColor = watchPresentation ? .black : .systemBackground
         view.scrollView.contentInsetAdjustmentBehavior = watchPresentation ? .never : .automatic
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var enabled = false
+        var leaveWatch: () -> Void = {}
+        var playerTouch: (CGPoint) -> Void = { _ in }
+        private weak var webView: WKWebView?
+        private lazy var pan = UIPanGestureRecognizer(target: self, action: #selector(swiped(_:)))
+        private lazy var touchObserver: PlayerTouchObserver = {
+            let observer = PlayerTouchObserver(target: nil, action: nil)
+            observer.touched = { [weak self] point in self?.playerTouch(point) }
+            return observer
+        }()
+        func attach(to view: WKWebView) {
+            webView = view; pan.delegate = self; pan.cancelsTouchesInView = false
+            pan.maximumNumberOfTouches = 1
+            view.addGestureRecognizer(pan)
+            touchObserver.cancelsTouchesInView = false
+            view.addGestureRecognizer(touchObserver)
+        }
+        func detach() { webView?.removeGestureRecognizer(pan); webView?.removeGestureRecognizer(touchObserver); webView = nil }
+        func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard enabled, let view = webView, let pan = gesture as? UIPanGestureRecognizer else { return false }
+            let velocity = pan.velocity(in: view), point = pan.location(in: view), delta = pan.translation(in: view)
+            let startY = point.y - delta.y
+            let videoHeight = min(view.bounds.width * 9 / 16, view.bounds.height * 0.6)
+            // Comments keep their normal scroll behavior. Only pull down from
+            // the top video area while the document is at its upper edge.
+            return velocity.y > abs(velocity.x) * 1.4 && startY >= 0 && startY <= videoHeight &&
+                view.scrollView.contentOffset.y <= -view.scrollView.adjustedContentInset.top + 8
+        }
+        func gestureRecognizer(_ gesture: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+        @objc private func swiped(_ pan: UIPanGestureRecognizer) {
+            guard enabled, pan.state == .ended, let view = webView else { return }
+            let delta = pan.translation(in: view)
+            if delta.y >= 72 && delta.y > abs(delta.x) * 1.4 { leaveWatch() }
+        }
+    }
+
+    @MainActor
+    private final class PlayerTouchObserver: UIGestureRecognizer {
+        var touched: (CGPoint) -> Void = { _ in }
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+            if let touch = touches.first, let view { touched(touch.location(in: view)) }
+            // Observe without claiming the gesture or delaying website controls.
+            state = .failed
+        }
     }
 }
 

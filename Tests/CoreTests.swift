@@ -39,6 +39,24 @@ final class CoreTests: XCTestCase {
         }
         XCTAssertFalse(YouTubeAddress.isWatchPage(nil))
     }
+    func testWatchExitPersistsForSameVideoAndAllowsDifferentWatchItem() {
+        let first = URL(string: "https://m.youtube.com/watch?v=abcdefghijk")!
+        var state = WatchPresentationState()
+        XCTAssertTrue(state.isImmersive(at: first))
+        state.dismiss(at: first)
+        XCTAssertFalse(state.isImmersive(at: first))
+        XCTAssertFalse(state.isImmersive(at: URL(string: "https://www.youtube.com/watch?t=20&v=abcdefghijk#comments")))
+        XCTAssertFalse(state.isImmersive(at: URL(string: "https://m.youtube.com/")))
+        XCTAssertTrue(state.isImmersive(at: URL(string: "https://m.youtube.com/watch?v=12345678901")))
+        state.show(); XCTAssertTrue(state.isImmersive(at: first))
+    }
+    func testWatchExitUsesYouTubeHistoryOrSafeHomeFallback() {
+        let previous = URL(string: "https://m.youtube.com/results?search_query=music")!
+        XCTAssertEqual(WatchPresentationState.exitURL(previous: previous), previous)
+        for value in [nil, "https://youtube.com.evil.example/watch?v=abcdefghijk", "https://example.com/", "https://user:secret@youtube.com/", "javascript:alert(1)"] as [String?] {
+            XCTAssertEqual(WatchPresentationState.exitURL(previous: value.flatMap { URL(string: $0) }).absoluteString, "https://m.youtube.com/")
+        }
+    }
 
     func testDomainConverterPreservesExceptionScopeConservatively() throws {
         let text = """

@@ -3,6 +3,7 @@
   if (globalThis.__webkwebWatch || window.top !== window) return;
   const marker = "data-webkweb-watch";
   const styleID = "webkweb-watch-presentation";
+  let enabled = true;
   const matches = value => {
     try {
       const url = new URL(value);
@@ -42,7 +43,7 @@ html[${marker}] #player-container-outer:fullscreen { aspect-ratio:auto; }
   const update = () => {
     const html = document.documentElement;
     if (!html) return;
-    if (!matches(location.href)) {
+    if (!enabled || !matches(location.href)) {
       html.removeAttribute(marker);
       document.getElementById(styleID)?.remove();
       return;
@@ -53,7 +54,9 @@ html[${marker}] #player-container-outer:fullscreen { aspect-ratio:auto; }
       document.head.appendChild(style);
     }
   };
-  globalThis.__webkwebWatch = {update, matches};
+  globalThis.__webkwebWatch = {update, matches,
+    setImmersive(value) { enabled = Boolean(value); update(); }
+  };
   window.addEventListener("popstate", update);
   window.addEventListener("hashchange", update);
   window.addEventListener("pageshow", update);

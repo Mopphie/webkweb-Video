@@ -11,11 +11,11 @@ function element(tag='VIDEO', options={}) {
   end(){this.ended=true;this.paused=true;listeners.ended?.();}
  },options);
 }
-function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk') {
+function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk',startPaused=false) {
  const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[]; let tick,mutation,clock=Date.now(),queries=0;
  const location=new URL(url);
  const document={title:'Video',baseURI:url,hidden:false,querySelector(){return null;},querySelectorAll(s){queries++;return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
- const sandbox={URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
+ const sandbox={__webkwebStartPaused:startPaused,URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
   window:{webkit:{messageHandlers:{playback:{postMessage(v){messages.push(v);}}}},addEventListener(n,h){windowEvents[n]=h;}},
   setInterval(fn){tick=fn;return 1;},MutationObserver:class {constructor(fn){mutation=fn;}observe(){}}
  };
@@ -37,6 +37,45 @@ test('live seek stays in seekable range',()=>{
 test('timer pause prevents original autoplay until explicit native resume',()=>{
  const h=harness();h.api.pause(true);h.nodes[0].play();assert.equal(h.nodes[0].paused,true);
  h.api.resume();assert.equal(h.nodes[0].paused,false);
+});
+test('trusted semantic website Play releases stop and acknowledges native state',()=>{
+ const v=element(),h=harness([v]),button={tagName:'BUTTON',textContent:'Play'},container={querySelectorAll:()=>[v]};h.api.pause(true);
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[button,container]});v.play();
+ assert.equal(v.paused,false);assert.equal(h.state().playing,true);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+ assert.equal(h.messages.find(m=>m.kind==='userplay').mediaID,h.state().mediaID);
+});
+test('synthetic website clicks and programmatic autoplay cannot release stop',()=>{
+ const v=element(),h=harness([v]),button={tagName:'BUTTON',textContent:'Play'},container={querySelectorAll:()=>[v]};h.api.pause(true);
+ h.documentEvents.click({isTrusted:false,composedPath:()=>[button,container]});v.play();
+ assert.equal(v.paused,true);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+});
+test('trusted native video controls can resume but old input expires',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[v]});
+ h.advance(1501);v.play();assert.equal(v.paused,true);
+ h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[v]});v.play();assert.equal(v.paused,false);
+});
+test('play intent only authorizes its own player and ignores unrelated buttons',()=>{
+ const main=element(),small=element('VIDEO',{width:16,height:16}),h=harness([main,small]);h.api.pause(true);
+ const other={tagName:'BUTTON',textContent:'Subscribe'},container={querySelectorAll:()=>[main]};
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[other,container]});main.play();assert.equal(main.paused,true);
+ h.documentEvents.pointerdown({isTrusted:true,composedPath:()=>[main]});small.play();assert.equal(small.paused,true);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+});
+test('keyboard Play and quiet restore bootstrap use the same explicit intent boundary',()=>{
+ const v=element(),h=harness([v],'https://example.com/player',true);assert.equal(v.paused,true);v.play();assert.equal(v.paused,true);
+ const button={tagName:'BUTTON',textContent:'Abspielen'},container={querySelectorAll:()=>[v]};
+ h.documentEvents.keydown({key:'Enter',isTrusted:true,composedPath:()=>[button,container]});v.play();assert.equal(v.paused,false);
+});
+test('isolated host touch only arms media at its rectangle and never starts playback itself',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.api.noteHostTouch({x:0.9,y:0.9});v.play();assert.equal(v.paused,true);
+ h.api.noteHostTouch({x:0.1,y:0.1});assert.equal(v.paused,true);v.play();assert.equal(v.paused,false);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+});
+test('invalid or stale host touches do not release timer stop',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ for(const point of [{x:-1,y:0},{x:NaN,y:0},{x:0,y:Infinity},{x:2,y:0}]){h.api.noteHostTouch(point);v.play();assert.equal(v.paused,true);}
+ h.api.noteHostTouch({x:0.1,y:0.1});h.advance(1501);v.play();assert.equal(v.paused,true);
 });
 test('new already-playing autoplay video is paused immediately after insertion',()=>{
  const h=harness();h.api.pause(true);const next=element();h.add(next);assert.equal(next.paused,true);

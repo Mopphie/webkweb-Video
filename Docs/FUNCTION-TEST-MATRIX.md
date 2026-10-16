@@ -59,3 +59,9 @@ Lokal auf einem Mac mit Xcode 26+, XcodeGen und Node: `./Scripts/check-macos.sh`
 ## Signierter TestFlight-Build
 
 [Lauf 38862276281](https://github.com/Mopphie/webkweb-Video/actions/runs/38862276281), Code `ff827ff`: erneut **38/38 native Tests**, **44/44 Node-Tests** und **10/10 Release-Helper-Tests** bestanden. Signiertes Gerätearchiv, IPA-Export und Upload für Version **0.1.0 (Build 3)** erfolgreich. Apple bestätigt **VALID** sowie **IN_BETA_TESTING**. Die App-/Widget-/Bridgequellen entsprechen dem erfolgreichen vorherigen Stand. Einzelne Testgruppenzuordnungen konnte der API-Schlüssel wegen HTTP 403 nicht prüfen; daraus wird keine Bestätigung jedes Testerzugangs abgeleitet. [Details](RELEASE.md).
+
+## Gerätemeldungen zu Build 3 und gezielte Regressionen
+
+YouTube blieb laut Nutzer bei Thumbnail/Ladekreis; das ⋯-Popup ließ sich wegen springender Gesten nicht bedienen und Swipe-down führte nicht zurück. Der neue Stand ersetzt das Popup durch ein modales Bedienfeld, ergänzt direkte Watch-Navigation, normale Webseitenansicht und einen eingegrenzten Swipe. Echte Play-Eingaben können die lokale Stop-Sperre lösen, ohne Autoplay generell freizugeben. Passive Restore-Tabs bleiben still; ihre WebKit-Startpolicy verhindert einen späteren Nutzerstart nicht dauerhaft.
+
+52 Node- und 17 Chromium-Tests bestanden lokal. Der direkte Webseiten-Play-Fall ist vor/nach der Korrektur geprüft. Der Chromium-Hosttest ist keine UIKit-Prüfung; zwei zusätzliche XCUITests und insgesamt 42 native Unit-/WK-Tests müssen im nächsten Mac-Lauf bestätigt werden. Das synthetische UI-Testvideo ist ausdrücklich eine lokale Testfixture und keine nachgebaute oder angeblich live getestete YouTube-Seite. Eine erneute Gerätebestätigung des tatsächlichen YouTube-Videos bleibt erforderlich.

@@ -45,15 +45,19 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         private static let keys = [PreferencesStorage.key, "browserSessionV2", "sleepPlanV2", "playbackQueueV1"]
         private let saved: [String: Any]
 
-        init() {
+        init(restored: Bool = false) {
             let defaults = UserDefaults.standard
             var stored: [String: Any] = [:]
             for key in Self.keys { stored[key] = defaults.object(forKey: key) }
             saved = stored
             var options = BrowserPreferences()
-            options.blocking = false; options.restoreTabs = false; options.history = false
+            options.blocking = false; options.restoreTabs = restored; options.history = false
             PreferencesStorage.save(options)
             for key in Self.keys where key != PreferencesStorage.key { defaults.removeObject(forKey: key) }
+            if restored {
+                let tab = TabSnapshot(id: UUID(), address: "", title: "Restored")
+                defaults.set(try? JSONEncoder().encode(BrowserSessionSnapshot(tabs: [tab], selected: tab.id)), forKey: "browserSessionV2")
+            }
             browser = BrowserModel()
             let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
             if let scene { window = UIWindow(windowScene: scene) }
@@ -203,5 +207,38 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
                 in: tab) as? Bool == true
         }
         XCTAssertTrue(browser.playbackStopped)
+    }
+
+    func testRestoredRealPlayerStaysQuietAndExplicitStartWorksAfterSelection() async throws {
+        let session = Session(restored: true); defer { session.close() }
+        try await loadFixture(in: session)
+        let browser = session.browser, tab = browser.current
+        XCTAssertEqual(tab.webView.configuration.mediaTypesRequiringUserActionForPlayback, [])
+        _ = try await evaluate("document.getElementById('player').play().catch(() => {}); true", in: tab)
+        try await Task.sleep(for: .milliseconds(300))
+        let paused = try await evaluate("document.getElementById('player').paused", in: tab) as? Bool
+        XCTAssertEqual(paused, true)
+        XCTAssertFalse(tab.playing)
+        browser.play()
+        try await waitFor("restored real video starts after explicit native Play") { tab.playing && tab.playbackTime > 0.2 }
+        XCTAssertGreaterThan(try XCTUnwrap(tab.duration), 3)
+    }
+
+    func testWatchExitRestoresSameRealDocumentWithoutRecreatingWebView() async throws {
+        let session = Session(); defer { session.close() }
+        activeSession = session
+        let tab = session.browser.current, view = tab.webView
+        tab.webView.loadHTMLString("<html><head><title>Original title</title></head><body><ytm-mobile-topbar-renderer>Website navigation</ytm-mobile-topbar-renderer><p id='content'>Original content</p></body></html>", baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))
+        try await waitFor("genuine watch route is presented") {
+            let decorated = try await self.evaluate("document.documentElement.hasAttribute('data-webkweb-watch')", in: tab) as? Bool == true
+            return tab.presentsWatchImmersively && decorated
+        }
+        tab.showNormalWebsite()
+        try await waitFor("normal website navigation is restored") {
+            try await self.evaluate("!document.documentElement.hasAttribute('data-webkweb-watch') && !document.getElementById('webkweb-watch-presentation') && document.getElementById('content').textContent === 'Original content'", in: tab) as? Bool == true
+        }
+        XCTAssertFalse(tab.presentsWatchImmersively)
+        XCTAssertTrue(tab.webView === view)
+        XCTAssertEqual(tab.address, "https://m.youtube.com/watch?v=abcdefghijk")
     }
 }

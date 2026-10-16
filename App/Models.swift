@@ -82,6 +82,24 @@ enum YouTubeAddress {
     }
 }
 
+/// A user's exit applies to this watch item, including its SPA/BFCache returns.
+/// A different watch item may use the compact presentation again.
+struct WatchPresentationState {
+    private(set) var dismissedVideoID: String?
+    func isImmersive(at url: URL?) -> Bool {
+        YouTubeAddress.isWatchPage(url) && YouTubeAddress.videoID(in: url) != dismissedVideoID
+    }
+    mutating func dismiss(at url: URL?) { dismissedVideoID = YouTubeAddress.videoID(in: url) }
+    mutating func show() { dismissedVideoID = nil }
+    static func exitURL(previous: URL?) -> URL {
+        if let previous, let host = previous.host?.lowercased(),
+           ["https", "http"].contains(previous.scheme ?? ""),
+           previous.user == nil, previous.password == nil,
+           host == "youtube.com" || host.hasSuffix(".youtube.com") { return previous }
+        return URL(string: "https://m.youtube.com/")!
+    }
+}
+
 struct SleepPlan: Codable {
     private(set) var deadline: Date?
     private(set) var remainingVideos: Int?

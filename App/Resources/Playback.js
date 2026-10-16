@@ -7,8 +7,9 @@
   let background = false, autoPiP = false, preferOriginal = false, hideShorts = false, queueManaged = false;
   let lastDiscovery = 0, lastHeartbeat = 0, lastState = 0, lastSignature = "";
   let serial = 0;
-  let lastAddress = "", stopped = false, selected = null;
+  let lastAddress = "", stopped = Boolean(globalThis.__webkwebStartPaused), selected = null;
   let interactionAt = 0, lastPrimary = null;
+  let playIntent = null;
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
@@ -101,7 +102,15 @@
       entry(v);
       // A new element may already have started before its play listener exists.
       v.addEventListener("play", () => {
-        if (stopped) { v.pause(); return; }
+        if (stopped) {
+          // A media `play` event is also trusted for script/autoplay. Only an
+          // earlier real input on this player's controls may release the latch.
+          const allowed = playIntent?.media === v && Date.now() - playIntent.at <= 1500;
+          playIntent = null;
+          if (!allowed) { v.pause(); return; }
+          stopped = false;
+          post("userplay", {mediaID: mediaID(v)});
+        }
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
         state();
       });
@@ -135,10 +144,28 @@
   }
   const choose = event => {
     const path = event.composedPath?.() || [event.target];
-    const v = path.find(node => node?.tagName === "VIDEO" || node?.tagName === "AUDIO");
+    let v = path.find(node => node?.tagName === "VIDEO" || node?.tagName === "AUDIO");
+    if (!v && stopped && event.isTrusted) {
+      const button = path.find(node => node?.tagName === "BUTTON" || node?.getAttribute?.("role") === "button" ||
+        (node?.tagName === "INPUT" && ["button", "submit"].includes(node.type)));
+      const name = button && [button.getAttribute?.("aria-label"), button.getAttribute?.("title"), button.textContent, button.value].filter(Boolean).join(" ");
+      if (/\b(play|resume|abspielen|fortsetzen|wiedergeben|wiedergabe)\b/i.test(name || "")) {
+        // Associate semantic controls with the closest player container. This
+        // works for open shadow roots without relying on provider internals.
+        for (const ancestor of path.slice(path.indexOf(button) + 1)) {
+          const candidates = Array.from(ancestor?.querySelectorAll?.("video,audio") || []);
+          if (candidates.length) { v = candidates.includes(media()) ? media() : candidates[0]; break; }
+        }
+      }
+    }
     if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
+    if (v && stopped && event.isTrusted) playIntent = {media: v, at: Date.now()};
   };
   document.addEventListener("pointerdown", choose, true);
+  document.addEventListener("click", choose, true);
+  document.addEventListener("keydown", event => {
+    if (event.key === " " || event.key === "Enter") choose(event);
+  }, true);
   function applyOriginal(v) {
     if (!preferOriginal || !v.audioTracks) return;
     const list = Array.from(v.audioTracks), original = list.find(t => /\boriginal(?:ton| audio)?\b/i.test(t.label || ""));
@@ -157,10 +184,26 @@
     }
   }
   globalThis.__webkweb = {
-    pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); commandMedia(); nodes().forEach(v => v.pause()); state(); },
-    clearStop() { stopped = false; },
-    resume() { stopped = false; const v = commandMedia(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
+    pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); playIntent = null; commandMedia(); nodes().forEach(v => v.pause()); state(); },
+    clearStop() { stopped = false; playIntent = null; },
+    resume() { stopped = false; playIntent = null; const v = commandMedia(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
     toggle() { const v = commandMedia(); if (v) v.paused ? this.resume() : this.pause(); },
+    noteHostTouch(point = {}) {
+      // WebKit's own media controls may consume all DOM input events. The
+      // native host calls this isolated-world method on an actual UIKit touch.
+      // Do not substitute navigator.userActivation: it can remain set for 5s.
+      if (!stopped || !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
+          point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return;
+      commandMedia();
+      const viewport = globalThis.visualViewport;
+      const x = (viewport?.offsetLeft || 0) + point.x * (viewport?.width || innerWidth);
+      const y = (viewport?.offsetTop || 0) + point.y * (viewport?.height || innerHeight);
+      const v = nodes().filter(node => {
+        const r = node.getBoundingClientRect?.();
+        return r && r.right > r.left && r.bottom > r.top && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      }).sort((a, b) => area(a) - area(b))[0];
+      if (v) { selected = v; interactionAt = Date.now(); playIntent = {media: v, at: Date.now()}; }
+    },
     seek,
     setOptions(options = {}) {
       autoPiP = Boolean(options.autoPiP); preferOriginal = Boolean(options.preferOriginal); hideShorts = Boolean(options.hideShorts);

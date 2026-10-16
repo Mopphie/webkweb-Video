@@ -164,17 +164,20 @@ private struct BrowserScreen: View {
     let favorite: () -> Void
     let isFavorite: Bool
     @State private var draft = ""
+    @State private var actionsPresented = false
+    @State private var pendingAction: (() -> Void)?
     @FocusState private var editing: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.dynamicTypeSize) private var dynamicType
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
     private var isHome: Bool { tab.address.isEmpty && !tab.loading }
-    private var isWatch: Bool { YouTubeAddress.isWatchPage(URL(string: tab.address)) }
+    private var isWatch: Bool { tab.presentsWatchImmersively }
     private var shortcutSize: CGFloat { min(iconSize, dynamicType.isAccessibilitySize ? 84 : 64) }
     private var columns: [GridItem] { Array(repeating: GridItem(.flexible(), spacing: 12), count: dynamicType.isAccessibilitySize ? 2 : 4) }
 
     var body: some View {
         VStack(spacing: 0) {
+            if isWatch { watchNavigation }
             if !isHome && !isWatch {
                 addressBar.padding(.horizontal, 12).padding(.vertical, 8)
                 if sizeClass == .regular { tabStrip }
@@ -183,12 +186,14 @@ private struct BrowserScreen: View {
             }
             ZStack {
                 if isHome { home }
-                else { BrowserWebView(tab: tab, watchPresentation: isWatch) }
+                else { BrowserWebView(tab: tab, watchPresentation: isWatch, leaveWatch: tab.leaveWatch) }
                 if let error = tab.error {
                     ContentUnavailableView {
                         Label("Seite nicht geladen", systemImage: "wifi.exclamationmark")
                     } description: { Text(error) } actions: {
                         Button("Erneut laden") { tab.reload() }.buttonStyle(.borderedProminent)
+                        Button("Ohne Filter neu laden") { tab.reloadWithoutFilter() }
+                        Button("Zur Startseite") { browser.addTab() }
                     }.background(.background)
                 }
             }
@@ -202,10 +207,31 @@ private struct BrowserScreen: View {
             if isWatch { browserMenu.padding(.trailing, 14).padding(.bottom, 18) }
         }
         .background(Color.black.ignoresSafeArea())
+        .sheet(isPresented: $actionsPresented, onDismiss: {
+            let action = pendingAction; pendingAction = nil; action?()
+        }) { browserActions }
         .preferredColorScheme(.dark)
         .tint(.white)
         .onAppear { draft = tab.address }
         .onChange(of: tab.address) { _, value in if !editing { draft = value } }
+    }
+
+    private var watchNavigation: some View {
+        HStack(spacing: 8) {
+            Button { tab.leaveWatch() } label: {
+                Image(systemName: "chevron.down").frame(width: 44, height: 44)
+            }.accessibilityLabel("Video verlassen und zurück zu YouTube")
+                .accessibilityIdentifier("browser.watch.exit")
+                .accessibilityHint("Du kannst auch vom oberen Videobereich nach unten wischen")
+            Button {
+                tab.showNormalWebsite()
+                browser.open("https://m.youtube.com/")
+            } label: { Image(systemName: "house").frame(width: 44, height: 44) }
+                .accessibilityLabel("YouTube-Startseite")
+                .accessibilityIdentifier("browser.watch.home")
+            Spacer()
+        }.font(.system(size: 19, weight: .medium)).buttonStyle(.plain)
+            .padding(.horizontal, 8).background(.black)
     }
 
     private var addressBar: some View {
@@ -387,52 +413,82 @@ private struct BrowserScreen: View {
     }
 
     private var browserMenu: some View {
-        Menu {
-            if isWatch {
-                Section("Navigation") {
-                    Button("Zurück", systemImage: "chevron.left") { tab.webView.goBack() }.disabled(!tab.canGoBack)
-                    Button("Vorwärts", systemImage: "chevron.right") { tab.webView.goForward() }.disabled(!tab.canGoForward)
-                    Button("Startseite", systemImage: "house") { browser.addTab() }
-                    Button("Tabs", systemImage: "square.on.square", action: showTabs)
-                    Button("Adresse oder Suche", systemImage: "magnifyingglass", action: showAddress)
-                    Button(tab.loading ? "Laden stoppen" : "Neu laden", systemImage: tab.loading ? "xmark" : "arrow.clockwise") { tab.loading ? tab.webView.stopLoading() : tab.reload() }
-                    Button(isFavorite ? "Favorit entfernen" : "Als Favorit speichern", systemImage: isFavorite ? "star.fill" : "star", action: favorite)
-                }
-                Section("Wiedergabe") {
-                    Button(tab.playing ? "Pausieren" : "Abspielen", systemImage: tab.playing ? "pause" : "play") { browser.togglePlayback() }.disabled(!tab.hasMedia)
-                    Button("10 Sekunden zurück", systemImage: "gobackward.10") { browser.seek(-10) }.disabled(!tab.hasMedia)
-                    Button("10 Sekunden vor", systemImage: "goforward.10") { browser.seek(10) }.disabled(!tab.hasMedia)
-                    Button("Auf dem Fernseher", systemImage: "tv", action: showAirPlay)
-                    if browser.sleepPlan.isActive { Button("Timer abbrechen", systemImage: "moon.zzz") { browser.cancelSleep() } }
-                }
-            }
-            Button("Neuer Tab", systemImage: "plus") { browser.addTab() }
-            Button("Privater Tab", systemImage: "hand.raised") { browser.addTab(isPrivate: true) }
-            Button("Favoriten", systemImage: "star", action: showLibrary)
-            Button("Verlauf", systemImage: "clock.arrow.circlepath", action: showHistory)
-            Button("Sleep-Timer", systemImage: "moon.zzz", action: showSleep)
-            Button("Queue", systemImage: "music.note.list", action: showQueue)
-            if !isHome {
-                Button("Zur Queue", systemImage: "text.badge.plus") { browser.enqueueCurrent() }.disabled(tab.isPrivate)
-                Button("Player", systemImage: "slider.horizontal.3", action: showPlayer).disabled(!tab.hasMedia)
-            }
-            Button("Einstellungen", systemImage: "gear", action: showSettings)
-            Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
-            if let host = URL(string: tab.address)?.host {
-                Button(browser.shouldBlock(URL(string: tab.address)) ? "Filter für diese Seite aus" : "Filter für diese Seite ein", systemImage: "shield") {
-                    if let allowed = browser.options.allowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.allowlist.removeAll { $0 == allowed } } else { browser.options.allowlist.append(host) }
-                }
-            }
-            if let url = URL(string: tab.address) { ShareLink(item: url) }
-            Button("Alles pausieren", systemImage: "pause.circle") { browser.pauseAll() }
-        } label: {
+        Button { actionsPresented = true } label: {
             if isWatch {
                 Image(systemName: "ellipsis").font(.system(size: 21, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 44, height: 44).background(Color(red: 1, green: 0, blue: 0), in: Circle()).contentShape(Circle())
             } else { Image(systemName: "ellipsis").frame(width: 48, height: 48).browserGlass(radius: 24) }
         }
-        .buttonStyle(.plain).accessibilityLabel("Browsermenü")
-        .accessibilityHint("Navigation, Adresse, Tabs und Wiedergabeoptionen")
+        .buttonStyle(.plain).accessibilityLabel("Browsermenü").accessibilityIdentifier("browser.actions")
+        .accessibilityHint("Öffnet Navigation, Adresse, Tabs und Wiedergabeoptionen")
+    }
+
+    // A modal list keeps stable hit targets while WebKit publishes progress and
+    // playback changes. It also prevents gestures from reaching the page below.
+    private var browserActions: some View {
+        NavigationStack {
+            List {
+                Section("Navigation") {
+                    action("Zurück", symbol: "chevron.left", enabled: tab.canGoBack) { tab.webView.goBack() }
+                    action("Vorwärts", symbol: "chevron.right", enabled: tab.canGoForward) { tab.webView.goForward() }
+                    action("Startseite", symbol: "house") { browser.addTab() }
+                    action("Tabs", symbol: "square.on.square", perform: showTabs)
+                    action("Adresse oder Suche", symbol: "magnifyingglass", perform: showAddress)
+                    action("Neu laden", symbol: "arrow.clockwise", enabled: !isHome) { tab.reload() }
+                    if YouTubeAddress.isWatchPage(URL(string: tab.address)) {
+                        action("Normale YouTube-Ansicht", symbol: "rectangle.topthird.inset.filled") { tab.showNormalWebsite() }
+                        action("Video verlassen", symbol: "chevron.down") { tab.leaveWatch() }
+                        if !isWatch { action("Videoansicht", symbol: "play.rectangle") { tab.showWatchPresentation() } }
+                    }
+                }
+                Section("Wiedergabe") {
+                    action("Abspielen", symbol: "play", enabled: tab.hasMedia) { browser.play() }
+                    action("Alles pausieren", symbol: "pause.circle") { browser.pauseAll() }
+                    action("10 Sekunden zurück", symbol: "gobackward.10", enabled: tab.hasMedia) { browser.seek(-10) }
+                    action("10 Sekunden vor", symbol: "goforward.10", enabled: tab.hasMedia) { browser.seek(10) }
+                    action("Auf dem Fernseher", symbol: "tv", perform: showAirPlay)
+                    action("Player", symbol: "slider.horizontal.3", enabled: tab.hasMedia, perform: showPlayer)
+                    action("Sleep-Timer", symbol: "moon.zzz", perform: showSleep)
+                    if browser.sleepPlan.isActive { action("Timer abbrechen", symbol: "xmark") { browser.cancelSleep() } }
+                }
+                Section("Sammlung") {
+                    action("Favoriten", symbol: "star", perform: showLibrary)
+                    action("Verlauf", symbol: "clock.arrow.circlepath", perform: showHistory)
+                    action(isFavorite ? "Favorit entfernen" : "Als Favorit speichern", symbol: isFavorite ? "star.fill" : "star", enabled: !isHome, perform: favorite)
+                    action("Queue", symbol: "music.note.list", perform: showQueue)
+                    action("Zur Queue", symbol: "text.badge.plus", enabled: !isHome && !tab.isPrivate) { browser.enqueueCurrent() }
+                }
+                Section("Browser") {
+                    action("Neuer Tab", symbol: "plus") { browser.addTab() }
+                    action("Privater Tab", symbol: "hand.raised") { browser.addTab(isPrivate: true) }
+                    action("Einstellungen", symbol: "gear", perform: showSettings)
+                    Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
+                        .frame(minHeight: 44).accessibilityIdentifier("browser.filter")
+                    action("Ohne Filter neu laden", symbol: "shield.slash", enabled: !isHome) { tab.reloadWithoutFilter() }
+                    if let host = URL(string: tab.address)?.host {
+                        Button(browser.shouldBlock(URL(string: tab.address)) ? "Filter für diese Seite aus" : "Filter für diese Seite ein") {
+                            if let allowed = browser.options.allowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.allowlist.removeAll { $0 == allowed } }
+                            else { browser.options.allowlist.append(host) }
+                        }.frame(minHeight: 44)
+                    }
+                    if let url = URL(string: tab.address) { ShareLink(item: url).frame(minHeight: 44) }
+                }
+            }.accessibilityIdentifier("browser.actions.panel")
+                .navigationTitle("Browser").navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Fertig") { actionsPresented = false }.accessibilityIdentifier("browser.actions.close")
+                    }
+                }
+        }.presentationDetents([.large]).presentationDragIndicator(.visible)
+    }
+
+    private func action(_ title: String, symbol: String, enabled: Bool = true, perform: @escaping () -> Void) -> some View {
+        Button {
+            pendingAction = perform
+            actionsPresented = false
+        } label: { Label(title, systemImage: symbol).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading) }
+            .disabled(!enabled)
     }
 
     private func time(_ value: Double) -> String {
