@@ -1,5 +1,37 @@
 # Prüfung vor einem Release
 
+## TestFlight 0.1.0 (Build 5), 16.10.2026
+
+Der Nutzer bestätigt den Fehler in **Build 4**: Dasselbe YouTube-Video läuft in Safari, bleibt in der App nach kurzem Start stehen. Die Aufnahme zeigt Stillstand um 2:18 und eine Ladeanzeige. Die tatsächliche YouTube-Wiedergabe auf diesem iPhone ist deshalb weiterhin gesondert zu bestätigen; bestandene lokale Fixtures ersetzen diesen Nachweis nicht.
+
+Der neue Stand behebt mehrere nachgewiesene Fehler der App-Steuerung:
+
+- Eine Audio-Unterbrechungsnachricht setzt keine dauerhafte globale Timer-/Autoplay-Sperre mehr. WebKit verarbeitet seine Systemunterbrechung. Eine neue Nutzerpause oder abgelaufene Deadline verhindert weiterhin automatisches Resume.
+- Die Audiokategorie wird vor dem Start vorbereitet. Die App übernimmt die Audiositzung bei einem ausdrücklichen nativen Play-Befehl; sie aktiviert sie nicht nachträglich aufgrund bloßer Webseiten-Play-Meldungen. Eine verspätete Pausebestätigung deaktiviert die für Play angeforderte Sitzung nicht sofort. Ruhiges Freigeben erfolgt nach erneutem Zustandsabgleich. Apples [Hinweise zu `setActive`](https://developer.apple.com/documentation/avfaudio/avaudiosession/setactive(_:options:)) erläutern die Wirkung einer Deaktivierung auf laufende Audioobjekte.
+- Die Ladeanzeige berücksichtigt Pause, Ende und Bereitschaft. Ein `stalled`-Ereignis bedeutet bei vorhandenem Puffer keinen Wiedergabestillstand. Beide neuen Pufferfälle scheitern gegen die unveränderte Build-4-Bridge und bestehen nach der Korrektur.
+- „Playerdiagnose kopieren“ liefert nach bewusstem Antippen einen lokalen Bericht mit höchstens 40 Ereignissen. Er nennt bei normalen Tabs nur den Host, bei privaten Tabs keinen Host; keine vollständigen Webseiten-/Medienadressen, Parameter, Titel, Cookies oder Inhalte. Keine automatische Übertragung; lokale Zwischenablage mit fünf Minuten Ablaufzeit. [Technische Datenschutzhinweise](../PRIVACY.md).
+
+**Verifizierter Release-Lauf:** [38880644099](https://github.com/Mopphie/webkweb-Video/actions/runs/38880644099), geprüfter und hochgeladener Commit `9b9f6c301cc464570e1ba7d7fd084e53c367e337`:
+
+- **46/46 native Unit-/WK-Methoden und 3/3 XCUITests bestanden**, keine Fehler. Der UI-Test mit Ton bestand in 81,842 Sekunden. Er startet ein selbst erzeugtes 60-Sekunden-H.264/AAC-Medium mit echtem Nutzertipp, verlangt vor und nach nativer Pause jeweils drei echte Medienzeit-Fortschritte und prüft laufende Wiedergabe ohne Lade-/Stop-Sperre. Start/Resume bleiben auf 15/8 Sekunden begrenzt. Framezähler sind nur optionale Diagnose: Das Simulatorbackend meldete zuvor trotz Zeitfortschritt 0.
+- Die native Audio-Integration prüft mehr als fünf Sekunden realen Zeitfortschritt ohne Stummschaltung. Gezielt injizierte Unterbrechungsnachrichten prüfen die App-Reaktion sowie Nutzerpause und Timergrenzen; sie simulieren keine echte Telefon-/Hardware-Unterbrechung.
+- **55/55 Node-Tests und 10/10 Release-Helper-Tests** bestanden im selben Mac-Lauf. Separat bestanden **19/19 Chromium-Medientests** gegen dieselbe Playback.js-Prüfsumme. Der MSE-Fall puffert bei tatsächlich fehlenden Fragmenten, pausiert und läuft nach weiterem Anhängen mit Ton fort. Der gepufferte `stalled`-Hinweis wird gezielt injiziert. 26 Swift-Dateien wurden zusätzlich unter Linux syntaktisch geprüft; das ist kein weiterer SDK-Build.
+- Zertifikat und beide Profile geprüft; signiertes Gerätearchiv und IPA-Export erfolgreich. Die exportierten App-/Widget-Plists bestätigen übereinstimmend **0.1.0 / Build 5**. Apple meldete **`UPLOAD SUCCEEDED with no errors`**, danach **`processing_state=VALID`**, **`internal_state=READY_FOR_BETA_TESTING`**. Build-ID: `5f82928b-c304-4e5a-9067-7e04ea9274f6`.
+
+[App Store Connect / TestFlight](https://appstoreconnect.apple.com/apps/6822711093/testflight): Der Build ist verarbeitet und für internes Beta-Testen bereit. **Eine aktive Testgruppenzuordnung oder jeder einzelne Testerzugang ist nicht bestätigt.** Der API-Schlüssel kann Beta-Gruppen nicht lesen/verwalten (HTTP 403); die Übernahme der bisherigen internen Gruppe konnte deshalb nicht durchgeführt oder geprüft werden. Falls Build 5 nicht in TestFlight erscheint, muss er in App Store Connect der bestehenden internen Gruppe hinzugefügt werden. Keine Gruppen erstellt, keine Tester eingeladen, keine App-Store-Einreichung.
+
+Vorherige rote Versuche führten zu keinem Upload:
+
+| Lauf / Code | Tatsächliches Ergebnis |
+| --- | --- |
+| `38872425343`, `0db77f3`, Versuch 1 | 46 native Methoden bestanden; erster UI-App-Start lief in ein Xcode-Timeout, zwei weitere UI-Tests bestanden. |
+| Derselbe Lauf, Versuch 2 | Wieder 46 native Methoden bestanden; echter Resume-Fehler im UI-Test mit Ton. Der Menütest führte seine Assertions aus, überschritt einschließlich Start/Quiescence aber die 120-Sekunden-Grenze. |
+| `38875399452`, `e08c265` | 46 native Methoden und zwei UI-Tests bestanden; der hörbare Test erreichte die Resume-Prüfung wegen seiner Autoplay-Setup-Annahme nicht. |
+| `38877034822`, `bc4c556` | Start und Resume mit echtem Tipp bestanden, eine spätere Zustandstext-Abfrage scheiterte bei der kurzen Schleife. |
+| `38879063872`, `bf2f8a3` | 46 native Methoden und zwei UI-Tests bestanden; der verpflichtende Framevergleich scheiterte am vom Simulator gemeldeten Nullzähler. |
+
+Der aktuelle grüne Lauf prüft deshalb tatsächlichen Medienzeit-Fortschritt mit langer eigener Fixture; er überspringt keinen Play-/Pause-/Resume-Fall. UI-Gesamtlaufzeit maximal 180 Sekunden, Preflight maximal 20 Minuten. Diagnose-Hooks und Testmedien werden nicht in die Release-App aufgenommen; die freiwillige Playerdiagnose bleibt Teil der App. Nachfolgende reine Ergebnisdokumentation ändert keine App-/Widget-/Bridgequellen des getesteten Commits. Die konkrete YouTube-Ursache, der Filtereinfluss, echte Telefon-/Routenwechsel sowie die Wiedergabe auf dem Nutzergerät bleiben offen.
+
 
 ## Nachbesserung nach TestFlight-Build 3
 
@@ -16,7 +48,7 @@ Der erste [native Nachbesserungslauf 38865583384](https://github.com/Mopphie/web
 
 ## TestFlight 0.1.0 (Build 4), 16.10.2026
 
-Der [korrigierte Release-Lauf 38867655473](https://github.com/Mopphie/webkweb-Video/actions/runs/38867655473) für Commit `2a64965b8a0704ae4e4d63d8d9b860bba41424c4` ist vollständig erfolgreich. Dies ist der aktuelle Beta-Stand mit den oben beschriebenen Wiedergabe-, Menü- und Navigationskorrekturen.
+Der [korrigierte Release-Lauf 38867655473](https://github.com/Mopphie/webkweb-Video/actions/runs/38867655473) für Commit `2a64965b8a0704ae4e4d63d8d9b860bba41424c4` ist vollständig erfolgreich. Dies war der geprüfte Beta-Stand; die spätere Gerätemeldung zeigte weiterhin einen YouTube-Fehler.
 
 - **42/42 native Unit-/WK-Tests und 2/2 XCUITests**, keine Fehler. Beide zuvor roten Restore-Tests bestehen unverändert. Der Menü-/Normalansichtstest bestand in 43,946 Sekunden, der erste echte UIKit-Tipp nach Pause in 31,574 Sekunden. Die Medien sind selbst erzeugte H.264/AAC-Fixtures.
 - **53/53 Node-Tests und 10/10 Release-Helper-Tests** bestanden im selben Mac-Lauf. Separat bestanden lokal 17/17 Chromium-Medientests gegen dieselbe Playback.js-Prüfsumme.
@@ -78,6 +110,6 @@ Auf einem autorisierten Mac: vollständiges Xcode 26+ auswählen, iOS-26-SDK und
 
 Vor Veröffentlichung: App-Store-Datenschutzauskunft einschließlich optionalem iCloud mit dem finalen Build abgleichen, Signierung/Icons/**echte Gerätescreenshots**/Altersfreigabe nach Apples aktualisiertem Fragebogen prüfen und Dienstbedingungen/Rechte beachten. Die frühere native Medien-Downloadfunktion sowie SponsorBlock und Google Cast wurden vollständig entfernt, einschließlich Debug und Tests nur für diese Integrationen. Vorhandene Nutzerdateien bleiben unangetastet. Die verbleibenden Filterquellen sind unter ihren Lizenzbedingungen zu verwenden; Hinweise stehen in der App und [COMMERCIAL-USE.md](COMMERCIAL-USE.md). `ITSAppUsesNonExemptEncryption=false` setzt übliche ausgenommene System-/TLS-Verschlüsselung voraus. Keine Zugehörigkeit zu den verlinkten Diensten oder garantierte App-Store-Zulassung behaupten.
 
-**Status dieser bereinigten Fassung:** Signiertes Gerätearchiv, IPA-Export und TestFlight-Upload **0.1.0 (Build 4)** sind oben nachgewiesen. Echte iPhone-/iPad-Screenshots und reale Diensteprüfungen stehen noch aus. Die früheren TestFlight-Builds sind davon getrennt dokumentiert. [APP-STORE-DRAFT.md](APP-STORE-DRAFT.md) enthält vorbereitete Metadaten ohne erfundene Angaben. PR/Dokumentation sind Vorbereitung, keine Einreichungsfreigabe.
+**Status dieser bereinigten Fassung:** Signiertes Gerätearchiv, IPA-Export und TestFlight-Upload **0.1.0 (Build 5)** sind oben nachgewiesen. Die interne Testgruppenzuordnung ist API-bedingt nicht bestätigt. Echte iPhone-/iPad-Screenshots und reale Diensteprüfungen stehen noch aus. Die früheren TestFlight-Builds sind davon getrennt dokumentiert. [APP-STORE-DRAFT.md](APP-STORE-DRAFT.md) enthält vorbereitete Metadaten ohne erfundene Angaben. PR/Dokumentation sind Vorbereitung, keine Einreichungsfreigabe.
 
 Sachliche Beschreibung: „Browser für iPhone und iPad mit Tabs, Favoriten, nativer Video-Steuerung, AirPlay und Sleep-Timer. Unterstützte Webseiten können Inline-Video und Bild-in-Bild nutzen. Ein optionaler Netzwerkfilter reduziert bestimmte Anfragen. Funktionen hängen von Webseite, iOS und Wiedergabequelle ab.“

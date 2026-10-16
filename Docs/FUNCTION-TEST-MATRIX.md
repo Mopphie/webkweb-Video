@@ -16,6 +16,8 @@ Stand: 16. Oktober 2026. Die Ebenen werden getrennt ausgewiesen: originale Skrip
 | Vollbild / PiP | Echte Chromium-API oder verständlicher Fehlerpfad; automatische Übernahme nur bei erfüllten Bedingungen | Chromium/Node; iPhone-/iPad-Presentation und Hintergrundwechsel bleiben Geräteprüfungen |
 | AirPlay | Verständlicher Fallback ohne Apple-API | Chromium prüft ausschließlich den Fallback; echte AirPlay-Geräte sind hier nicht vorhanden |
 | Medienfehler / Recovery | Nicht vorhandene Quelle liefert echten Decoderfehler und fehlgeschlagener Start einen Hinweis | Reales Chromium; Netzwerk-/DRM-/Loginfehler fremder Dienste zusätzlich am Gerät prüfen |
+| Streaming / Ladeanzeige | MSE-Stream mit Ton puffert bei fehlenden Fragmenten, pausiert und läuft nach weiterem Anhängen fort; vorhandener Puffer übersteht ein injiziertes `stalled`-Ereignis | 19/19 Chromium-Fälle; zwei neue Fälle reproduzieren die falsche Ladeanzeige in Build 4. Kein YouTube-Livetest |
+| Audio-Unterbrechung / Diagnose | WK-Wiedergabe mit Ton, injizierte Audio-Nachrichten, Nutzerpause/Timer-Grenzen und begrenzter Bericht ohne URLs/Titel/Cookies | Neue native Regressionen bestanden im ersten Versuch; echte Telefon-/Route-/Hardware-Situationen bleiben Geräteprüfungen |
 | SPA / BFCache / Lifecycle | Navigationsmeldung, stabile Identitäten, Disposal/Restore und gedrosselte Hintergrundnachrichten | Chromium und Node; native Redirect-/Session-Prüfung durch XCTest |
 | Adresssuche / Deep Links | Schema-/Host-/Zugangsdatenprüfung, Suchparameter und Widget-Link-Roundtrip | Native XCTest; echte Anbieter-/Loginseiten werden nicht als lokale Fixture ausgegeben |
 | Tabs / private Daten | Nicht persistenter Store, gemeinsame private Popup-Sitzung, Restore-Useraktion, Ausschluss privater URLs und Zugangsdaten | Native XCTest; vollständige native UI-Bedienung zusätzlich am Gerät prüfen |
@@ -69,3 +71,15 @@ YouTube blieb laut Nutzer bei Thumbnail/Ladekreis; das ⋯-Popup ließ sich wege
 Der [vollständig erfolgreiche Folgelauf 38867655473](https://github.com/Mopphie/webkweb-Video/actions/runs/38867655473), Code `2a64965`, bestätigt **42/42 native Unit-/WK-Methoden und 2/2 echte XCUITests**, dazu **53/53 Node- und 10/10 Helper-Tests**. Signiertes Archiv, IPA-Export und Upload **0.1.0 (Build 4)** erfolgreich; Apple bestätigt **VALID / IN_BETA_TESTING**. Konkrete Testgruppenzuordnung ist wegen fehlender API-Rechte nicht bestätigt.
 
 Das synthetische UI-Testvideo ist ausdrücklich eine lokale Testfixture und keine nachgebaute oder angeblich live getestete YouTube-Seite. Der Swipe ist implementiert, aber kein Live-YouTube-Swipetest nachgewiesen. Eine erneute Gerätebestätigung des tatsächlichen YouTube-Videos bleibt erforderlich.
+
+## Nutzerbestätigung und verifizierter TestFlight-Build 5
+
+Der Nutzer bestätigt den YouTube-Fehler in **0.1.0 (4)** und funktionierende Wiedergabe desselben Videos in Safari. Seine Aufnahme zeigt einen kurzen Start mit anschließendem Stillstand/Ladekreis. Build 4 war damit kein erfolgreicher Geräte-/YouTube-Nachweis.
+
+Der neue Stand verhindert dauerhafte Stop-Sperren durch Audio-Unterbrechungen und das nachträgliche Übernehmen der WebKit-Audiositzung durch passive Play-Meldungen. Die Ladeanzeige folgt Pause/Ende/Pufferzustand; eine freiwillige lokale Diagnose enthält keine vollständigen URLs, Titel oder Cookies.
+
+[Lauf 38880644099](https://github.com/Mopphie/webkweb-Video/actions/runs/38880644099), Code `9b9f6c3`: **46/46 native Unit-/WK-Methoden, 3/3 XCUITests, 55/55 Node- und 10/10 Helper-Tests bestanden**. Der UI-Test mit Ton prüft eine eigene 60-Sekunden-Fixture, echten Starttipp, mehrfachen realen Medienzeit-Fortschritt vor und nach Pause sowie unveränderte Start-/Resume-Grenzen. Framezähler bleiben optional, da das Simulatorbackend trotz laufender Medienzeit 0 meldete. Separat **19/19 Chromium-Medientests** einschließlich tatsächlicher MSE-Pufferlücke und Wiederaufnahme mit Ton bestanden.
+
+Signiertes Gerätearchiv, IPA-Export und Upload **0.1.0 (Build 5)** erfolgreich. Apple bestätigt **VALID / READY_FOR_BETA_TESTING**. Der API-Schlüssel kann Beta-Gruppen nicht lesen/verwalten (HTTP 403); die Zuordnung zur bestehenden internen Gruppe und jeder einzelne Testerzugang sind nicht bestätigt. Falls Build 5 nicht in TestFlight erscheint, muss die bestehende Gruppe in App Store Connect zugeordnet werden. Keine Einladungen oder neuen Gruppen.
+
+Die konkrete YouTube-Ursache und erfolgreiche Wiedergabe auf dem iPhone sowie der Filtereinfluss bleiben offen. Reale Telefon-/Routenwechsel wurden nicht durch injizierte Testnachrichten ersetzt. Die roten Vorversuche und ihre Ursachen stehen im [aktuellen Releaseprotokoll](RELEASE.md).

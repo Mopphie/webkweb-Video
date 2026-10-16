@@ -1,6 +1,6 @@
 # Datenschutzhinweise für DevnTube
 
-Stand: 15. Oktober 2026. Technischer Entwicklungsstand. Die öffentliche [Datenschutzerklärung](https://mopphie.github.io/webkweb-privacy/), der [Support](https://mopphie.github.io/webkweb-privacy/support/) und das [Impressum](https://mopphie.github.io/webkweb-privacy/impressum/) sind erreichbar. Diese Datei dokumentiert zusätzliche Implementierungsdetails; maßgeblich bleibt die Prüfung am später tatsächlich ausgelieferten Build. Die externe Datenschutzerklärung muss vor Verteilung dieses Builds die entfernten Integrationen widerspiegeln.
+Stand: 16. Oktober 2026. Technischer Entwicklungsstand. Die öffentliche [Datenschutzerklärung](https://mopphie.github.io/webkweb-privacy/), der [Support](https://mopphie.github.io/webkweb-privacy/support/) und das [Impressum](https://mopphie.github.io/webkweb-privacy/impressum/) sind erreichbar. Diese Datei dokumentiert zusätzliche Implementierungsdetails; maßgeblich bleibt die Prüfung am später tatsächlich ausgelieferten Build. Die externe Datenschutzerklärung muss vor Verteilung dieses Builds die entfernten Integrationen widerspiegeln.
 
 ## Lokale Daten und optionale iCloud-Synchronisierung
 
@@ -29,3 +29,9 @@ AirPlay nutzt ausschließlich iOS-Systemrouten. Die App enthält weder SponsorBl
 UserDefaults speichert Optionen, Updatezeit, normale Session/Timer und den Favoriten-Snapshot. Required-Reason-Erklärungen CA92.1/1C8F.1 stehen in App-/Widget-Manifesten. Now Playing zeigt Wiedergabeinformationen und verarbeitet öffentliche Remote-Befehle; AVAudioSession konfiguriert Wiedergabe, garantiert aber keine dauerhafte WebKit-Hintergrundausführung.
 
 Kein eigener Analytics-Dienst, Werbe-SDK oder appseitige Cross-App-Tracking-ID. Webseiten und optionale Drittdienste können eigene Verarbeitung betreiben.
+
+## Freiwillige Playerdiagnose
+
+Jeder Tab hält höchstens 40 technische Wiedergabeereignisse im Arbeitsspeicher. Erfasst werden App-Build, Wiedergabe-/Lade-/Pausezustand, Filterstatus, Zeitposition, Dauer, verfügbare Framezähler und Audio-Unterbrechungen. Der Bericht enthält beim normalen Tab nur den Hostnamen, bei privaten Tabs stattdessen „private“. Vollständige Webseiten-/Video-/Medienadressen, URL-Parameter, Seitentitel, Cookies und Inhalte werden nicht übernommen.
+
+„Playerdiagnose kopieren“ legt den Bericht ausschließlich nach ausdrücklichem Antippen in die lokale iOS-Zwischenablage, ohne Universal Clipboard und mit fünf Minuten Ablaufzeit. Die App übermittelt den Bericht nicht an einen Server. Wer ihn anschließend selbst in einen Chat oder eine andere App einfügt, veranlasst diese Weitergabe selbst.
