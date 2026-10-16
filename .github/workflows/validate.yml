@@ -1,0 +1,46 @@
+name: Native app verification
+
+# The user explicitly authorized Actions on 2026-10-16.
+# This workflow tests this development branch; it never signs or uploads an app.
+on:
+  push:
+    branches: [codex/commercial-use-cleanup]
+    paths-ignore: ['Docs/**', '*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: iPhone XCTest and Release build
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Debug build and simulator tests
+        run: ./Scripts/check-macos.sh
+      - name: Release simulator build
+        run: |
+          set -euo pipefail
+          xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb \
+            -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Preserve native test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-test-results
+          path: build/*.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
