@@ -17,7 +17,8 @@ final class BrowserIntegrationTests: XCTestCase {
         let popup = BrowserTab(isPrivate: true, configuration: configuration)
         defer { popup.close() }
         XCTAssertTrue(popup.webView.configuration.websiteDataStore === existingStore)
-        XCTAssertNil(popup.webView.customUserAgent)
+        XCTAssertTrue(popup.webView.customUserAgent?.isEmpty ?? true,
+                      "Use WebKit's native identity without a custom agent override")
     }
     func testCommittedDocumentReplacesPendingAddressForReloadAndRestore() async throws {
         let tab = BrowserTab(isPrivate: true)

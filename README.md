@@ -7,7 +7,7 @@ Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und F
 ## Funktionen
 
 - URL oder Suche mit Google, DuckDuckGo oder Bing; `canOpenURL`, Zurück/Vorwärts, Teilen, Popup-Tabs und normale Tab-Wiederherstellung. URLs mit Zugangsdaten werden nicht als Suchbegriff übertragen. Private Tabs verwenden einen eigenen nicht persistenten WebKit-Speicher und erscheinen weder im Verlauf noch im wiederhergestellten Zustand.
-- Mobiler oder Desktop-Safari-User-Agent und Seitenzoom. Inline/Autoplay/PiP/AirPlay sind konfiguriert. Eine isolierte Bridge steuert HTML-Medien auch in Frames und offenen Shadow Roots; native Play/Pause/Seek, Systemlautstärke und optionale Gestenfläche.
+- Öffentliche mobile/Desktop-WebKit-Inhaltspräferenz mit echter aktueller Browserkennung und Seitenzoom. Inline/Autoplay/PiP/AirPlay sind konfiguriert. Eine isolierte Bridge steuert HTML-Medien auch in Frames und offenen Shadow Roots; native Play/Pause/Seek, Systemlautstärke und optionale Gestenfläche.
 - Mehrteilige WebKit-Netzwerkfilter ohne alphabetische Domainbegrenzung, unverlierbare Basisregeln ohne dienstspezifische YouTube-Ad-Endpunkte. AdGuard DNS und HaGeZi sind auswählbare Quellen; HTTPS-Quellen und Textimport, tägliche Vordergrund-/manuelle Updates, Quellcache, Diagnose und Seiten-Ausnahmen sind vorhanden. Unterstützte AdGuard/EasyList-Netzwerkregeln und Ausnahmen werden konservativ übersetzt; unbekannte Ausnahmen verwerfen die Quelle. Keine Scriptlets oder vollständige EasyList-Kompatibilität.
 - Sleep-Timer mit freier Dauer bis 24 Stunden, Anzahl primärer Videos oder Ende des aktuellen Videos. Nach Ablauf verhindert eine lokale Sperre auch Autoplay neu eingefügter Player. Zeit-/Anzahlpläne normaler Tabs werden wiederhergestellt; ein Plan für den alten konkreten Player wird beim Neustart verworfen und gemeldet.
 - SwiftData-Verlauf mit abschaltbarer Aufzeichnung und maximal 500 nicht favorisierten Einträgen; Favoriten bearbeiten/sortieren. Geteilte Favoriten werden bei Besuchen, Bearbeitung und iCloud-Änderungen für Siri und das konfigurierbare Widget aktualisiert. Cookie-/Website-Daten-Löschen schließt vorher die aktiven Dokumente.
@@ -51,7 +51,7 @@ Der Parameter muss eine echte `iCloud.*`-ID sein. Das Skript setzt Plist/Entitle
 
 ## Lokal prüfen
 
-Ein vorhandener TestFlight-Workflow ist ausschließlich manuell auslösbar und wird hier nicht gestartet. **GitHub Actions dürfen nur mit ausdrücklichem OK des Nutzers ausgeführt werden.**
+Der TestFlight-Workflow bleibt manuell. **Seit16.10.2026 sind GitHub Actions für Builds und Tests ausdrücklich jederzeit freigegeben.** Der Validierungsworkflow prüft den Entwicklungsbranch ohne Signing oder Upload.
 
 ```bash
 node --test Tests/*.test.cjs

@@ -117,7 +117,7 @@ def main():
     now=datetime.datetime.now().astimezone().isoformat(timespec='seconds')
     report={'created_at':now,'os':sys.platform,'checks':checks,'native_build':'NOT_RUN',
             'xctest':'NOT_RUN','signed_archive':'NOT_CREATED',
-            'github_actions':'WEBKWEB_APP_NOT_USED; legal website Pages deploy separately approved'}
+            'github_actions':'NOT_STARTED_BY_THIS_SCRIPT; see workflow runs for repository build status'}
     target=REPORT/'portable-check.json'
     target.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf8')
     for check in checks:print(f"{check['status']}: {check['check']} – {check['detail']}")

@@ -1,7 +1,8 @@
 name: Native app verification
 
 # The user explicitly authorized Actions on 2026-10-16.
-# This workflow tests this development branch; it never signs or uploads an app.
+# Tests this development branch without signing or submitting anything to Apple.
+# Successful unsigned simulator builds and test results are kept as GitHub artifacts.
 on:
   push:
     branches: [codex/commercial-use-cleanup]
@@ -27,8 +28,11 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Debug build and simulator tests
+        id: debug
         run: ./Scripts/check-macos.sh
       - name: Release simulator build
+        id: release
+        if: always() && !cancelled()
         run: |
           set -euo pipefail
           xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb \
@@ -36,6 +40,14 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build
+      - name: Preserve unsigned simulator app
+        if: always() && steps.release.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: DevnTube-unsigned-simulator-app
+          path: build/DerivedData/Build/Products/Release-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 7
       - name: Preserve native test results
         if: always()
         uses: actions/upload-artifact@v4
