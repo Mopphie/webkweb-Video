@@ -89,7 +89,16 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             await context.route('**/*', lambda route: route.continue_() if
                                 urlparse(route.request.url).hostname in ('127.0.0.1', 'localhost')
                                 else route.abort())
-            await context.add_init_script(injection)
+            # Test instrumentation only: defer delivery to the real bridge's
+            # play listener while the real HTML media pipeline keeps running.
+            # This exposes capture-listener microtasks running before the
+            # website's target handler on an actual Playwright user click.
+            delayed = '''const add = HTMLMediaElement.prototype.addEventListener;
+HTMLMediaElement.prototype.addEventListener = function(type, fn, options) {
+  return add.call(this, type, type === 'play' && typeof fn === 'function' ?
+    event => setTimeout(() => fn.call(this, event), 6000) : fn, options);
+};\n''' if name == 'delayed-website-play-event' else ''
+            await context.add_init_script(delayed + injection)
             page = await context.new_page(); errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
             started = time.monotonic()
@@ -188,6 +197,28 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             await p.wait_for_function('!document.querySelector("video").paused && document.querySelector("video").currentTime > 0.2', timeout=2500)
             assert await p.evaluate('window.websiteTrustedClick === true')
             assert await p.evaluate('__messages.filter(m=>m.kind==="userplay").length === 1')
+
+        async def delayed_website_play_event(p):
+            # Do not use the separate synthetic-click assertion's 100ms budget
+            # with deliberately delayed listener delivery. This case exercises
+            # real input; normal delivery/synthetic-input cases remain intact.
+            await p.evaluate('''() => {
+                const v = document.querySelector('video'), box = document.createElement('div');
+                v.before(box); box.append(v); box.style.cssText='position:relative;width:640px;height:360px';
+                const button=document.createElement('button'); button.id='delayed-start'; button.textContent='Start';
+                button.style.cssText='position:absolute;left:40px;top:40px;width:140px;height:64px';
+                button.onclick=event=>{ window.websiteTrustedClick=event.isTrusted;v.play().catch(()=>{}); };
+                box.append(button); __webkweb.pause(true);
+            }''')
+            await p.click('#delayed-start')
+            await p.wait_for_function('document.querySelector("video").currentTime > 0.2', timeout=2500)
+            assert await p.evaluate('window.websiteTrustedClick === true')
+            await p.wait_for_timeout(6100)
+            value = await p.eval_on_selector('video', '''v => ({paused:v.paused,
+                time:v.currentTime, frames:v.getVideoPlaybackQuality().totalVideoFrames})''')
+            assert not value['paused'] and value['time'] > 6 and value['frames'] > 24, value
+            state = await p.evaluate('__messages.filter(m=>m.kind==="state").at(-1)')
+            assert not state['stopLatched'] and state['playing'], state
 
         async def native_web_controls_after_stop(p):
             await p.evaluate('''() => {
@@ -364,6 +395,7 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
         checks = [('play-pause-seek-rate','video',playback), ('captions','video',captions),
                   ('website-play-after-native-stop','video',website_play_after_stop),
                   ('real-overlay-input-after-stop','video',overlay_play_after_stop),
+                  ('delayed-website-play-event','video',delayed_website_play_event),
                   ('host-touch-and-native-web-controls-after-stop','video',native_web_controls_after_stop),
                   ('natural-end-replay','video',replay), ('timer-stop-latch','video',stop_latch),
                   ('queue-loop-source-restore','video',queue_loop), ('rapid-new-player','empty',rapid_player),

@@ -21,12 +21,12 @@
   // system interruption or user caused them. Never resume on visibility alone.
   const observed = event => post("mediaevent", {event, stopLatched: stopped});
   const acknowledgeRequestedPlay = intent => {
-    // This microtask runs at the end of the trusted input's own event turn.
-    // play() changes paused synchronously, but WebKit can dispatch its play
-    // event much later while unmuted audio is being prepared. Accept that
-    // already-requested play now; never call play() or extend the 1.5s window
-    // for a later, unrelated autoplay. A newer Stop invalidates the identity.
-    if (playIntent !== intent || !stopped || intent.media.paused || intent.media.ended) return;
+    // Run in the first task after real input, once the site's target/bubble
+    // handlers have requested play. A capture-listener microtask can run too
+    // early, before those handlers. The media play event can arrive seconds
+    // later. Never call play() here, or widen the 1.5s intent window; a newer
+    // Stop also invalidates this particular acknowledgement's identity.
+    if (!intent || playIntent !== intent || !stopped || !hasPlayIntent(intent.media) || intent.media.paused || intent.media.ended) return;
     stopped = false; playIntent = null;
     post("userplay", {mediaID: mediaID(intent.media)});
     state();
@@ -117,6 +117,7 @@
   };
   function attach() {
     nodes().forEach(v => {
+      if (stopped && !v.paused && attached.has(v) && hasPlayIntent(v)) acknowledgeRequestedPlay(playIntent);
       if (stopped && !v.paused && !hasPlayIntent(v)) v.pause();
       if (attached.has(v)) return;
       attached.set(v, {id: ++serial, cycle: 0, ended: false, sourceKey: null, waiting: false});
@@ -200,7 +201,7 @@
       observed("input");
       const intent = {media: v, at: Date.now()}; playIntent = intent;
       if (!stopped) post("userplay", {mediaID: mediaID(v)});
-      else queueMicrotask(() => acknowledgeRequestedPlay(intent));
+      else setTimeout(() => acknowledgeRequestedPlay(intent), 0);
     }
   };
   document.addEventListener("pointerdown", choose, true);
@@ -232,7 +233,7 @@
         intent = {media: v, at: Date.now()}; playIntent = intent;
       }
       attach();
-      if (intent) queueMicrotask(() => acknowledgeRequestedPlay(intent));
+      if (intent) setTimeout(() => acknowledgeRequestedPlay(intent), 0);
     },
     seek,
     setBackground(value) { background = Boolean(value); },

@@ -12,16 +12,16 @@ function element(tag='VIDEO', options={}) {
  },options);
 }
 function harness(initial=[element()],url='https://m.youtube.com/watch?v=abcdefghijk',startPaused=false) {
- const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[],microtasks=[]; let tick,mutation,clock=Date.now(),queries=0;
+ const nodes=initial,messages=[],documentEvents={},windowEvents={},shadowHosts=[],inputTasks=[]; let tick,mutation,clock=Date.now(),queries=0;
  const location=new URL(url);
  const document={title:'Video',baseURI:url,hidden:false,querySelector(){return null;},querySelectorAll(s){queries++;return s==='*'?shadowHosts:s==='video'?nodes.filter(n=>n.tagName==='VIDEO'):nodes;},addEventListener(n,h){documentEvents[n]=h;}};
  const sandbox={__webkwebStartPaused:startPaused,URL,Math,Number,Array,Boolean,Date:class extends Date {static now(){return clock;}},innerWidth:1000,innerHeight:1000,location,document,
   window:{webkit:{messageHandlers:{playback:{postMessage(v){messages.push(v);}}}},addEventListener(n,h){windowEvents[n]=h;}},
-  setInterval(fn){tick=fn;return 1;},queueMicrotask(fn){microtasks.push(fn);},MutationObserver:class {constructor(fn){mutation=fn;}observe(){}}
+  setInterval(fn){tick=fn;return 1;},setTimeout(fn){inputTasks.push(fn);return 1;},MutationObserver:class {constructor(fn){mutation=fn;}observe(){}}
  };
  vm.createContext(sandbox);vm.runInContext(source,sandbox);
  return {api:sandbox.__webkweb,nodes,messages,location,document,documentEvents,windowEvents,shadowHosts,
-  tick(){clock+=1000;tick();},flushMicrotasks(){while(microtasks.length)microtasks.shift()();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
+  tick(){clock+=1000;tick();},flushInputTasks(){while(inputTasks.length)inputTasks.shift()();},advance(ms){clock+=ms;},queries:()=>queries,add(v){nodes.push(v);mutation([{addedNodes:[v]}]);},state(){return messages.filter(m=>m.kind==='state').at(-1);}};
 }
 test('state includes document and media IDs without exporting direct media URLs',()=>{
  const h=harness();assert.ok(h.state().documentID);assert.ok(h.state().mediaID);assert.equal(h.state().hasMedia,true);
@@ -108,21 +108,21 @@ test('trusted input acknowledges requested play even when WebKit dispatches play
  h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});
  // HTMLMediaElement.play() changes paused before its queued play event. Model
  // the 5.759s event delay measured in the real unmuted iOS UI failure.
- v.paused=false;h.flushMicrotasks();
+ v.paused=false;h.flushInputTasks();
  assert.equal(h.state().stopLatched,false);
  h.advance(6000);v.listeners.play();
  assert.equal(v.paused,false);assert.equal(h.state().playing,true);
  assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
 });
-test('input microtask does not start media or authorize a later autoplay',()=>{
+test('input task does not start media or authorize a later autoplay',()=>{
  const v=element(),h=harness([v]);h.api.pause(true);
- h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});h.flushMicrotasks();
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});h.flushInputTasks();
  assert.equal(v.paused,true);assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
  h.advance(1501);v.play();assert.equal(v.paused,true);
 });
 test('isolated real host touch acknowledges an already requested native-control play',()=>{
  const v=element(),h=harness([v]);h.api.pause(true);v.paused=false;
- h.api.noteHostTouch({x:0.1,y:0.1});h.flushMicrotasks();
+ h.api.noteHostTouch({x:0.1,y:0.1});h.flushInputTasks();
  assert.equal(h.state().stopLatched,false);
  h.advance(6000);v.listeners.play();assert.equal(v.paused,false);
  assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
@@ -130,7 +130,14 @@ test('isolated real host touch acknowledges an already requested native-control 
 test('a new Stop invalidates a queued input acknowledgement',()=>{
  const v=element(),h=harness([v]);h.api.pause(true);
  h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});v.paused=false;
- h.api.pause(true);h.flushMicrotasks();h.advance(6000);v.play();
+ h.api.pause(true);h.flushInputTasks();h.advance(6000);v.play();
+ assert.equal(v.paused,true);assert.equal(h.state().stopLatched,true);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+});
+test('a delayed input task never extends the 1.5-second intent deadline',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);
+ h.documentEvents.click({isTrusted:true,composedPath:()=>[v]});v.paused=false;
+ h.advance(1501);h.flushInputTasks();v.listeners.play();
  assert.equal(v.paused,true);assert.equal(h.state().stopLatched,true);
  assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
 });
