@@ -126,7 +126,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         } catch { return "\(native); JavaScript error=\(error)" }
     }
 
-    private func loadFixture(in session: Session, audible: Bool = false, fixture: String = "sample") async throws {
+    private func loadFixture(in session: Session, audible: Bool = false, fixture: String = "sample", tab requestedTab: BrowserTab? = nil) async throws {
         activeSession = session
         let bundle = Bundle(for: MediaPlaybackIntegrationTests.self)
         let url = try XCTUnwrap(bundle.url(forResource: fixture, withExtension: "mp4"))
@@ -137,7 +137,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         <body style="margin:0;background:black"><video id="player" playsinline \(audible ? "" : "muted") preload="auto"
         style="width:320px;height:180px" src="data:video/mp4;base64,\(data.base64EncodedString())"></video></body></html>
         """
-        let tab = session.browser.current
+        let tab = requestedTab ?? session.browser.current
         tab.webView.loadHTMLString(html, baseURL: nil)
         // A cold WebContent launch took over 15 seconds on the hosted simulator.
         // Keep the real bridge/media assertions, with a separate startup budget.
@@ -146,6 +146,40 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
                 "Boolean(globalThis.__webkweb) && Boolean(document.getElementById('player'))", in: tab) as? Bool == true
             return ready && tab.hasMedia && tab.activeMediaKind == "video" && !tab.activeMediaID.isEmpty
         }
+    }
+
+    func testRealAutoplayInOtherTabCannotInterruptTheResumedPlayer() async throws {
+        let session = Session(); defer { session.close() }
+        let browser = session.browser, first = browser.current
+        try await loadFixture(in: session, fixture: "audible")
+        let second = browser.addTab(background: true)
+        second.webView.frame = CGRect(x: 0, y: 200, width: 320, height: 180)
+        session.window.rootViewController?.view.addSubview(second.webView)
+        try await loadFixture(in: session, fixture: "audible", tab: second)
+        // Selecting a restored/background tab may lift WK suspension, but is
+        // not permission to restart media that was deliberately stopped.
+        browser.selectedID = second.id
+        browser.selectedID = first.id
+        browser.pauseAll()
+        browser.play()
+        try await waitFor("first decoder advances after explicit resume") { first.playing && first.playbackTime > 0.2 }
+        let before = first.playbackTime
+        _ = try await evaluate("document.getElementById('player').play().catch(() => {}); true", in: second)
+        try await Task.sleep(for: .seconds(1.3))
+        let otherPaused = try await evaluate("document.getElementById('player').paused", in: second) as? Bool
+        XCTAssertEqual(otherPaused, true)
+        XCTAssertTrue(second.playbackStopLatched)
+        XCTAssertFalse(first.playbackStopLatched)
+        XCTAssertTrue(first.playing)
+        XCTAssertGreaterThan(first.playbackTime, before + 0.5)
+        // The stop persists into a replacement WebContent document, not just
+        // the media element that happened to exist when the command ran.
+        try await loadFixture(in: session, fixture: "audible", tab: second)
+        _ = try await evaluate("document.getElementById('player').play().catch(() => {}); true", in: second)
+        try await Task.sleep(for: .milliseconds(300))
+        let replacementPaused = try await evaluate("document.getElementById('player').paused", in: second) as? Bool
+        XCTAssertEqual(replacementPaused, true)
+        XCTAssertTrue(first.playing)
     }
 
     func testRealVideoStartsAdvancesPausesAndSeeksThroughNativeBridge() async throws {

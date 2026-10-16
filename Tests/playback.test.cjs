@@ -110,6 +110,28 @@ test('clearStop cancels latch without starting paused media',()=>{
  const h=harness();h.api.pause(true);h.api.clearStop();assert.equal(h.nodes[0].paused,true);
  h.nodes[0].play();assert.equal(h.nodes[0].paused,false);
 });
+test('visibility changes report background pause without resuming website media',()=>{
+ const v=element(),h=harness([v]);v.pause();const before=h.messages.length;
+ h.document.hidden=true;h.documentEvents.visibilitychange();
+ assert.equal(v.paused,true);assert.equal(h.state().hidden,true);
+ h.document.hidden=false;h.documentEvents.visibilitychange();
+ assert.equal(v.paused,true);assert.equal(h.state().hidden,false);
+ assert.deepEqual(h.messages.slice(before).filter(m=>m.kind==='mediaevent').map(m=>m.event),['hidden','visible']);
+ assert.equal(h.messages.slice(before).some(m=>m.kind==='started'),false);
+});
+test('diagnostics distinguish observed pause from app stop rejection without media URLs',()=>{
+ const v=element(),h=harness([v]);h.api.pause(true);v.play();
+ const events=h.messages.filter(m=>m.kind==='mediaevent');
+ assert.ok(events.some(m=>m.event==='pause'));assert.ok(events.some(m=>m.event==='stop-rejected'));
+ assert.ok(events.every(m=>m.source===undefined&&m.currentSrc===undefined&&m.title===undefined));
+});
+test('presentation state is observed without requesting website PiP or fullscreen',()=>{
+ const v=element('VIDEO',{webkitPresentationMode:'inline'}),h=harness([v]);
+ assert.equal(h.state().presentationMode,'inline');
+ v.webkitPresentationMode='picture-in-picture';h.api.state();
+ assert.equal(h.state().presentationMode,'picture-in-picture');
+ v.webkitPresentationMode='unexpected';h.api.state();assert.equal(h.state().presentationMode,'unknown');
+});
 test('audio end never counts as a video while primary video plays',()=>{
  const video=element(),audio=element('AUDIO',{currentSrc:'https://cdn.example/sound.mp3'});const h=harness([video,audio]);audio.end();
  assert.equal(h.messages.filter(m=>m.kind==='ended').length,0);

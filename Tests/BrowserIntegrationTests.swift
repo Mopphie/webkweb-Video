@@ -10,6 +10,51 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertFalse(tab.webView.configuration.websiteDataStore.isPersistent)
         tab.close()
     }
+    func testWebsiteStartReleasesOnlyItsOwnStopAndRejectsStaleOtherTabStart() {
+        let browser = BrowserModel(); defer { browser.tabs.forEach { $0.close() } }
+        let first = browser.current, second = browser.addTab(background: true)
+        browser.pauseAll()
+        browser.didStartFromWebsite(in: first.id, userInitiated: true)
+        XCTAssertFalse(first.playbackStopLatched)
+        XCTAssertTrue(second.playbackStopLatched)
+        XCTAssertFalse(browser.playbackStopped)
+        // A play message already queued in the other WebContent process is
+        // not equivalent to the user pressing Play in that tab.
+        browser.didStartFromWebsite(in: second.id)
+        XCTAssertFalse(first.playbackStopLatched)
+        XCTAssertTrue(second.playbackStopLatched)
+        second.prepareForPlayback()
+        XCTAssertTrue(second.webView.configuration.userContentController.userScripts.contains { $0.source == "globalThis.__webkwebStartPaused = true" },
+                      "A new iframe/document must inherit the other tab's stop")
+        browser.didStartFromWebsite(in: second.id, userInitiated: true)
+        XCTAssertTrue(first.playbackStopLatched)
+        XCTAssertFalse(second.playbackStopLatched)
+    }
+    func testOpeningAddressDoesNotReleaseAnotherTabsStop() {
+        let browser = BrowserModel(); defer { browser.tabs.forEach { $0.close() } }
+        let background = browser.current
+        let selected = browser.addTab()
+        browser.pauseAll()
+        browser.open("https://example.com")
+        selected.cancelPendingLoad()
+        XCTAssertFalse(selected.playbackStopLatched)
+        XCTAssertTrue(background.playbackStopLatched)
+    }
+    func testControlDiagnosticsSurviveNoisyWebStateAndExcludePrivateSessions() throws {
+        for isPrivate in [false, true] {
+            let tab = BrowserTab(isPrivate: isPrivate); defer { tab.close() }
+            tab.notePlaybackEvent("scene.background")
+            tab.notePlaybackEvent("app.pause.other-tab latch=true")
+            for _ in 0..<60 { tab.notePlaybackEvent("web paused=1", stateOnly: true) }
+            let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(tab.mediaDiagnosticReport().utf8)) as? [String: Any])
+            if isPrivate { XCTAssertNil(report["control_events"]) }
+            else {
+                let events = try XCTUnwrap(report["control_events"] as? [[String: String]])
+                XCTAssertEqual(events.compactMap { $0["event"] }, ["scene.background", "app.pause.other-tab latch=true"])
+                XCTAssertEqual((report["events"] as? [[String: String]])?.count, 40)
+            }
+        }
+    }
     func testPlayerDiagnosticsExcludePrivatePagesCredentialsQueriesAndTitles() throws {
         for privateMode in [false, true] {
             let tab = BrowserTab(isPrivate: privateMode); defer { tab.close() }

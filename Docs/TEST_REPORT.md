@@ -1,5 +1,7 @@
 # Testbericht — 16.10.2026
 
+**Build-6-Folgeprüfung:** Nutzer bestätigt Pause beim Appwechsel. Tab-Sperrfehler unabhängig korrigiert; 58 Node-, 31 Foundation-, 14 Python- und 19 Chromiumfälle bestanden. Neue iOS-Regressionen noch nicht ausgeführt; YouTube-Hintergrundursache offen. [Befund und Grenzen](PLAYBACK_BUILD6_FOLLOWUP.md).
+
 **Aktueller TestFlight-Auftrag:** Teilen-Erweiterung entfernt; signiertes App-/Widget-Release **0.1.0 (6)** erfolgreich archiviert/exportiert/geprüft/hochgeladen und von Apple mit **VALID / IN_BETA_TESTING** bestätigt. Run [38919948219](https://github.com/Mopphie/webkweb-Video/actions/runs/38919948219): **67/67 native, 3/3 Browser-UI ohne Wiederholung und unabhängige iPad Vollbild/Queue/Suche bestanden**. Bei technisch geprüfter Releasegleichheit wiederverwendet. Run [38932003655](https://github.com/Mopphie/webkweb-Video/actions/runs/38932003655): **vollständige native Vollbild/PiP/echter Appwechsel/Systemrückkehr/Queue/nächstes Video/Suche bestanden**, kein Skip/Retry, eigener endlicher 600-s-Film. Kein aktueller Plattform-/physischer Gerätetest. Chronologie, konkrete Fehlversuche, SHA-/Tree-Zuordnung und Abschluss A–J: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
 
 Aktuelle lokale Prüfungen nach Share-Entfernung und Tipp-Fix: **31/31 Foundation**, **55/55 Node**, **14/14 Python-Helfermocks**, **19/19 echte Chromium-Mediendecoderfälle** (nur eigene Loopback-Testmedien). Neuer Overlay-Tipp-Fall scheitert mit dem alten und besteht mit dem korrigierten JS. Keine YouTube-/AirPlay-/physischen Gerätetests daraus ableiten.

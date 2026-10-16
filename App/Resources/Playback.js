@@ -17,6 +17,9 @@
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
+  // Observe lifecycle and media events without claiming whether a website,
+  // system interruption or user caused them. Never resume on visibility alone.
+  const observed = event => post("mediaevent", {event, stopLatched: stopped});
   function discover(root) {
     if (root?.tagName === "VIDEO" || root?.tagName === "AUDIO") knownMedia.add(root);
     root?.querySelectorAll?.("video,audio").forEach(v => knownMedia.add(v));
@@ -87,6 +90,9 @@
       networkState: Number.isInteger(v?.networkState) ? v.networkState : null,
       decodedFrames: Number(v?.getVideoPlaybackQuality?.().totalVideoFrames) || 0,
       sourceKind: v?.currentSrc ? v.currentSrc.split(":", 1)[0] : "none",
+      presentationMode: document.pictureInPictureElement === v && v ? "picture-in-picture" :
+        ["inline", "fullscreen", "picture-in-picture"].includes(v?.webkitPresentationMode) ? v.webkitPresentationMode : "unknown",
+      hidden: Boolean(document.hidden),
       mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };
   const seek = seconds => {
@@ -109,22 +115,24 @@
         if (stopped) {
           // A media `play` event is also trusted for script/autoplay. Only an
           // earlier real input on this player's controls may release the latch.
-          if (!hasPlayIntent(v)) { v.pause(); return; }
+          if (!hasPlayIntent(v)) { observed("stop-rejected"); v.pause(); return; }
           playIntent = null;
           stopped = false;
           post("userplay", {mediaID: mediaID(v)});
         }
         post("started", {mediaID: mediaID(v)});
+        observed("play");
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
         state();
       });
-      v.addEventListener("pause", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("pause", () => { observed("pause"); entry(v).waiting = false; state(); });
+      v.addEventListener("emptied", () => { observed("emptied"); state(); });
       v.addEventListener("loadedmetadata", () => { entry(v); state(); });
-      v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
+      v.addEventListener("waiting", () => { observed("waiting"); entry(v).waiting = true; state(); });
       v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
-      v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("playing", () => { observed("playing"); entry(v).waiting = false; state(); });
       v.addEventListener("canplay", state);
-      v.addEventListener("error", state);
+      v.addEventListener("error", () => { observed("error"); state(); });
       v.addEventListener("ratechange", state);
       v.addEventListener("volumechange", state);
       v.textTracks?.addEventListener?.("change", state);
@@ -177,7 +185,7 @@
       }
     }
     if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
-    if (v && event.isTrusted) { playIntent = {media: v, at: Date.now()}; if (!stopped) post("userplay", {mediaID: mediaID(v)}); }
+    if (v && event.isTrusted) { observed("input"); playIntent = {media: v, at: Date.now()}; if (!stopped) post("userplay", {mediaID: mediaID(v)}); }
   };
   document.addEventListener("pointerdown", choose, true);
   document.addEventListener("click", choose, true);
@@ -250,6 +258,6 @@
   setInterval(tick, 1000);
   window.addEventListener?.("pagehide", () => post("dispose"));
   window.addEventListener?.("pageshow", event => { if (event.persisted) { lastHeartbeat = 0; lastState = 0; post("ready"); tick(); } });
-  document.addEventListener("visibilitychange", () => { lastHeartbeat = 0; lastState = 0; tick(); });
+  document.addEventListener("visibilitychange", () => { observed(document.hidden ? "hidden" : "visible"); lastHeartbeat = 0; lastState = 0; tick(); });
   document.addEventListener("yt-navigate-finish", tick);
 })();

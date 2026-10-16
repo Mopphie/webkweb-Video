@@ -5,7 +5,7 @@ name: Native app verification
 # Successful unsigned simulator builds and test results are kept as GitHub artifacts.
 on:
   push:
-    branches: [codex/commercial-use-cleanup]
+    branches: [codex/commercial-use-cleanup, codex/playback-tab-ownership-2026-10-16]
     paths-ignore: ['Docs/**', '*.md']
   workflow_dispatch:
 
@@ -20,7 +20,8 @@ jobs:
   ios:
     name: iPhone XCTest and Release build
     runs-on: macos-26
-    timeout-minutes: 25
+    # Full cold WebKit + iPhone UI + real iPad PiP/app-switch coverage.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
