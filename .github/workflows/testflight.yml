@@ -14,6 +14,7 @@ on:
       - Shared/**
       - Widgets/**
       - Tests/**
+      - UITests/**
       - project.yml
       - Scripts/check-macos.sh
   workflow_dispatch:
@@ -36,7 +37,9 @@ permissions:
   contents: read
 concurrency:
   group: devntube-testflight
-  cancel-in-progress: false
+  # Supersede the obsolete preflight while correcting the UI test harness.
+  # Restore serialized uploads after this candidate is verified.
+  cancel-in-progress: true
 
 jobs:
   release:
@@ -71,6 +74,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install XcodeGen and run Node/XCTest preflight
+        timeout-minutes: 20
         run: |
           set -euo pipefail
           brew install xcodegen

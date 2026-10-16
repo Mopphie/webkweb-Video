@@ -43,5 +43,8 @@ fi
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/Tests-$(date +%s).xcresult" \
+  -test-timeouts-enabled YES \
+  -default-test-execution-time-allowance 120 \
+  -maximum-test-execution-time-allowance 180 \
   CODE_SIGNING_ALLOWED=NO test
 echo "Lokaler Simulator-Build und Tests erfolgreich. Gerätetests bleiben erforderlich."

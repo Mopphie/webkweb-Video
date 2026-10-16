@@ -405,9 +405,9 @@ final class BrowserModel: ObservableObject {
     @Published private(set) var tabs: [BrowserTab] = []
     @Published var selectedID = UUID() {
         didSet {
-            // Property observers do not run for the initializer's restored
-            // selection. Only a later user selection releases suspension.
-            if selectedID != oldValue { tabs.first { $0.id == selectedID }?.prepareForPlayback() }
+            // @Published's wrapped setter can run during session restoration.
+            // Only a later, explicit selection may release quiet playback.
+            if !initializingSession && selectedID != oldValue { tabs.first { $0.id == selectedID }?.prepareForPlayback() }
             persistSession(); tabs.forEach { $0.applyPlaybackOptions() }; publishNowPlaying()
         }
     }
@@ -437,6 +437,7 @@ final class BrowserModel: ObservableObject {
     var gesturesEnabled: Bool { get { options.gestures } set { options.gestures = newValue } }
     var onVisit: ((String, String) -> Void)?
     var commandRevision = 0
+    private var initializingSession = true
     private var timer: Timer?
     private var dialogQueue: [BrowserDialog] = []
     private var dialogPumpScheduled = false
@@ -467,6 +468,7 @@ final class BrowserModel: ObservableObject {
             if restored.targetMediaID != nil { notice = "Timer für das damalige Video wurde verworfen: der Player wurde neu geladen."; UserDefaults.standard.removeObject(forKey: "sleepPlanV2") }
             else { sleepPlan = restored; if restored.deadline != nil { startTimer() } }
         }
+        initializingSession = false
         AudioController.shared.attach(self)
         #if DEBUG
         if uiFixture { loadUITestFixture() }
@@ -486,7 +488,7 @@ final class BrowserModel: ObservableObject {
         <button aria-label="Videostart" style="position:absolute;top:40px;left:40px;width:140px;height:64px"
         onclick="document.getElementById('player').play()">Start</button></div>
         <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p>
-        <script>let n=0;setInterval(()=>{document.title='Fixture '+(++n);document.getElementById('state').textContent=document.getElementById('player').paused?'Video pausiert':'Video läuft';},100);</script>
+        <script>let n=0;setInterval(()=>{document.title='Fixture '+(++n);const s=document.getElementById('state'),next=document.getElementById('player').paused?'Video pausiert':'Video läuft';if(s.textContent!==next)s.textContent=next;},1000);</script>
         </body></html>
         """
         current.webView.loadHTMLString(html, baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))
