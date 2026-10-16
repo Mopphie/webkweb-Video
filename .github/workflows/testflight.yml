@@ -37,9 +37,8 @@ permissions:
   contents: read
 concurrency:
   group: devntube-testflight
-  # One-time replacement of run 38940432893 while still in preflight; no IPA
-  # archive/upload had started. Restore serialization as soon as it is cancelled.
-  cancel-in-progress: true
+  # Serialize signed uploads so a later release cannot interrupt Apple processing.
+  cancel-in-progress: false
 
 jobs:
   release:
