@@ -1,6 +1,6 @@
 # DevnTube (internes Xcode-Ziel: WebKWeb)
 
-Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Entwicklungsversion mit noch ausstehenden Apple-Build- und Gerätetests.
+Nativer Video-Browser für iPhone und iPad mit SwiftUI, WKWebView und SwiftData, ab iOS/iPadOS 17. Deutsche Oberfläche; Debug/XCTest und Release-Simulatorbuild geprüft, reale Geräte-/Diensteprüfungen stehen noch aus.
 
 Die schwarze Startseite zeigt eine Suchpille, YouTube/Twitch/TikTok/Rumble und Favoriten/Verlauf/Timer/Einstellungen. Alle acht Startseiten-Icons sind schlichte lokale Glyphs ohne Glass-/Materialflächen oder Randblasen. Die transparente Trefferfläche bleibt groß; Suchpille und funktionale Browserbuttons behalten ihr Material. Lokale Icons erzeugen keine Favicon-Anfragen. Mit iOS-26-SDK/Compiler 6.2 nutzt die Oberfläche Liquid Glass, sonst Systemmaterial. Transparenz reduzieren, große Schrift und iPad erhalten eigene Layoutanpassungen.
 
@@ -51,7 +51,7 @@ Der Parameter muss eine echte `iCloud.*`-ID sein. Das Skript setzt Plist/Entitle
 
 ## Lokal prüfen
 
-Der TestFlight-Workflow bleibt manuell. **Seit16.10.2026 sind GitHub Actions für Builds und Tests ausdrücklich jederzeit freigegeben.** Der Validierungsworkflow prüft den Entwicklungsbranch ohne Signing oder Upload.
+Der TestFlight-Workflow bleibt manuell. **Seit 16.10.2026 sind GitHub Actions für Builds und Tests ausdrücklich jederzeit freigegeben.** Der Validierungsworkflow prüft den Entwicklungsbranch ohne Signing oder Upload.
 
 ```bash
 node --test Tests/*.test.cjs
@@ -66,7 +66,7 @@ Direkter Standardbuild:
 xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Im aktuellen Linux-Prüflauf bestanden 44 Node-Tests mit den originalen Seitenskripten sowie Projekt-/Plistprüfungen und Tree-sitter-Syntaxprüfungen von 25 Swift-Dateien. 38 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. Lokaler Bericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py`; ein vorhandenes Swift-Frontend lässt sich mit `--swift-frontend` angeben. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet die Änderungen zu; [RELEASE.md](Docs/RELEASE.md) nennt offene Prüfungen.
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Im aktuellen Linux-Prüflauf bestanden 44 Node-Tests mit den originalen Seitenskripten sowie Projekt-/Plistprüfungen und Tree-sitter-Syntaxprüfungen von 25 Swift-Dateien. Zusätzlich bestanden [38/38 native XCTest-Fälle und der Release-Simulatorbuild](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443) mit Xcode 26.6 auf einem iPhone-17-Pro-Simulator (iOS 26.5). Die Syntaxprüfung unter Linux wird separat vom echten Apple-SDK-Build ausgewiesen. Lokaler Bericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py`; ein vorhandenes Swift-Frontend lässt sich mit `--swift-frontend` angeben. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet die Änderungen zu; [RELEASE.md](Docs/RELEASE.md) nennt offene Prüfungen.
 
 ## Grenzen und Datenschutz
 
@@ -80,6 +80,6 @@ Serverseitig in Streams eingefügte Werbung wird nicht zuverlässig entfernt. We
 
 Explizite Medienbefehle und Pointer-Auswahl erkennen neu eingefügte offene Shadow-Player sofort. Hintergrund-Zeitmeldungen werden gedrosselt; normale Pausemeldungen bleiben sofort sichtbar. Die App verwendet die echte WebKit-Kennung statt einer fest eingebauten Safari-17-Version; Desktop-/Mobilmodus nutzt öffentliche Navigationseinstellungen. Private Popups übernehmen ihre vorhandene Sitzung. Reload/Session verwenden nach Redirects die tatsächlich bestätigte Adresse.
 
-`python Scripts/check-browser.py` prüft originale Playback.js mit echter lokaler Chromium-Dekodierung und selbst erzeugtem Testvideo. Python Playwright, Chromium und ffmpeg müssen installiert sein; keine fremden Accounts/Videos oder Werbesysteme werden automatisiert. 15 Fälle bestanden lokal. Neue native Medientests verwenden `Tests/Fixtures/sample.mp4` in einem sichtbaren WKWebView und prüfen tatsächlichen Fortschritt, Pause/Seek, natürliches Ende und Timerstop. Sie zählen erst nach erfolgreichem Simulatorlauf als bestanden. [Funktionsmatrix und Plattformgrenzen](Docs/FUNCTION-TEST-MATRIX.md).
+`python Scripts/check-browser.py` prüft originale Playback.js mit echter lokaler Chromium-Dekodierung und selbst erzeugtem Testvideo. Python Playwright, Chromium und ffmpeg müssen installiert sein; keine fremden Accounts/Videos oder Werbesysteme werden automatisiert. 15 Fälle bestanden lokal. Neue native Medientests verwenden `Tests/Fixtures/sample.mp4` in einem sichtbaren WKWebView und prüfen tatsächlichen Fortschritt, Pause/Seek, natürliches Ende und Timerstop. Beide Medientests bestanden im [nativen Simulatorlauf](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443); es wurden echte HTML-Videos dekodiert, keine Medien-APIs gemockt. [Funktionsmatrix und Plattformgrenzen](Docs/FUNCTION-TEST-MATRIX.md).
 
-Der Nutzer hat Actions am 16.10.2026 ausdrücklich freigegeben. `validate.yml` startet auf dem Entwicklungsbranch Debug/XCTest und unsigned Release-Build; kein Signing oder Upload. Der frühere manuelle Dispatchzugriff lieferte403; Push-CI startete erfolgreich. Aktuelle Ergebnisse siehe PR und Actions-Läufe.
+Der Nutzer hat Actions am 16.10.2026 ausdrücklich freigegeben. `validate.yml` startet auf dem Entwicklungsbranch Debug/XCTest und unsigned Release-Build; kein Signing oder Upload. Der frühere manuelle Dispatchzugriff lieferte HTTP 403; Push-CI startete erfolgreich. [Erfolgreicher Lauf](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443), [unsigned Release-Simulator-App](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029370391) und [native .xcresult-Testresultate](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029320581) für Code `24d961f`. Das App-Artefakt ist für den Mac-Simulator, keine auf einem iPhone installierbare IPA; GitHub bewahrt die Artefakte sieben Tage auf.

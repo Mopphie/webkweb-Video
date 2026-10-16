@@ -2,7 +2,14 @@
 
 ## Wiedergabeprüfung ab 16.10.2026
 
-Actions sind seit der ausdrücklichen Nutzerfreigabe am 16.10.2026 für diese Arbeit erlaubt. Der erste [native CI-Basislauf38858732887](https://github.com/Mopphie/webkweb-Video/actions/runs/38858732887) prüft die bereinigte Ausgangsversion. Der folgende Fixcommit ergänzt44 Node-Regressionstests,15 echte lokale Chromium-Medientests und38 vorbereitete native XCTest-Fälle inklusive sichtbarem WKWebView und selbst erzeugtem MP4. Der jeweilige Laufstatus und die `.xcresult`-Artefakte sind maßgeblich; noch laufende oder nur vorbereitete Tests werden nicht als bestanden bezeichnet. Keine Signing-Secrets oder Apple-Uploads im neuen Validierungsworkflow.
+Actions sind seit der ausdrücklichen Nutzerfreigabe am 16.10.2026 für Builds und Tests jederzeit erlaubt. Der [native Lauf 38860463443](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443) für Code `24d961f` ist erfolgreich abgeschlossen:
+
+- **38/38 native XCTest-Fälle**, keine Fehler, mit Xcode 26.6 auf iPhone 17 Pro / iOS 26.5 im Simulator.
+- Beide realen WKWebView-Medientests bestanden: Start/Zeitfortschritt/Pause/Seek/Rate/Resume sowie natürliches Ende, N-Video-Timer und Stopp eines tatsächlich gestarteten neuen Autoplay-Players. Das synthetische H.264/AAC-MP4 ist selbst erzeugt.
+- **Debug/Test und unsigned Release-Simulatorbuild erfolgreich**, einschließlich Widget-Target. [Simulator-App](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029370391) und [`.xcresult`](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029320581) liegen als GitHub-Artefakte mit sieben Tagen Aufbewahrung vor. Das ist keine signierte iPhone-IPA.
+- **44/44 Node-Tests**, **15/15 lokale Chromium-Medientests** mit tatsächlicher Dekodierung sowie portable Struktur-/Plistprüfungen bestanden. 25 Swift-Dateien wurden zusätzlich mit Tree-sitter syntaktisch geprüft; dieser Linux-Parserlauf ist kein zweiter SDK-Build.
+
+Die App- und Testquellen dieses Laufs entsprechen dem veröffentlichten Stand. Nachfolgende reine Dokumentationsänderungen ändern den geprüften Code nicht. Der neue Validierungsworkflow verwendet keine Signing-Secrets und führt keine Apple-Uploads aus. Der frühere rote Lauf ist in der Funktionsmatrix mit Ursache und erfolgreichem Folgelauf dokumentiert.
 
 [Funktionsmatrix](FUNCTION-TEST-MATRIX.md) mit klar getrennten Ebenen und offenen Geräte-/Providerprüfungen.
 
@@ -12,15 +19,15 @@ Linux (15.10.2026): **40/40 Node-Tests** der verbleibenden originalen Seitenskri
 
 Apple verlangt seit 28.04.2026 für App-Store-Connect-Uploads Xcode 26+ und iOS-/iPadOS-26-SDK ([offizielle Anforderungen](https://developer.apple.com/news/upcoming-requirements/)). Das Mindestziel der App bleibt iOS 17; die Upload-SDK-Version ist davon unabhängig. Die Syntaxprüfung ersetzt keinen Apple-SDK-Build.
 
-**Für diese Bereinigung wurden keine Actions oder Uploads gestartet.** Im bisherigen `main` ist ein früher ausdrücklich freigegebener [Mac-/TestFlight-Lauf 38565407837](https://github.com/Mopphie/webkweb-Video/actions/runs/38565407837) mit 38 nativen XCTest-Fällen, signiertem Archiv/IPA und TestFlight-Build 0.1.0 (1) dokumentiert. Dieser frühere Build enthält die jetzige Bereinigung nicht und ersetzt deren erneuten Apple-SDK-/Gerätetest nicht. Weitere Actions-Minuten oder Apple-Uploads benötigen ausdrücklich neue Zustimmung; der vorhandene Workflow ist rein manuell. Lokaler Einstieg: `./Scripts/check-macos.sh`.
+**Historischer Stand vom 15.10.2026:** Bis dahin wurden für diese Bereinigung keine Actions oder Uploads gestartet. Im bisherigen `main` ist ein früher ausdrücklich freigegebener [Mac-/TestFlight-Lauf 38565407837](https://github.com/Mopphie/webkweb-Video/actions/runs/38565407837) mit 38 nativen XCTest-Fällen, signiertem Archiv/IPA und TestFlight-Build 0.1.0 (1) dokumentiert. Dieser frühere Build enthält die jetzige Bereinigung nicht und ersetzt deren erneuten Apple-SDK-/Gerätetest nicht. Die frühere Einschränkung für Actions-Minuten wurde am 16.10.2026 durch die ausdrückliche Freigabe für Builds und Tests aufgehoben. Der TestFlight-Workflow bleibt manuell; eine Store-Veröffentlichung wurde damit nicht beauftragt. Lokaler Einstieg: `./Scripts/check-macos.sh`.
 
 ## Mac und Geräte
 
-Auf einem autorisierten Mac: vollständiges Xcode 26+ auswählen, iOS-26-SDK und verfügbare iPhone-Simulator-Runtime installieren; Command Line Tools, Python 3, XcodeGen und Node.js 18+ bereitstellen. `./Scripts/check-macos.sh` führt lokale Node- und Xcode-Tests aus. Für Archive/TestFlight danach Apple-Team, App-Group-Provisionierung sowie App- und Widget-Signierung mit echten Profilen prüfen. Kein GitHub-Actions-Fallback.
+Auf einem autorisierten Mac: vollständiges Xcode 26+ auswählen, iOS-26-SDK und verfügbare iPhone-Simulator-Runtime installieren; Command Line Tools, Python 3, XcodeGen und Node.js 18+ bereitstellen. `./Scripts/check-macos.sh` führt lokale Node- und Xcode-Tests aus. Für Archive/TestFlight danach Apple-Team, App-Group-Provisionierung sowie App- und Widget-Signierung mit echten Profilen prüfen. Alternativ prüft der freigegebene Actions-Validierungsworkflow Debug/XCTest und unsigned Release für den Simulator.
 
 1. Standardprojekt in Debug und Release bauen, XCTest ausführen. iPhone/iPad, kleine Breite, große Schrift, VoiceOver, Transparenz reduzieren und beide Glass-SDK-Pfade testen.
 2. App/Widget mit echtem Team und provisionierter App Group signieren. Widget-Auswahl, Favoritenbesuch/-edit/-reorder/-löschung, Siri/Kurzbefehle und Home-Deep-Link bei warmem und kaltem Start prüfen.
-3. Suche aller drei Anbieter, Desktop-UA/Zoom, Popup/opener/close, Zurück/Vorwärts einschließlich BFCache, gleiche iframe-URLs, normale Wiederherstellung und private Tabs prüfen. Private Tabs nie persistieren/aufzeichnen; History-off gesondert von Session-Restore testen.
+3. Suche aller drei Anbieter, Desktop-Inhaltsmodus/Zoom, Popup/opener/close, Zurück/Vorwärts einschließlich BFCache, gleiche iframe-URLs, normale Wiederherstellung und private Tabs prüfen. Private Tabs nie persistieren/aufzeichnen; History-off gesondert von Session-Restore testen.
 4. Pending-Navigation während Website-Wipe, mehrere Tabs/Stores, Logout und Fehler-/Timeoutpfad testen. Löschen wird erst nach Abschluss der leeren Dokumente als erfolgreich gemeldet.
 5. Autoplay/PiP/AirPlay/Seek/Lautstärke, offener Shadow DOM, primärer Player plus Nebenplayer, Audio, Replays, recycelte DRM-Player und Videozählung prüfen. Geschlossene Shadow Roots und DRM bleiben Plattformgrenzen.
 6. Alle Quellen einzeln/gemeinsam, Import, Ausnahmen, Quelle deaktivieren bei Ausfall einer anderen, >40k Regeln, Offlinecache und tägliche Foreground-Updates prüfen. WebKit-RegEx-Kompilierung und Geräteperformance mit großen Listen beobachten; bei Kompilierungsfehler bleibt die letzte funktionierende Version mit Diagnose erhalten.

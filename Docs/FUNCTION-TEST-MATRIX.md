@@ -6,8 +6,8 @@ Stand: 16. Oktober 2026. Die Ebenen werden getrennt ausgewiesen: originale Skrip
 
 | Bereich | Konkrete Prüfung | Ebene / verbleibende Grenze |
 | --- | --- | --- |
-| Video starten, pausieren und spulen | Tatsächlicher Zeitfortschritt, stabile Pause, begrenzte Seek-Ziele, Geschwindigkeit und dekodierte Dimensionen | Reales Chromium; WKWebView-Integrationstests zusätzlich vorbereitet |
-| Natürliches Ende / Replay | Ende kommt aus echtem Decoder; erneutes Play erhält neue Medien-/End-ID | Reales Chromium und Node; native Integration zusätzlich vorbereitet |
+| Video starten, pausieren und spulen | Tatsächlicher Zeitfortschritt, stabile Pause, begrenzte Seek-Ziele, Geschwindigkeit und dekodierte Dimensionen | Reales Chromium und bestandene WKWebView-Integration im iOS-Simulator |
+| Natürliches Ende / Replay | Ende kommt aus echtem Decoder; erneutes Play erhält neue Medien-/End-ID | Reales Chromium, Node und bestandene native WKWebView-Integration |
 | Dynamische Player | Unmittelbarer Befehl nach Einfügen, nachträglich geöffneter Shadow DOM, Pointer-Auswahl | Reales Chromium und Node-Regressionen; geschlossene Shadow Roots bleiben Webseitenzuständigkeit |
 | Eingebettete Player | Tatsächlich unterschiedliche gleich- und fremd-originäre Frames mit eigenem Dokument und pausierbarem Video | Reales Chromium; native Frame-Koordination benötigt WebKit-/Geräteprüfung |
 | Queue / Schleifen | Ursprüngliches `loop` nach Quellenwechsel wiederherstellen; Audioende wird nicht als Video gezählt | Reales Chromium und Node; Permutation/Repeat/Reorder/Persistenz durch native Modelltests |
@@ -24,7 +24,7 @@ Stand: 16. Oktober 2026. Die Ebenen werden getrennt ausgewiesen: originale Skrip
 | Favoriten / Verlauf / Widgets / Siri | Saubere gespeicherte Adressen, App-Group-Snapshot, Intent-Reihenfolge, lokale Queue-/Preferences-Persistenz | Native XCTest; SwiftData-UI, WidgetKit-Konfiguration und Siri am Gerät prüfen |
 | iCloud | Standardzustand ohne unprovisionierten Container und übereinstimmende Entitlements | Strukturprüfung; aktivierter CloudKit-Sync benötigt echten Container und zwei angemeldete Geräte |
 
-Die tatsächlichen Laufstände stehen in `build/reports/node-tests.tap`, `browser-check.json`, `portable-check.json` und `swift-tree-sitter.json`. Native Ergebnisse werden als `.xcresult` im Actions-Lauf abgelegt. Vorbereitete XCTest-Fälle werden erst nach erfolgreichem Simulatorlauf als bestanden gewertet.
+Die lokalen Laufstände stehen in `build/reports/node-tests.tap`, `browser-check.json`, `portable-check.json` und `swift-tree-sitter.json`. Der native Nachweis ist zusätzlich in `native-verification.json` zusammengefasst und im unten verlinkten Actions-Lauf überprüfbar. Native Ergebnisse werden als `.xcresult` im Actions-Lauf abgelegt. Vorbereitete XCTest-Fälle werden erst nach erfolgreichem Simulatorlauf als bestanden gewertet.
 
 ## Plattformen und Werbefreiheit
 
@@ -48,4 +48,10 @@ Lokal auf einem Mac mit Xcode 26+, XcodeGen und Node: `./Scripts/check-macos.sh`
 
 ## Erster echter Simulatorlauf
 
-[Lauf38858954054](https://github.com/Mopphie/webkweb-Video/actions/runs/38858954054), Code3f6e435: Der Apple-SDK-Build kompilierte. 38 XCTest-Methoden liefen; 35 bestanden, drei schlugen fehl. Zwei Medientests verwendeten versehentlich den synchronen Content-World-Overload mit Rückgabe `Void` statt des Result-Callbacks; ein UA-Test erwartete `nil`, obwohl WebKit eine leere Kennung zurückgibt. Das sind echte rote Testergebnisse und keine bestandenen Wiedergabenachweise. Die Abfragen werden korrigiert; die Medientests bleiben aktiv und prüfen weiter tatsächliche Dekodierung und Wiedergabe. Der Folgelauf muss die Korrekturen bestätigen.
+[Lauf38858954054](https://github.com/Mopphie/webkweb-Video/actions/runs/38858954054), Code3f6e435: Der Apple-SDK-Build kompilierte. 38 XCTest-Methoden liefen; 35 bestanden, drei schlugen fehl. Zwei Medientests verwendeten versehentlich den synchronen Content-World-Overload mit Rückgabe `Void` statt des Result-Callbacks; ein UA-Test erwartete `nil`, obwohl WebKit eine leere Kennung zurückgibt. Das sind echte rote Testergebnisse und keine bestandenen Wiedergabenachweise. Die Abfragen wurden korrigiert; die Medientests blieben aktiv und prüfen weiter tatsächliche Dekodierung und Wiedergabe. Der nachfolgende erfolgreiche Lauf bestätigt die Korrekturen.
+
+## Erfolgreicher nativer Folgelauf
+
+[Lauf 38860463443](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443), Code `24d961f`: **38/38 XCTest-Methoden bestanden, keine Fehler**, darunter beide realen WKWebView-Medientests. Xcode 26.6, iPhone 17 Pro / iOS 26.5 im Simulator. Geprüft wurden tatsächlicher Zeitfortschritt, Pause, Seek, Rate und Resume sowie natürliches Decoderende, nativer N-Video-Timer und Stopp eines neu eingefügten Autoplay-Players nach dessen tatsächlichem Play-Ereignis. Debug/Test und Release-Simulatorbuild sind grün.
+
+[Unsigned Release-Simulator-App](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029370391) und [native `.xcresult`-Resultate](https://github.com/Mopphie/webkweb-Video/actions/runs/38860463443/artifacts/12029320581) werden sieben Tage gespeichert. Der Download ist keine signierte Geräte-IPA. Die 44 lokalen Node- und 15 Chromium-Tests bestanden separat. Native Prüfung verwendet die originalen App-/Bridgepfade und selbst erzeugte Medien; Livetests auf YouTube, Twitch, TikTok und Rumble sowie reale AirPlay-/PiP-/Hintergrund-/DRM-/Account-Prüfungen werden dadurch nicht behauptet.
