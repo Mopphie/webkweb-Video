@@ -21,6 +21,10 @@ enum FavoriteStorage {
     static let key = "favoriteSnapshots"
     static let consentKey = "favoriteSystemSharingConsentV2"
 
+    static func removeRetiredShareInbox(defaults: UserDefaults? = UserDefaults(suiteName: groupID)) {
+        defaults?.removeObject(forKey: "explicitSharedLinksV1")
+    }
+
     static func read() -> [FavoriteSnapshot] {
         guard let defaults = UserDefaults(suiteName: groupID), defaults.bool(forKey: consentKey),
               let data = defaults.data(forKey: key),

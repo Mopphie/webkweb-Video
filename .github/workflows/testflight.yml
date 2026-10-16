@@ -13,7 +13,6 @@ on:
       - App/**
       - Shared/**
       - Widgets/**
-      - ShareExtension/**
       - Tests/**
       - UITests/**
       - project.yml
@@ -115,7 +114,6 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           APPLE_WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_WIDGET_PROVISIONING_PROFILE_BASE64 }}
-          APPLE_SHARE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_SHARE_PROVISIONING_PROFILE_BASE64 }}
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
@@ -128,22 +126,12 @@ jobs:
           printf '%s' "$APPLE_CERTIFICATE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/distribution.p12"
           printf '%s' "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/app.mobileprovision"
           printf '%s' "$APPLE_WIDGET_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/widget.mobileprovision"
-          if [[ -n "$APPLE_SHARE_PROVISIONING_PROFILE_BASE64" ]]; then
-            printf '%s' "$APPLE_SHARE_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/share.mobileprovision"
-          else
-            export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
-            python3 Scripts/provision-share.py \
-              --p12 "$RUNNER_TEMP/devntube-signing/distribution.p12" \
-              --output "$RUNNER_TEMP/devntube-signing/share.mobileprovision"
-          fi
           python3 Scripts/ci-signing.py \
             "$RUNNER_TEMP/devntube-signing/app.mobileprovision" \
             "$RUNNER_TEMP/devntube-signing/widget.mobileprovision" \
-            "$RUNNER_TEMP/devntube-signing/share.mobileprovision" \
             "$RUNNER_TEMP/devntube-signing/distribution.p12" "$RUNNER_TEMP/devntube-signing"
           cp "$RUNNER_TEMP/devntube-signing/app.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(sed -n 's/^app_uuid=//p' "$GITHUB_OUTPUT").mobileprovision"
           cp "$RUNNER_TEMP/devntube-signing/widget.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(sed -n 's/^widget_uuid=//p' "$GITHUB_OUTPUT").mobileprovision"
-          cp "$RUNNER_TEMP/devntube-signing/share.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(sed -n 's/^share_uuid=//p' "$GITHUB_OUTPUT").mobileprovision"
           keychain="$RUNNER_TEMP/devntube-signing/signing.keychain-db"
           security create-keychain -p "$APPLE_CERTIFICATE_PASSWORD" "$keychain"
           security set-keychain-settings -lut 3600 "$keychain"
@@ -157,7 +145,6 @@ jobs:
         env:
           APP_UUID: ${{ steps.signing.outputs.app_uuid }}
           WIDGET_UUID: ${{ steps.signing.outputs.widget_uuid }}
-          SHARE_UUID: ${{ steps.signing.outputs.share_uuid }}
           BUILD_NUMBER: ${{ steps.asc.outputs.build_number }}
         run: |
           set -euo pipefail
@@ -167,7 +154,7 @@ jobs:
             -archivePath "$RUNNER_TEMP/DevnTube.xcarchive" \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' \
             DEVELOPMENT_TEAM=HUN9MS832X CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            WEBKWEB_APP_PROFILE_UUID="$APP_UUID" WEBKWEB_WIDGET_PROFILE_UUID="$WIDGET_UUID" WEBKWEB_SHARE_PROFILE_UUID="$SHARE_UUID" \
+            WEBKWEB_APP_PROFILE_UUID="$APP_UUID" WEBKWEB_WIDGET_PROFILE_UUID="$WIDGET_UUID" \
             OTHER_CODE_SIGN_FLAGS="--keychain $keychain" archive
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/DevnTube.xcarchive" \
             -exportPath "$RUNNER_TEMP/devntube-export" \
@@ -229,6 +216,5 @@ jobs:
             rm -rf "$RUNNER_TEMP/devntube-signing"
           fi
           rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/${{ steps.signing.outputs.app_uuid }}.mobileprovision" \
-            "$HOME/Library/MobileDevice/Provisioning Profiles/${{ steps.signing.outputs.widget_uuid }}.mobileprovision" \
-            "$HOME/Library/MobileDevice/Provisioning Profiles/${{ steps.signing.outputs.share_uuid }}.mobileprovision"
+            "$HOME/Library/MobileDevice/Provisioning Profiles/${{ steps.signing.outputs.widget_uuid }}.mobileprovision"
           rm -f "$HOME/.appstoreconnect/private_keys/"AuthKey_*.p8

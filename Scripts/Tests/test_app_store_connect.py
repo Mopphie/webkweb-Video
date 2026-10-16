@@ -73,21 +73,21 @@ class ConnectTests(unittest.TestCase):
             def write(widget_number):
                 with zipfile.ZipFile(path, 'w') as archive:
                     for suffix, bundle, number in (('Info.plist', asc.BUNDLE_ID, '3'),
-                            ('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', widget_number),
-                            ('PlugIns/Share.appex/Info.plist', asc.BUNDLE_ID + '.share', '3')):
+                            ('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', widget_number)):
                         archive.writestr('Payload/App.app/' + suffix, plistlib.dumps({'CFBundleIdentifier': bundle,
                             'CFBundleVersion': number, 'CFBundleShortVersionString': '0.1.0'}))
             write('3'); self.assertEqual(asc.verify_ipa(path, 3)['marketing_version'], '0.1.0')
             write('2')
             with self.assertRaises(RuntimeError): asc.verify_ipa(path, 3)
 
-    def test_ipa_requires_share_extension_and_matching_build_number(self):
+    def test_ipa_rejects_missing_widget_or_any_unexpected_extension(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)/'mock.ipa'
-            for include_share, share_number in [(False, '3'), (True, '2')]:
+            for missing_widget, extra in [(True, False), (False, True)]:
                 with zipfile.ZipFile(path, 'w') as archive:
-                    values = [('Info.plist', asc.BUNDLE_ID, '3'), ('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', '3')]
-                    if include_share: values.append(('PlugIns/Share.appex/Info.plist', asc.BUNDLE_ID + '.share', share_number))
+                    values = [('Info.plist', asc.BUNDLE_ID, '3')]
+                    if not missing_widget: values.append(('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', '3'))
+                    if extra: values.append(('PlugIns/Unexpected.appex/Info.plist', asc.BUNDLE_ID + '.share', '3'))
                     for name, bundle, number in values:
                         archive.writestr('Payload/App.app/' + name, plistlib.dumps({'CFBundleIdentifier': bundle, 'CFBundleVersion': number, 'CFBundleShortVersionString': '0.1.0'}))
                 with self.assertRaises(RuntimeError): asc.verify_ipa(path, 3)

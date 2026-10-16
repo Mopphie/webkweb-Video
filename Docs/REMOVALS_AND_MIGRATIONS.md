@@ -19,3 +19,9 @@
 `ComplianceMigration` betrifft nur benannte Integrationsdaten und eigene WK-Regel-IDs. Es ist keine pauschale Löschung des App-Support-/Documents-Verzeichnisses. Website-Cookies/Cache bleiben ein separater bewusster Löschvorgang; „Website-Daten löschen“ schließt aktive Seiten vor dem Entfernen und meldet einen Abbruch statt einen unechten Erfolg. Kein sicheres physisches Löschen alter OS-Backups, Datenbank-WAL-Seiten oder Websiteprotokolle zugesichert.
 
 Lokale Entwicklungshistorie und Sicherung der vorgefundenen Quellen bleiben erhalten. Die neue App wurde weder hochgeladen noch auf dem Gerät ersetzt; ein auf dem iPhone verbleibender alter Build enthält daher weiterhin dessen alten Funktionsstand.
+
+## Nutzerauftrag: Teilen-Erweiterung vor TestFlight entfernen
+
+Entfernt: ShareExtension-Target/Einbettung, alle vier Extensiondateien einschließlich Entitlements/Privacy-Manifest, Shared/ShareInbox.swift, Empfang im Browser und beim Entsperren/Foreground, Share-Profile/Provisionierungshelfer und deren Diagnoseworkflows. Signierung und IPA-Prüfung erwarten ausschließlich App + Favoriten-Widget. Ein verbliebenes unerwartetes Extension-Bundle wird ausdrücklich abgewiesen.
+
+Migration: `FavoriteStorage.removeRetiredShareInbox` löscht ausschließlich `explicitSharedLinksV1` beim Start, auch nach bereits abgeschlossener Compliance-Migration. Favoriten, Zustimmung zur Widget-/Siri-Freigabe, eigene Dateien/Notizen/Listen bleiben erhalten. Regressionstest nutzt einen isolierten UserDefaults-Store. App Group bleibt für App und Widget erforderlich. Die zuvor angelegte Apple-Share-ID und das verworfene Profil werden nicht mehr verwendet; keine destruktive Kontolöschung ausgeführt. Früherer 31er-Foundationfall für Inbox-Empfang wird durch den gezielten Migrationstest ersetzt.

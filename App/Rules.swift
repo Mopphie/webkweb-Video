@@ -3,6 +3,7 @@ import WebKit
 
 enum ComplianceMigration {
     static func run() {
+        FavoriteStorage.removeRetiredShareInbox()
         let defaults = UserDefaults.standard
         guard defaults.integer(forKey: "complianceMigration") < 4 else { return }
         for key in ["blockingEnabled", "filterUpdatedAt", "filterListIDsV2", "filterListIDsV3", "filterUpdatedAtV2", "filterUpdatedAtV3",

@@ -7,7 +7,7 @@ Native SwiftUI-/WebKit-App für iPhone und iPad, mit eigenem AVKit-Player und lo
 - Browser/Suche, normale/private Tabs, Pins/Gruppen, Favoriten/Verlauf und erreichbare Navigation.
 - Eigene native Dateien/ausdrücklich autorisierte Direktmedien, ein stabiler Player mit Miniplayer/System-PiP/AirPlay und vorgesehener Hintergrund-Audiowiedergabe.
 - Separate Queue und benannte Playlists, Weitersehen, eigene Zeitmarken/Notizen, Dateien-Neuverknüpfung und versionierte Datensicherung.
-- Optionale Geräteauthentifizierung, bewusst freigegebene Widget-/Siri-Favoriten und neue ShareExtension (noch nicht provisioniert).
+- Optionale Geräteauthentifizierung, bewusst freigegebene Widget-/Siri-Favoriten ohne eingehende Teilen-Erweiterung.
 - Normale Websites bleiben echte Websites. Keine Plattform-Werbeblockierung, SponsorBlock, Stream-Extraktion, Plattformdownloads, Cast-SDK oder erzwungene Premium-/Hintergrundfunktionen. Allgemeine Hauptseiten-Sperrliste statt Ressourcenfilter. Keine neuen Käufe/Abos; iCloud nicht eingerichtet.
 
 ## Prüfung und Dokumentation
@@ -24,6 +24,6 @@ Native SwiftUI-/WebKit-App für iPhone und iPad, mit eigenem AVKit-Player und lo
 
 Lokale portable Prüfungen: `python3 Scripts/check-portable.py`; eigener echter Chromium-Decoder: `python3 Scripts/check-browser.py` (Playwright/Chromium/ffmpeg als Testwerkzeuge). Foundation-Modelle und Swift-Syntax: `./Scripts/check-core.sh` mit lokal vorhandenem offiziellen Swift-6.1-Container, ohne Netzwerk im Testcontainer. Das ist **kein Apple-SDK-Build**.
 
-Auf einem verfügbaren lokalen Mac: `./Scripts/check-macos.sh`; anschließend Pflichtreise und Gerätefälle aus dem Testbericht. Der Mac-Testhelfer signiert oder lädt nicht hoch. Der lokal für drei Targets vorbereitete Signier-/Uploadworkflow benötigt vor zukünftiger Verwendung insbesondere eine echte Provisionierung der neuen ShareExtension; aktuell nicht ausführen. Ein alter CloudKit-Konfigurationshelfer implementiert keinen fertigen Datenabgleich.
+Auf einem verfügbaren lokalen Mac: `./Scripts/check-macos.sh`; anschließend Pflichtreise und Gerätefälle aus dem Testbericht. Der Mac-Testhelfer signiert oder lädt nicht hoch. Der autorisierte TestFlight-Workflow signiert App und Favoriten-Widget mit ihren bestehenden separaten Profilen. Die eingehende Teilen-Erweiterung und deren Signieranforderungen sind auf Nutzerwunsch entfernt. Ein alter CloudKit-Konfigurationshelfer implementiert keinen fertigen Datenabgleich.
 
 Historische `Docs/RELEASE.md`, `FUNCTION-TEST-MATRIX.md`, `AUDIT-FIXES.md`, `COMMERCIAL-USE.md`, Store-/Designentwürfe dokumentieren frühere Zustände. Die oben verlinkten Dokumente ersetzen deren aktuelle Produkt-/Freigabeaussagen. Keine weltweite Rechtsfreigabe, Apple-Annahme oder universelle Plattformwiedergabe zugesichert.

@@ -639,19 +639,6 @@ final class BrowserModel: ObservableObject {
         if tabs.count < 12 { addTab() }
         else { current.cancelPendingLoad(); current.webView.loadHTMLString("<!doctype html><html></html>", baseURL: nil); current.address = ""; current.title = "Startseite" }
     }
-    func consumeSharedLinks() {
-        guard !privacyLocked else { return }
-        for link in ShareInbox.take() {
-            switch link.action {
-            case .open:
-                guard tabs.count < 12 else { notice = "Geteilter Link nicht geöffnet: Tablimit erreicht."; continue }
-                let tab = addTab(isPrivate: false)
-                if let url = AddressResolver.directURL(link.address) { tab.load(url, userInitiated: true) }
-            case .queue: enqueue(address: link.address, title: URL(string: link.address)?.host ?? "Link")
-            case .save: _ = library.addLink(title: URL(string: link.address)?.host ?? "Link", address: link.address)
-            }
-        }
-    }
     func clearRecentNavigation() { closedTabs = []; library.clearProgress() }
     func endPrivateSession() {
         for id in tabs.filter(\.isPrivate).map(\.id) { close(id) }
@@ -861,7 +848,7 @@ final class BrowserModel: ObservableObject {
     }
     func publishNowPlaying() { if !tabs.isEmpty { AudioController.shared.update(tab: playbackTab) } }
     func foreground() async {
-        enforceSleepDeadline(); AudioController.shared.updateDemand(); if !privacyLocked { consumeSharedLinks() }
+        enforceSleepDeadline(); AudioController.shared.updateDemand()
         if UserDefaults.standard.bool(forKey: "complianceCleanupPending") {
             ComplianceMigration.run(); notice = "Alte Integrationscaches konnten nicht vollständig gelöscht werden. Bereinigung wird erneut versucht; alte Filter sind nicht aktiv."
         }

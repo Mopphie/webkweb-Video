@@ -1,4 +1,4 @@
-> Aktueller lokaler Zusatz: Für einen später ausdrücklich freigegebenen Upload wird außerdem ein echtes, zur ShareExtension passendes Profil unter dem Secret-Namen `APPLE_SHARE_PROVISIONING_PROFILE_BASE64` benötigt. Nur Quellvorbereitung und Mocktests erfolgt; kein Secret/Konto geändert, kein Upload gestartet.
+> Aktueller Nutzerauftrag: Eingehende Teilen-Erweiterung entfernt. Der Upload benötigt nur die bestehenden App- und Widget-Profile; kein Share-Profil und keine automatische Apple-Neuregistrierung. Aktuelle Ergebnisse: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
 
 > Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
 

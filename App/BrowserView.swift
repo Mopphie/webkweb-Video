@@ -69,12 +69,10 @@ struct BrowserView: View {
             normalizeSavedPages()
             syncFavorites()
             shield.update(phase: scenePhase, browser: browser)
-            if !browser.privacyLocked { browser.consumeSharedLinks() }
         }
         .onChange(of: favoriteDigest) { _, _ in syncFavorites() }
         .onChange(of: browser.options.shareFavoritesWithSystem) { _, _ in syncFavorites() }
         .onChange(of: browser.options.privateLock) { _, _ in shield.update(phase: scenePhase, browser: browser) }
-        .onChange(of: browser.privacyLocked) { _, locked in if !locked { browser.consumeSharedLinks() } }
         .onChange(of: scenePhase) { _, phase in
             native.sceneActive = phase == .active
             browser.enforceSleepDeadline()

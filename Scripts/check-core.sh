@@ -10,7 +10,7 @@ docker run --rm --pull never --network none -v "$PWD:/src" -w /src "$image" bash
   swift --version
   swift package --scratch-path build/SwiftCoreChecks clean
   swift test --scratch-path build/SwiftCoreChecks
-  for file in App/*.swift Shared/*.swift Widgets/*.swift ShareExtension/*.swift Tests/*.swift UITests/*.swift; do
+  for file in App/*.swift Shared/*.swift Widgets/*.swift Tests/*.swift UITests/*.swift; do
     swiftc -frontend -parse "$file"
   done
 ' > build/reports/swift-core-tests.log 2>&1

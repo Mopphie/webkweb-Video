@@ -39,8 +39,6 @@ targets:
     dependencies:
       - target: FavoritesWidget
         embed: true
-      - target: ShareExtension
-        embed: true
   FavoritesWidget:
     type: app-extension
     platform: iOS
@@ -58,23 +56,6 @@ targets:
       configs:
         Release:
           PROVISIONING_PROFILE_SPECIFIER: "$(WEBKWEB_WIDGET_PROFILE_UUID)"
-  ShareExtension:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: ShareExtension
-        excludes: [Info.plist, ShareExtension.entitlements]
-      - path: Shared
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: de.mopphie.devntube.share
-        INFOPLIST_FILE: ShareExtension/Info.plist
-        CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
-        APPLICATION_EXTENSION_API_ONLY: YES
-        SKIP_INSTALL: YES
-      configs:
-        Release:
-          PROVISIONING_PROFILE_SPECIFIER: "$(WEBKWEB_SHARE_PROFILE_UUID)"
   WebKWebTests:
     type: bundle.unit-test
     platform: iOS

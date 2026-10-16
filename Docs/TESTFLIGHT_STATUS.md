@@ -1,3 +1,5 @@
+> Neuer Nutzerauftrag: Teilen-Erweiterung entfernen und TestFlight hochladen. Target, eingehende Inbox, Provisionierungshelfer und Share-Profilanforderungen sind entfernt; Signier- und IPA-Prüfung erwarten App + Widget. Früherer Share-Signierblocker gilt für diesen neuen Stand nicht mehr. Neuer Lauf und Ergebnis werden unten ergänzt; bisherige Runs bleiben historische Nachweise.
+
 # TestFlight-Auftrag — Ausführungsstand 16.10.2026
 
 Stand: 13:23 UTC. **Noch kein neuer TestFlight-Upload.**
@@ -55,3 +57,9 @@ Die abschließende ausschließliche UI-Test-/Dokumentationskorrektur verwendet `
 - Berichte und Baseline-Kennzeichnung: `Docs/TESTFLIGHT_STATUS.md`, `TEST_REPORT.md`, `RELEASE_BLOCKERS.md`, `APP_AUDIT.md`, `FEATURE_MATRIX.md`, `APP_REVIEW_NOTES.md`.
 
 Rohdaten der CI-Läufe sind die verlinkten GitHub-Logs/xcresult-Artefakte; heruntergeladene eigene Fixture-Aufzeichnungen und Hilfsdateien bleiben ausschließlich im ignorierten lokalen `build/reports/`. Keine Nutzeraufnahme, Signierprofile oder Zugangsdaten in Commits.
+
+## Folgeauftrag: Teilen entfernen und hochladen
+
+Eingehende ShareExtension vollständig aus Produkt/Build/Empfang entfernt. App und Favoriten-Widget behalten ihre vorhandene App Group und getrennte Profile. Der IPA-Helfer weist fehlende Widgets und unerwartete zusätzliche Extensions ab. Der alte Inbox-Key wird gezielt bereinigt; unabhängige Favoritendaten/Zustimmung bleiben erhalten.
+
+Aktuelle lokale Prüfungen: Foundation **31/31**, Node **53/53**, Python-Signier/ASC-Mocks **14/14** bestanden; sämtliche verbliebenen Swiftdateien syntaxgeprüft. Plists/Privacy-Manifests und Workflow-Shellblöcke parsebar. Dies ersetzt keinen iOS-Lauf. Vollständiger nativer Lauf und tatsächlicher Upload folgen auf dem autorisierten Releasebranch; Ergebnis wird ergänzt. Keine neue Apple-ID-/Profilregistrierung vorgesehen.

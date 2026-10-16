@@ -58,7 +58,7 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         expectation(for: paused, evaluatedWith: nil); waitForExpectations(timeout: 5)
         let full = requireSystemButton(".*(Full.?Screen|Vollbild).*", app: app)
         full.tap()
-        let done = requireSystemButton("(Done|Fertig|.*Exit Full.?Screen.*|.*Vollbild beenden.*)", app: app)
+        let done = requireSystemButton("(Done|Fertig|Close|Schließen|.*Exit Full.?Screen.*|.*Vollbild beenden.*)", app: app)
         done.tap()
         XCTAssertTrue(status.waitForExistence(timeout: 5))
         let pip = requireSystemButton(".*(Picture in Picture|Bild.in.Bild|Start PiP).*", app: app)

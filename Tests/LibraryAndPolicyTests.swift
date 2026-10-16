@@ -76,14 +76,17 @@ final class LibraryAndPolicyTests: XCTestCase {
         settings.blockedSites = ["youtube.com"]; XCTAssertThrowsError(try settings.validate())
         settings.blockedSites = []; settings.zoom = .infinity; XCTAssertThrowsError(try settings.validate())
     }
-    func testSharedInboxExpiresAndRejectsSecretLinks() throws {
-        let name = "DevnTube.InboxTests." + UUID().uuidString
+    func testRetiredShareInboxCleanupPreservesWidgetFavoritesAndConsent() throws {
+        let name = "DevnTube.RetiredInboxTests." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name)); defer { defaults.removePersistentDomain(forName: name) }
-        XCTAssertFalse(ShareInbox.submit(SharedLink(address: "https://example.org/?token=private", action: .save), defaults: defaults))
-        XCTAssertTrue(ShareInbox.submit(SharedLink(address: "https://example.org/", action: .queue, createdAt: .now.addingTimeInterval(-901)), defaults: defaults))
-        XCTAssertTrue(ShareInbox.read(defaults: defaults).isEmpty)
-        XCTAssertTrue(ShareInbox.submit(SharedLink(address: "https://example.org/", action: .open), defaults: defaults))
-        XCTAssertEqual(ShareInbox.read(defaults: defaults).count, 1)
+        let favorites = Data("independent favorite data".utf8)
+        defaults.set(favorites, forKey: FavoriteStorage.key)
+        defaults.set(true, forKey: FavoriteStorage.consentKey)
+        defaults.set(Data("retired link handoff".utf8), forKey: "explicitSharedLinksV1")
+        FavoriteStorage.removeRetiredShareInbox(defaults: defaults)
+        XCTAssertNil(defaults.object(forKey: "explicitSharedLinksV1"))
+        XCTAssertEqual(defaults.data(forKey: FavoriteStorage.key), favorites)
+        XCTAssertTrue(defaults.bool(forKey: FavoriteStorage.consentKey))
     }
 }
 

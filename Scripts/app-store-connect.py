@@ -151,13 +151,13 @@ def verify_ipa(path, number):
         app = plistlib.loads(archive.read(apps[0]))
         widgets = [name for name in names if re.fullmatch(r'Payload/[^/]+\.app/PlugIns/[^/]+\.appex/Info\.plist', name)]
         info = [app] + [plistlib.loads(archive.read(name)) for name in widgets]
-        if {item.get('CFBundleIdentifier') for item in info} != {BUNDLE_ID, BUNDLE_ID + '.favorites', BUNDLE_ID + '.share'} or len(info) != 3:
-            raise RuntimeError('Exported IPA app/widget/share identifiers do not match')
+        if {item.get('CFBundleIdentifier') for item in info} != {BUNDLE_ID, BUNDLE_ID + '.favorites'} or len(info) != 2:
+            raise RuntimeError('Exported IPA app/widget identifiers do not match')
         if any(str(item.get('CFBundleVersion')) != str(number) for item in info):
-            raise RuntimeError('App, widget and share must use the selected ASC build number')
+            raise RuntimeError('App and widget must use the selected ASC build number')
         version = app.get('CFBundleShortVersionString')
         if not version or any(item.get('CFBundleShortVersionString') != version for item in info):
-            raise RuntimeError('App, widget and share marketing versions differ')
+            raise RuntimeError('App and widget marketing versions differ')
     return {'marketing_version': version, 'verified_build_number': number}
 
 

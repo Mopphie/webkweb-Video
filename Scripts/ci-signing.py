@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate three decoded distribution profiles and write export options (macOS only).
+"""Validate two decoded distribution profiles and write export options (macOS only).
 
 Never logs certificate, private key, password, or profile contents. Inputs are
 runner-local temporary files; UUIDs are emitted as GitHub step outputs.
@@ -14,7 +14,7 @@ from pathlib import Path
 
 TEAM = 'HUN9MS832X'
 GROUP = 'group.de.mopphie.devntube'
-BUNDLES = ('de.mopphie.devntube', 'de.mopphie.devntube.favorites', 'de.mopphie.devntube.share')
+BUNDLES = ('de.mopphie.devntube', 'de.mopphie.devntube.favorites')
 
 
 def fail(message):
@@ -42,9 +42,9 @@ def profile(path, bundle, certificate_hash):
 
 
 def main():
-    if len(sys.argv) != 6:
-        fail('expected app, widget and share profiles, certificate p12, output directory')
-    app, widget, share, p12, out = map(Path, sys.argv[1:])
+    if len(sys.argv) != 5:
+        fail('expected app and widget profiles, certificate p12, output directory')
+    app, widget, p12, out = map(Path, sys.argv[1:])
     try:
         pem = subprocess.check_output(
             ['openssl', 'pkcs12', '-in', str(p12), '-clcerts', '-nokeys',
@@ -55,9 +55,9 @@ def main():
         fail('distribution certificate/password is unusable')
     certificate_hash = hashlib.sha256(der).hexdigest()
     uuids = [profile(path, bundle, certificate_hash)
-             for path, bundle in zip((app, widget, share), BUNDLES)]
+             for path, bundle in zip((app, widget), BUNDLES)]
     if len(set(uuids)) != len(BUNDLES):
-        fail('app, widget and share extension must use separate profiles')
+        fail('app and widget must use separate profiles')
     options = {'method': 'app-store-connect', 'destination': 'export',
                'manageAppVersionAndBuildNumber': False,
                'signingStyle': 'manual', 'teamID': TEAM,
@@ -67,8 +67,8 @@ def main():
     with (out / 'ExportOptions.plist').open('wb') as f:
         plistlib.dump(options, f)
     with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as f:
-        f.write('app_uuid=' + uuids[0] + '\nwidget_uuid=' + uuids[1] + '\nshare_uuid=' + uuids[2] + '\n')
-    print('Signing preflight passed for separate app, widget and share distribution profiles.')
+        f.write('app_uuid=' + uuids[0] + '\nwidget_uuid=' + uuids[1] + '\n')
+    print('Signing preflight passed for separate app and widget distribution profiles.')
 
 
 if __name__ == '__main__':

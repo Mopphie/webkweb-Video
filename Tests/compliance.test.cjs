@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
-const production=['App','Shared','Widgets','ShareExtension'].flatMap(dir=>fs.readdirSync(path.join(root,dir),{recursive:true}).filter(p=>/\.(swift|js)$/.test(p)).map(p=>read(path.join(dir,p)))).join('\n');
+const production=['App','Shared','Widgets'].flatMap(dir=>fs.readdirSync(path.join(root,dir),{recursive:true}).filter(p=>/\.(swift|js)$/.test(p)).map(p=>read(path.join(dir,p)))).join('\n');
 test('no active external filter downloader, compiled filter engine or retired services',()=>{
  for(const value of ['URLSession','compileContentRuleList(','sponsor.ajay.app','adguardteam.github.io','hagezi/dns-blocklists','GoogleCast','setSegments','undoSkip'])assert.equal(production.includes(value),false,value);
  assert.equal(fs.existsSync(path.join(root,'App/Resources/WatchPresentation.js')),false);
@@ -24,4 +24,14 @@ test('production code has no third-party imports or package declarations',()=>{
 });
 test('old filter cache is actively cleaned, user filter imports are never loaded',()=>{
  const source=read('App/Rules.swift');assert.match(source,/removeContentRuleList/);assert.match(source,/FilterSourceCache/);assert.equal(source.includes('ImportedFilters"'),false);
+});
+
+test('removed Share extension cannot be built, provisioned or consume incoming links',()=>{
+ assert.equal(fs.existsSync(path.join(root,'ShareExtension')),false);
+ assert.equal(fs.existsSync(path.join(root,'Shared/ShareInbox.swift')),false);
+ assert.equal(read('project.yml').includes('ShareExtension'),false);
+ assert.equal(read('App/BrowserSession.swift').includes('consumeSharedLinks'),false);
+ const workflow=read('.github/workflows/testflight.yml');
+ assert.equal(workflow.includes('APPLE_SHARE_PROVISIONING_PROFILE'),false);
+ assert.equal(workflow.includes('provision-share.py'),false);
 });
