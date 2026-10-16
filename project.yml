@@ -75,6 +75,8 @@ targets:
       - path: UITests
       - path: Tests/Fixtures/sample.mp4
         buildPhase: resources
+      - path: Tests/Fixtures/audible.mp4
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.mopphie.devntube.uitests

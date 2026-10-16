@@ -17,13 +17,35 @@ final class BrowserActionsUITests: XCTestCase {
         add(attachment)
     }
 
+    private func requireSustainedDecodedPlayback(_ app: XCUIApplication) throws {
+        func snapshot() throws -> (frames: Double, valid: Bool) {
+            let text = try XCTUnwrap(app.buttons["browser.actions"].value as? String)
+            let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+            let native = try XCTUnwrap(report["native"] as? [String: Any])
+            let web = try XCTUnwrap(report["web"] as? [String: Any])
+            let frames = try XCTUnwrap(web["decodedFrames"] as? NSNumber).doubleValue
+            return (frames, native["playing"] as? Bool == true && native["waiting"] as? Bool == false && native["stop_latched"] as? Bool == false)
+        }
+        var previous = try snapshot().frames
+        for _ in 0..<3 {
+            // Leave room for the one-second bridge heartbeat and AX delivery.
+            // Each sample still requires fresh, real decoder progress.
+            Thread.sleep(forTimeInterval: 2)
+            let next = try snapshot()
+            if !next.valid || next.frames <= previous { capturePlayerDiagnostic(app) }
+            XCTAssertTrue(next.valid)
+            XCTAssertGreaterThan(next.frames, previous)
+            previous = next.frames
+        }
+    }
+
     private func launchFixture(audible: Bool = false) throws -> XCUIApplication {
         continueAfterFailure = false
         // A cold CI simulator completed the menu assertions but spent 132s
         // including launch/quiescence. Keep the functional wait limits intact.
         executionTimeAllowance = 180
         let app = XCUIApplication()
-        let url = try XCTUnwrap(Bundle(for: BrowserActionsUITests.self).url(forResource: "sample", withExtension: "mp4"))
+        let url = try XCTUnwrap(Bundle(for: BrowserActionsUITests.self).url(forResource: audible ? "audible" : "sample", withExtension: "mp4"))
         app.launchArguments = ["--ui-test-browser"]
         app.launchEnvironment["WEBKWEB_UI_TEST_MEDIA"] = try Data(contentsOf: url).base64EncodedString()
         app.launchEnvironment["WEBKWEB_UI_TEST_AUDIBLE"] = audible ? "1" : "0"
@@ -33,6 +55,7 @@ final class BrowserActionsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 20))
         if audible {
             milestone("Start unmuted media with an actual user Play gesture")
+            XCTAssertTrue(app.buttons["Videostart"].waitForExistence(timeout: 15))
             app.buttons["Videostart"].tap()
         }
         let running = app.staticTexts["Video läuft"].waitForExistence(timeout: 15)
@@ -95,10 +118,7 @@ final class BrowserActionsUITests: XCTestCase {
         let app = try launchFixture(audible: true)
         XCTAssertTrue(app.staticTexts["Ton aktiv"].exists)
         milestone("Unmuted fixture keeps decoding beyond startup")
-        for _ in 0..<3 {
-            Thread.sleep(forTimeInterval: 1)
-            XCTAssertTrue(app.staticTexts["Video läuft"].exists)
-        }
+        try requireSustainedDecodedPlayback(app)
         app.buttons["browser.actions"].tap()
         let pause = app.buttons["Alles pausieren"]
         reveal(pause, in: app); pause.tap()
@@ -107,10 +127,7 @@ final class BrowserActionsUITests: XCTestCase {
         let resumed = app.staticTexts["Video läuft"].waitForExistence(timeout: 8)
         if !resumed { capturePlayerDiagnostic(app) }
         XCTAssertTrue(resumed)
-        for _ in 0..<3 {
-            Thread.sleep(forTimeInterval: 1)
-            XCTAssertTrue(app.staticTexts["Video läuft"].exists)
-        }
+        try requireSustainedDecodedPlayback(app)
         milestone("Unmuted player remains advancing after first real website Play")
     }
 }

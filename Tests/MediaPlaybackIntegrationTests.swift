@@ -126,10 +126,10 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         } catch { return "\(native); JavaScript error=\(error)" }
     }
 
-    private func loadFixture(in session: Session, audible: Bool = false) async throws {
+    private func loadFixture(in session: Session, audible: Bool = false, fixture: String = "sample") async throws {
         activeSession = session
         let bundle = Bundle(for: MediaPlaybackIntegrationTests.self)
-        let url = try XCTUnwrap(bundle.url(forResource: "sample", withExtension: "mp4"))
+        let url = try XCTUnwrap(bundle.url(forResource: fixture, withExtension: "mp4"))
         let data = try Data(contentsOf: url)
         XCTAssertGreaterThan(data.count, 0)
         let html = """
@@ -227,7 +227,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
 
     func testAudibleVideoContinuesWithoutPermanentStopOnAudioNotification() async throws {
         let session = Session(); defer { session.close() }
-        try await loadFixture(in: session, audible: true)
+        try await loadFixture(in: session, audible: true, fixture: "audible")
         let browser = session.browser, tab = browser.current
         browser.play()
         try await waitFor("unmuted H264/AAC actually advances") { tab.playing && tab.playbackTime > 0.3 }
@@ -243,7 +243,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
             userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.ended.rawValue,
                        AVAudioSessionInterruptionOptionKey: UInt(0)])
         try await waitFor("unmuted playback remains advancing beyond the short startup window") {
-            tab.playing && tab.playbackTime > 2.0 && !browser.playbackStopped
+            tab.playing && tab.playbackTime > 5.0 && !browser.playbackStopped
         }
     }
 

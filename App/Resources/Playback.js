@@ -92,6 +92,7 @@
       paused: v ? Boolean(v.paused) : true, ended: Boolean(v?.ended), stopLatched: stopped,
       readyState: Number.isInteger(v?.readyState) ? v.readyState : null,
       networkState: Number.isInteger(v?.networkState) ? v.networkState : null,
+      decodedFrames: Number(v?.getVideoPlaybackQuality?.().totalVideoFrames) || 0,
       sourceKind: v?.currentSrc ? v.currentSrc.split(":", 1)[0] : "none",
       mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };

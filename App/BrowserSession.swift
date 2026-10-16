@@ -291,7 +291,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             browser?.didStartFromWebsite(in: id)
         case "state":
             let keys = ["paused", "ended", "stopLatched", "readyState", "networkState", "waiting", "muted"]
-            frame.diagnostics = body.filter { keys.contains($0.key) && $0.value is NSNumber }
+            frame.diagnostics = body.filter { (keys + ["decodedFrames"]).contains($0.key) && $0.value is NSNumber }
             if let source = body["sourceKind"] as? String, ["http", "https", "blob", "data", "none"].contains(source) {
                 frame.diagnostics["source_kind"] = source
             }
@@ -521,7 +521,7 @@ final class BrowserModel: ObservableObject {
         <button aria-label="Videostart" style="position:absolute;top:40px;left:40px;width:140px;height:64px"
         onclick="document.getElementById('player').play()">Start</button></div>
         <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p><p>\(audible ? "Ton aktiv" : "Stumm")</p>
-        <script>let n=0,lastTime=0;setInterval(()=>{document.title='Fixture '+(++n);const s=document.getElementById('state'),v=document.getElementById('player'),progress=Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;if(s.textContent!==next)s.textContent=next;},1000);</script>
+        <script>let lastTime=0,lastFrames=0;document.title='Lokale Medienfixture';setInterval(()=>{const s=document.getElementById('state'),v=document.getElementById('player'),frames=v.getVideoPlaybackQuality?.().totalVideoFrames||0,progress=frames>lastFrames||Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;lastFrames=frames;if(s.textContent!==next)s.textContent=next;},1000);</script>
         </body></html>
         """
         current.webView.loadHTMLString(html, baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))
