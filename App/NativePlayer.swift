@@ -23,8 +23,8 @@ final class NativePlayer: ObservableObject {
         guard duration.isNumeric, duration.seconds > 0 else { throw URLError(.cannotDecodeContentData) }
         let composition = AVMutableComposition()
         for index in 0..<10 {
-            try composition.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: asset,
-                                            at: CMTimeMultiply(duration, multiplier: Int32(index)))
+            try await composition.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: asset,
+                                                  at: CMTimeMultiply(duration, multiplier: Int32(index)))
         }
         guard let export = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
             throw URLError(.cannotCreateFile)

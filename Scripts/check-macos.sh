@@ -58,7 +58,8 @@ try:
                'e59a1302b9bc5246f076cc270c9a1535b46e1d62',
                '2c48454322ec1711f909901b1424bede2ca0b858',
                'aaabdfed0f096549597bb837fd983655cfb4ae3f',
-               '1d84c673f324e1c44cd716f3824464f0334c04a9'}
+               '1d84c673f324e1c44cd716f3824464f0334c04a9',
+               '91699be8834879b8ac70fb6a89d99c96b0a89046'}
            and bool(changes) and changes <= allowed
            and all(release(git('show',parent+':'+path)) == release(git('show','HEAD:'+path)) for path in app_files))
     print('true' if valid else 'false')
