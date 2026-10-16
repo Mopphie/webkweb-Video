@@ -70,6 +70,25 @@ except (subprocess.CalledProcessError,ValueError): print('false')
 PY
 )"
 browser_checks_failed=false
+unit_checks_failed=false
+# Exact-source harness recheck: the previous run completed 73 native cases and
+# failed only the second background-WebView fixture startup. No App/Shared/
+# Widgets/production JS change may reuse those results.
+website_recheck="$(python3 - <<'PY'
+import subprocess
+def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
+try:
+    parent=git('rev-parse','HEAD^')
+    allowed={'Tests/MediaPlaybackIntegrationTests.swift','Scripts/check-macos.sh',
+             'Docs/YOUTUBE_WATCH_RETURN.md','Docs/FEATURE_MATRIX.md'}
+    changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
+    valid=(git('status','--porcelain')=='' and
+           git('rev-parse',parent+'^{tree}')=='8dc2b48b76f73135faed30f685e8b060acaee0eb' and
+           bool(changes) and changes <= allowed)
+    print('true' if valid else 'false')
+except subprocess.CalledProcessError: print('false')
+PY
+)"
 if [[ "$native_recheck" == true ]]; then
   parent_tree="$(git rev-parse 'HEAD^^{tree}')"
   if [[ "$parent_tree" == 968ae7458412a74610230d5e7a6f0475047a6c7e || "$parent_tree" == e49923fba7e50cb8dd4e49616e02843e6ed4986d ]]; then
@@ -94,15 +113,23 @@ sys.exit("Kein verfügbarer iPhone-Simulator. Installiere eine iOS-Runtime in Xc
 ')"
 fi
 if [[ "$native_recheck" != true ]]; then
-xcodebuild "${project_args[@]}" -scheme WebKWeb \
+unit_scope=(-only-testing:WebKWebTests)
+if [[ "$website_recheck" == true ]]; then
+  unit_scope=(-only-testing:WebKWebTests/MediaPlaybackIntegrationTests/testRealAutoplayInOtherTabCannotInterruptTheResumedPlayer)
+  echo 'Exact unchanged production source: run 38969843875 completed 73 native cases; retry only the failed background-WebView fixture. All browser/iPad journeys still run.'
+fi
+if ! xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/Unit-Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES \
   -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
   -maximum-test-execution-time-allowance 180 \
-  -only-testing:WebKWebTests \
-  CODE_SIGNING_ALLOWED=NO test
+  "${unit_scope[@]}" \
+  CODE_SIGNING_ALLOWED=NO test; then
+  unit_checks_failed=true
+  echo '::error::Native unit/integration tests failed. Continuing independent UI checks; upload remains blocked.' >&2
+fi
 # WebKit's hosted simulator process became unresponsive after the integration
 # suite in run 38917664541. Use a clean device boot for the independent UI
 # process, without erasing persistent data or touching local users' sessions.
@@ -166,5 +193,5 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -maximum-test-execution-time-allowance 600 \
   "${journey_scope[@]}" \
   CODE_SIGNING_ALLOWED=NO test
-if [[ "$browser_checks_failed" == true ]]; then exit 1; fi
+if [[ "$unit_checks_failed" == true || "$browser_checks_failed" == true ]]; then exit 1; fi
 echo "Simulator-Prüfung erfolgreich (gezielte Wiederholung: $native_recheck). Vorherige Nachweise ggf. wiederverwendet; Gerätetests bleiben erforderlich."

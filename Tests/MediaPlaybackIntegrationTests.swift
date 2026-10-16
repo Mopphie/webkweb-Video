@@ -10,6 +10,7 @@ import AVFoundation
 final class MediaPlaybackIntegrationTests: XCTestCase {
     private enum Failure: Error { case timeout(String), javaScriptTimeout }
     private weak var activeSession: Session?
+    private weak var activeTab: BrowserTab?
 
     @MainActor
     private final class JavaScriptReply {
@@ -105,7 +106,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
 
     private func diagnostics() async -> String {
         guard let session = activeSession else { return "No active media test session" }
-        let tab = session.browser.current
+        let tab = activeTab ?? session.browser.current
         let native = "nativeHasMedia=\(tab.hasMedia), playing=\(tab.playing), activeMedia=\(tab.activeMediaID), kind=\(tab.activeMediaKind), time=\(tab.playbackTime), duration=\(String(describing: tab.duration)), stop=\(session.browser.playbackStopped), error=\(tab.error ?? tab.mediaError), windowHidden=\(session.window.isHidden), frame=\(tab.webView.frame)"
         do {
             let result = try await evaluate("""
@@ -138,6 +139,8 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         style="width:320px;height:180px" src="data:video/mp4;base64,\(data.base64EncodedString())"></video></body></html>
         """
         let tab = requestedTab ?? session.browser.current
+        activeTab = tab
+        defer { activeTab = nil }
         tab.webView.loadHTMLString(html, baseURL: nil)
         // A cold WebContent launch took over 15 seconds on the hosted simulator.
         // Keep the real bridge/media assertions, with a separate startup budget.

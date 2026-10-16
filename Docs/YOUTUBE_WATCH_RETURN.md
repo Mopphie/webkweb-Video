@@ -93,3 +93,13 @@ Vorheriger Skripthash `6c2c3b85abb7342c4fa6ce837bd070903e9f716be5f29936d93ec9d7d
 - Aktueller Skripthash `cd2c0d9b0b0c012329269c38e8636d6686f92e174ad3138e6afb9277a01c9cf1`: **68/68 Node**, **22/22 echte Chromium-Medienfälle** inklusive blockiertem Eingabedispatch, **32/32 Foundation**, Swift-Syntax und **17/17 Python** erfolgreich. UIKit/YouTube werden dadurch nicht getestet. Die neue Stopzeitprüfung wurde lokal gegen ältere Eingaben, neueren Stop, fehlende/ungültige/zukünftige Zeitwerte geprüft.
 
 Diese Änderung ist eine echte neue Release-Anwendungskorrektur und benötigt daher erneut die vollständigen iOS-Prüfungen. Kein Wiederverwenden eines alten SDK-/Geräteergebnisses für den veränderten Skript-/Bridgepfad.
+
+Vollständiger vierter Lauf dieses Reparaturauftrags: [38969843875](https://github.com/Mopphie/webkweb-Video/actions/runs/38969843875), Job `117205242589`, Remote `8351d68d545d884382a61abd864de32d88896bb1`, Baum `8dc2b48b76f73135faed30f685e8b060acaee0eb` exakt wie lokal `986f9c7`. Neue erwartete Unit-Anzahl 74. Bei diesem Eintrag noch laufend; kein neuer Build als hochgeladen oder verfügbar bestätigt.
+
+### Ergebnis des vierten Laufs
+
+**Fehlgeschlagen, kein Upload.** 74 native Testfälle ausgeführt: 73 bestanden, `testRealAutoplayInOtherTabCannotInterruptTheResumedPlayer` scheiterte beim Warten auf die Registrierung der zweiten Hintergrund-WebView (45 Sekunden Startbudget; insgesamt 49,600 s). Der Test erzeugte zwei Fehlermeldungen, darunter die geworfene Timeout-Exception. Die neue Prüfung `testDelayedTrustedInputCannotOverrideNewerNativeStop` und die übrigen echten WebKit-/Native-/Privacyfälle bestanden. Da noch der native Testschritt abbrach, wurden iPhone-UI und iPad in diesem Lauf **nicht ausgeführt**.
+
+Die bisherige Fehlerdiagnose las dabei irrtümlich immer den ausgewählten ersten Tab, auch wenn die ausstehende Fixture im zweiten Tab geladen wurde. Der Testhelper berichtet nun während dieses Ladens den tatsächlich geprüften Tab. Keine Anwendungskorrektur aus dem unzureichenden Snapshot abgeleitet, keine privaten Entitlements hinzugefügt und keine Startfrist verlängert.
+
+Der folgende begrenzte Harness-Recheck darf 73 bestandene Fälle **nur** bei exakt dem bekannten Elternbaum `8dc2b48b76f73135faed30f685e8b060acaee0eb`, sauberem Checkout und Änderungen ausschließlich an den benannten Test-/Skript-/Berichtsdateien übernehmen. Jede App-/Shared-/Widget-/Produktions-JS-Änderung erzwingt wieder das volle Unitset. Der fehlgeschlagene Fall wird separat erneut tatsächlich ausgeführt, danach alle sieben iPhone-UI- und alle vier iPad-Fälle. Nun werden unabhängige UI-Prüfungen auch nach einem Unitfehler ausgeführt; jeder Fehler verhindert weiter den Upload. Kein Überspringen oder Umdeuten des fehlgeschlagenen Falls.
