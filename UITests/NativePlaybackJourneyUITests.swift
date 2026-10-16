@@ -127,9 +127,10 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         try queueNextAndSearch(app, status: status, identity: identity)
     }
     func testVideoFullscreenBackPiPOtherAppQueueNextAndSearch() throws {
-        // Warm the independent Settings process before starting the finite own
-        // clip; its first CI launch took 32 seconds in run 38919948219.
-        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        // Use the lightweight independent Clock app. Settings failed to launch
+        // on the hosted simulator in run 38942074355. The real foreground-app,
+        // AVKit callback, elapsed clock and video identity checks remain exact.
+        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.mobiletimer")
         otherApp.activate()
         XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 20))
         let app = try launchNativeFixture(), status = app.buttons["native.expand"]

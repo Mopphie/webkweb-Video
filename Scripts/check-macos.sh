@@ -25,9 +25,9 @@ if (( node_major < 18 )); then echo "Node.js 18+ erforderlich (gefunden: ${node_
 xcodegen generate
 project_args=(-project WebKWeb.xcodeproj)
 node --test Tests/*.test.cjs
-# One narrowly bounded diagnostic recheck may reuse the completed 67 native,
-# three Browser UI and independent iPad journey results from run 38919948219.
-# Only its exact parent tree and DEBUG-only app diff qualify. All later source
+# Bounded harness rechecks may reuse the exact unchanged Release source's
+# completed native/Browser/iPad-baseline results. Only recorded parent trees,
+# allowed harness/docs paths and DEBUG-only app diffs qualify. Any other source
 # changes automatically use the complete suite again.
 native_recheck="$(python3 - <<'PY'
 import subprocess
@@ -49,7 +49,8 @@ def release(source):
 try:
     parent=git('rev-parse','HEAD^')
     allowed={'App/NativePlayerPanel.swift','App/NativePlayer.swift','App/BrowserSession.swift','UITests/NativePlaybackJourneyUITests.swift',
-             'Scripts/check-macos.sh','.github/workflows/testflight.yml','Docs/TESTFLIGHT_STATUS.md'}
+             'Scripts/check-macos.sh','.github/workflows/testflight.yml','Docs/TESTFLIGHT_STATUS.md',
+             'Docs/PLAYBACK_BUILD6_FOLLOWUP.md','Docs/TEST_REPORT.md'}
     changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
     app_files={path for path in changes if path.startswith('App/')}
     valid=(git('status','--porcelain') == ''
@@ -59,7 +60,8 @@ try:
                '2c48454322ec1711f909901b1424bede2ca0b858',
                'aaabdfed0f096549597bb837fd983655cfb4ae3f',
                '1d84c673f324e1c44cd716f3824464f0334c04a9',
-               '91699be8834879b8ac70fb6a89d99c96b0a89046'}
+               '91699be8834879b8ac70fb6a89d99c96b0a89046',
+               '968ae7458412a74610230d5e7a6f0475047a6c7e'}
            and bool(changes) and changes <= allowed
            and all(release(git('show',parent+':'+path)) == release(git('show','HEAD:'+path)) for path in app_files))
     print('true' if valid else 'false')
@@ -67,7 +69,11 @@ except (subprocess.CalledProcessError,ValueError): print('false')
 PY
 )"
 if [[ "$native_recheck" == true ]]; then
+  if [[ "$(git rev-parse 'HEAD^^{tree}')" == 968ae7458412a74610230d5e7a6f0475047a6c7e ]]; then
+    echo 'Targeted PiP recheck with Clock as real other app. Exact unchanged production source: run 38942074355 (72 native + 3 Browser UI without retry + iPad fullscreen/queue/search passed; full PiP case blocked by external Settings launch timeout).'
+  else
   echo 'Targeted PiP recheck; exact unchanged Release source and prior test evidence: run 38919948219 (67 native + 3 Browser UI + iPad fullscreen/queue/search passed).'
+  fi
 fi
 destination="${WEBKWEB_SIMULATOR_DESTINATION:-}"
 if [[ -z "$destination" ]]; then
