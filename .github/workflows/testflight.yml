@@ -37,9 +37,8 @@ permissions:
   contents: read
 concurrency:
   group: devntube-testflight
-  # Supersede the obsolete preflight while correcting the UI test harness.
-  # Restore serialized uploads after this candidate is verified.
-  cancel-in-progress: true
+  # Serialize signed uploads so a later release cannot interrupt Apple processing.
+  cancel-in-progress: false
 
 jobs:
   release:
