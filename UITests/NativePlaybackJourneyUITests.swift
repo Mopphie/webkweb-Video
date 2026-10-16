@@ -70,6 +70,41 @@ final class NativePlaybackJourneyUITests: XCTestCase {
     private func seconds(_ text: String) -> Double {
         Double(text.components(separatedBy: ";").first?.replacingOccurrences(of: "time=", with: "") ?? "") ?? -1
     }
+    private func returnSystemPiPInline(_ app: XCUIApplication, status: XCUIElement) {
+        // Pause deliberately after proving background continuity. This keeps
+        // the system overlay controls available during XCTest's UI queries.
+        app.buttons["native.toggle"].tap()
+        let paused = NSPredicate { _, _ in (status.value as? String)?.contains("playing=false") == true }
+        expectation(for: paused, evaluatedWith: nil); waitForExpectations(timeout: 5)
+        // On a fresh portrait simulator, PiP starts in the upper trailing corner.
+        // This is an actual touch on the floating system video, not the inert
+        // placeholder in AVPlayerViewController's inline surface.
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.1)).tap()
+        let roots = [XCUIApplication(bundleIdentifier: "com.apple.PIPUIService"),
+                     XCUIApplication(bundleIdentifier: "com.apple.springboard"), app]
+        let predicate = NSPredicate(format: "label MATCHES[c] %@ OR identifier CONTAINS[c] %@",
+            ".*(Return.*(App|Full.?Screen)|Back to App|Restore|Zur.*App|App.*zurück|Vollbild).*", "PIPRestore")
+        var restore: XCUIElement?
+        for root in roots where root.state != .notRunning {
+            let button = root.buttons.matching(predicate).firstMatch
+            if button.exists && button.isHittable { restore = button; break }
+        }
+        if let restore { restore.tap() }
+        else {
+            for root in roots where root.state != .notRunning {
+                let report = root.debugDescription
+                print("NATIVE_PIP_SYSTEM_CONTROLS \(report)")
+                let attachment = XCTAttachment(string: report)
+                attachment.name = "Synthetic PiP system controls"; attachment.lifetime = .keepAlways; add(attachment)
+            }
+            XCTFail("Actual system PiP return control must be reachable; no placeholder fallback")
+            return
+        }
+        let restored = NSPredicate { _, _ in (status.value as? String)?.contains("pip=false") == true }
+        expectation(for: restored, evaluatedWith: nil); waitForExpectations(timeout: 10)
+        if (status.value as? String)?.contains("playing=false") == true { app.buttons["native.toggle"].tap() }
+        waitUntilPlaying(status)
+    }
     private func queueNextAndSearch(_ app: XCUIApplication, status: XCUIElement, identity: String?) throws {
         app.buttons["native.queue"].tap()
         let next = app.buttons["native.queue.next"]; XCTAssertTrue(next.waitForExistence(timeout: 5)); next.tap()
@@ -130,19 +165,16 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         let startedAt = try field(returned, "pip_started_at")
         XCTAssertGreaterThanOrEqual(startedAt, beforeWall.timeIntervalSince1970)
         XCTAssertLessThanOrEqual(startedAt, returningAt.timeIntervalSince1970, "PiP must start during the real app switch")
-        if returned.contains("pip=true") {
-            // AVKit's inline placeholder restores the same player with a touch.
-            app.descendants(matching: .any).matching(identifier: "native.player").firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-            let restored = NSPredicate { _, _ in (status.value as? String)?.contains("pip=false") == true }
-            expectation(for: restored, evaluatedWith: nil); waitForExpectations(timeout: 10)
-        }
-        let after = try XCTUnwrap(status.value as? String)
-        XCTAssertTrue(after.contains("playing=true"))
-        let progress = seconds(after) - beforeClock
+        XCTAssertTrue(returned.contains("playing=true"))
+        let progress = seconds(returned) - beforeClock
         XCTAssertGreaterThan(progress, 0.1, "Clock must advance across PiP/background; no restart fallback")
         XCTAssertGreaterThanOrEqual(progress, Date().timeIntervalSince(beforeWall) - 2, "Playback must continue throughout the app switch")
         XCTAssertLessThanOrEqual(progress, Date().timeIntervalSince(beforeWall) + 2, "Unexpected seek or wrong clock")
         let identity = before.components(separatedBy: ";media=").last
+        XCTAssertEqual(returned.components(separatedBy: ";media=").last, identity)
+        if returned.contains("pip=true") { returnSystemPiPInline(app, status: status) }
+        let after = try XCTUnwrap(status.value as? String)
+        XCTAssertTrue(after.contains("playing=true"))
         XCTAssertEqual(after.components(separatedBy: ";media=").last, identity)
         try queueNextAndSearch(app, status: status, identity: identity)
     }

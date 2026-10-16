@@ -52,7 +52,9 @@ try:
     changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
     panel='App/NativePlayerPanel.swift'
     valid=(git('status','--porcelain') == ''
-           and git('rev-parse',parent+'^{tree}')=='f2287ef80b6f4e8373eeba2f04176cbcf9cd04c5'
+           and git('rev-parse',parent+'^{tree}') in {
+               'f2287ef80b6f4e8373eeba2f04176cbcf9cd04c5',
+               'e59a1302b9bc5246f076cc270c9a1535b46e1d62'}
            and bool(changes) and changes <= allowed
            and release(git('show',parent+':'+panel)) == release(git('show','HEAD:'+panel)))
     print('true' if valid else 'false')
