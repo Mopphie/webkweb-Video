@@ -73,12 +73,24 @@ class ConnectTests(unittest.TestCase):
             def write(widget_number):
                 with zipfile.ZipFile(path, 'w') as archive:
                     for suffix, bundle, number in (('Info.plist', asc.BUNDLE_ID, '3'),
-                            ('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', widget_number)):
+                            ('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', widget_number),
+                            ('PlugIns/Share.appex/Info.plist', asc.BUNDLE_ID + '.share', '3')):
                         archive.writestr('Payload/App.app/' + suffix, plistlib.dumps({'CFBundleIdentifier': bundle,
                             'CFBundleVersion': number, 'CFBundleShortVersionString': '0.1.0'}))
             write('3'); self.assertEqual(asc.verify_ipa(path, 3)['marketing_version'], '0.1.0')
             write('2')
             with self.assertRaises(RuntimeError): asc.verify_ipa(path, 3)
+
+    def test_ipa_requires_share_extension_and_matching_build_number(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/'mock.ipa'
+            for include_share, share_number in [(False, '3'), (True, '2')]:
+                with zipfile.ZipFile(path, 'w') as archive:
+                    values = [('Info.plist', asc.BUNDLE_ID, '3'), ('PlugIns/Favorites.appex/Info.plist', asc.BUNDLE_ID + '.favorites', '3')]
+                    if include_share: values.append(('PlugIns/Share.appex/Info.plist', asc.BUNDLE_ID + '.share', share_number))
+                    for name, bundle, number in values:
+                        archive.writestr('Payload/App.app/' + name, plistlib.dumps({'CFBundleIdentifier': bundle, 'CFBundleVersion': number, 'CFBundleShortVersionString': '0.1.0'}))
+                with self.assertRaises(RuntimeError): asc.verify_ipa(path, 3)
 
     def test_processing_waits_for_valid_and_rejects_failed(self):
         client = Mock()

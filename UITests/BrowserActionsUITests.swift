@@ -86,10 +86,9 @@ final class BrowserActionsUITests: XCTestCase {
         milestone("Open stable actions panel during playback")
         app.buttons["browser.actions"].tap()
         XCTAssertTrue(app.navigationBars["Browser"].waitForExistence(timeout: 5))
-        let filter = app.switches["browser.filter"]
-        reveal(filter, in: app)
-        milestone("Toggle filter in modal panel")
-        filter.tap()
+        let address = app.buttons["Adresse oder Suche"]
+        XCTAssertTrue(address.isHittable)
+        milestone("Navigation remains reachable in modal panel")
         XCTAssertTrue(app.buttons["browser.actions.close"].isHittable)
         app.buttons["browser.actions.close"].tap()
         milestone("Reopen actions and restore the same website document")
@@ -119,7 +118,7 @@ final class BrowserActionsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["browser.watch.home"].isHittable)
     }
 
-    func testAudibleVideoKeepsAdvancingWithRealWebsiteAndNativePlayControls() throws {
+    func testAudibleVideoKeepsAdvancingWithRealWebsitePlayAndAppPause() throws {
         let app = try launchFixture(audible: true)
         XCTAssertTrue(app.staticTexts["Ton aktiv"].exists)
         milestone("Unmuted fixture keeps decoding beyond startup")

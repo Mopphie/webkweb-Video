@@ -1,3 +1,5 @@
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # Funktionsprüfung der bereinigten App
 
 Stand: 16. Oktober 2026. Die Ebenen werden getrennt ausgewiesen: originale Skripte im Node-Harness, reale lokale Videodekodierung in Chromium, native XCTest-Fälle im iOS-Simulator und weiterhin erforderliche Geräte-/Diensteprüfungen. Ein bestandener lokaler Videotest beweist keine Kompatibilität jeder fremden Plattform.

@@ -1,0 +1,471 @@
+[
+  {
+    "id": "apple-review",
+    "url": "https://developer.apple.com/app-store/review/guidelines/",
+    "retrieved_at_utc": "2026-10-16T09:57:37.597584+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/app-store/review/guidelines/",
+    "sha256": "1c96889a7bb12af73024e8fe6631a7520b76eff80fc97e031e0fbf5e8016ad75",
+    "bytes": 238264
+  },
+  {
+    "id": "apple-privacy-details",
+    "url": "https://developer.apple.com/app-store/app-privacy-details/",
+    "retrieved_at_utc": "2026-10-16T09:57:37.598258+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/app-store/app-privacy-details/",
+    "sha256": "6e1d7ae64cd801225f046204da699fa7ae07ff5a566b9fb9bd2a6a6c1a93df12",
+    "bytes": 134919
+  },
+  {
+    "id": "apple-user-privacy",
+    "url": "https://developer.apple.com/app-store/user-privacy-and-data-use/",
+    "retrieved_at_utc": "2026-10-16T09:57:37.598678+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/app-store/user-privacy-and-data-use/",
+    "sha256": "9a1297d0a007e1d4572553f45f801e7ea4d0f40c94f6944bb7290fc714582f4b",
+    "bytes": 131474
+  },
+  {
+    "id": "apple-private-store",
+    "url": "https://developer.apple.com/documentation/webkit/wkwebsitedatastore/nonpersistent()",
+    "retrieved_at_utc": "2026-10-16T09:57:37.599102+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/webkit/wkwebsitedatastore/nonpersistent()",
+    "sha256": "3388c237a00c526f5505e040d3df5f5030edac00316f27ffc47df9e79e363508",
+    "bytes": 6611
+  },
+  {
+    "id": "apple-web-pip",
+    "url": "https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback",
+    "retrieved_at_utc": "2026-10-16T09:57:37.599601+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback",
+    "sha256": "c31f5150645172d48f020ce7347797e47aebedc467c8891d67bc38bb8131cce8",
+    "bytes": 6604
+  },
+  {
+    "id": "youtube-terms",
+    "url": "https://www.youtube.com/t/terms",
+    "retrieved_at_utc": "2026-10-16T09:57:37.600034+00:00",
+    "status": "UNAVAILABLE",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "id": "youtube-adblocking",
+    "url": "https://support.google.com/youtube/answer/14129599?hl=en",
+    "retrieved_at_utc": "2026-10-16T09:57:37.601429+00:00",
+    "status": 200,
+    "final_url": "https://support.google.com/youtube/answer/14129599?hl=en",
+    "sha256": "069693a625a9b48facecbc30a9da8e74f412cacc7ee000cbe0bce51ceab308ba",
+    "bytes": 1615412
+  },
+  {
+    "id": "youtube-api-policy",
+    "url": "https://developers.google.com/youtube/terms/developer-policies",
+    "retrieved_at_utc": "2026-10-16T09:57:37.607143+00:00",
+    "status": 200,
+    "final_url": "https://developers.google.com/youtube/terms/developer-policies",
+    "sha256": "5f41b0832f033c7ab5ec7643e2dc19b0d0987129354fb759de4b18f2d27bdbb1",
+    "bytes": 151825
+  },
+  {
+    "id": "sponsorblock-data",
+    "url": "https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License",
+    "retrieved_at_utc": "2026-10-16T09:57:37.618055+00:00",
+    "status": 200,
+    "final_url": "https://github.com/ajayyy/SponsorBlock/wiki/Database-and-API-License",
+    "sha256": "1807902e6163141bceaf690fd76b6989b7cabf721f80413160c1397c501633c9",
+    "bytes": 240678
+  },
+  {
+    "id": "sponsorblock-code",
+    "url": "https://raw.githubusercontent.com/ajayyy/SponsorBlock/master/LICENSE",
+    "retrieved_at_utc": "2026-10-16T09:57:37.838311+00:00",
+    "status": 200,
+    "final_url": "https://raw.githubusercontent.com/ajayyy/SponsorBlock/master/LICENSE",
+    "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "bytes": 35147
+  },
+  {
+    "id": "easylist",
+    "url": "https://easylist.to/pages/licence.html",
+    "retrieved_at_utc": "2026-10-16T09:57:37.843152+00:00",
+    "status": 200,
+    "final_url": "https://easylist.to/pages/licence.html",
+    "sha256": "ae1fc788911864f395d5405486a33f164c9233a90faa2264000389146c5de04d",
+    "bytes": 2779
+  },
+  {
+    "id": "gnu-faq",
+    "url": "https://www.gnu.org/licenses/gpl-faq.html",
+    "retrieved_at_utc": "2026-10-16T09:57:37.862438+00:00",
+    "status": 200,
+    "final_url": "https://www.gnu.org/licenses/gpl-faq.html",
+    "sha256": "6b48c709107e216b22c8415ed5c190c1c10818ac79f792563dfa501ee8dcec14",
+    "bytes": 197515
+  },
+  {
+    "id": "adguard-license",
+    "url": "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/LICENSE",
+    "retrieved_at_utc": "2026-10-16T09:57:37.928338+00:00",
+    "status": 200,
+    "final_url": "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/LICENSE",
+    "sha256": "589ed823e9a84c56feb95ac58e7cf384626b9cbf4fda2a907bc36e103de1bad2",
+    "bytes": 35141
+  },
+  {
+    "id": "adguard-readme",
+    "url": "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/README.md",
+    "retrieved_at_utc": "2026-10-16T09:57:38.037048+00:00",
+    "status": 200,
+    "final_url": "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/README.md",
+    "sha256": "a686cbd32f58f59fd3b30098fbe576d55eca50ac29b95b86825d04ae7b42fa71",
+    "bytes": 11837
+  },
+  {
+    "id": "hagezi-license",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/LICENSE",
+    "retrieved_at_utc": "2026-10-16T09:57:38.090943+00:00",
+    "status": 200,
+    "final_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/LICENSE",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "bytes": 35149
+  },
+  {
+    "id": "hagezi-sources",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/sources.md",
+    "retrieved_at_utc": "2026-10-16T09:57:38.112277+00:00",
+    "status": 200,
+    "final_url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/sources.md",
+    "sha256": "004722a76efcd04e7442715310d5e96aed587ad070e05507cc52af871542bbb7",
+    "bytes": 22944
+  },
+  {
+    "id": "apple-agreement",
+    "url": "https://developer.apple.com/support/terms/apple-developer-program-license-agreement/",
+    "retrieved_at_utc": "2026-10-16T09:57:38.146569+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/support/terms/apple-developer-program-license-agreement/",
+    "sha256": "db2d34d28aa93126e09e0ae63a6d82644868c44b2b9287a960b94a7c34dd78c9",
+    "bytes": 848279
+  },
+  {
+    "id": "apple-membership",
+    "url": "https://developer.apple.com/support/compare-memberships/",
+    "retrieved_at_utc": "2026-10-16T09:57:38.187811+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/help/account/basics/about-your-developer-account",
+    "sha256": "178e13cd105d594f6c6ca9656d3647566fb90882d6f12305bc4424d20275fcbf",
+    "bytes": 200223
+  },
+  {
+    "id": "apple-cloudkit",
+    "url": "https://developer.apple.com/icloud/cloudkit/",
+    "retrieved_at_utc": "2026-10-16T09:57:38.247529+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/icloud/cloudkit/",
+    "sha256": "4353ccd961802160992773ad605173240db4de75a8ae1d5befd5c9728e6a18fa",
+    "bytes": 111308
+  },
+  {
+    "id": "apple-sf-symbols",
+    "url": "https://developer.apple.com/sf-symbols/",
+    "retrieved_at_utc": "2026-10-16T09:57:38.285081+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/sf-symbols/",
+    "sha256": "03139d431c518e7685edbfec89cdc05399615745a702bed5012dccb62c012df4",
+    "bytes": 115215
+  },
+  {
+    "id": "twitch-terms",
+    "url": "https://www.twitch.tv/p/en/legal/terms-of-service/",
+    "retrieved_at_utc": "2026-10-16T09:57:38.349437+00:00",
+    "status": 200,
+    "final_url": "https://legal.twitch.com/en/legal/terms-of-service/",
+    "sha256": "c60c60058f7cd70c13ee21b924dcdeb8b1c288aada29bb945be34b85027d4917",
+    "bytes": 30525
+  },
+  {
+    "id": "tiktok-terms",
+    "url": "https://www.tiktok.com/legal/page/eea/terms-of-service/en",
+    "retrieved_at_utc": "2026-10-16T09:57:38.432211+00:00",
+    "status": 200,
+    "final_url": "https://www.tiktok.com/legal/page/eea/terms-of-service/en",
+    "sha256": "c8f6ff6b70c190a86e3adcbbf428e3f6d405d7abeaa05b6500de840cb8f450a7",
+    "bytes": 275823
+  },
+  {
+    "id": "rumble-terms",
+    "url": "https://rumble.com/s/terms",
+    "retrieved_at_utc": "2026-10-16T09:57:38.434030+00:00",
+    "status": 200,
+    "final_url": "https://rumble.com/s/terms",
+    "sha256": "08021e4aa3735a3f602d76764e379fc82949df9669118fcc080bdc94d67e63ce",
+    "bytes": 462320
+  },
+  {
+    "id": "apple-background",
+    "url": "https://developer.apple.com/documentation/avfoundation/configuring-your-app-for-media-playback",
+    "retrieved_at_utc": "2026-10-16T09:57:38.467729+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/avfoundation/configuring-your-app-for-media-playback",
+    "sha256": "7d9fedd868edf9e666dddecde3a735b5ab48c46ac25ac369ffbc6a2eb355cdae",
+    "bytes": 18878
+  },
+  {
+    "id": "apple-local-auth",
+    "url": "https://developer.apple.com/documentation/localauthentication",
+    "retrieved_at_utc": "2026-10-16T09:57:38.516810+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/localauthentication",
+    "sha256": "8728ae6296b0f979735d89184d5de2d9d411e396f1beafc339a3084ec1b2aa71",
+    "bytes": 6545
+  },
+  {
+    "id": "apple-widgets",
+    "url": "https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date",
+    "retrieved_at_utc": "2026-10-16T09:57:38.561453+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/widgetkit/keeping-a-widget-up-to-date",
+    "sha256": "832585c5a85c7181a456261ec71aff2144dccdcf56bc41fd0760c2e90e28a8fb",
+    "bytes": 6618
+  },
+  {
+    "id": "apple-required-reasons",
+    "url": "https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api",
+    "retrieved_at_utc": "2026-10-16T09:57:38.664291+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api",
+    "sha256": "ead57ff9babd0a5313771ebb96f26ac612f4d30150efca5bf06407d6581ba0d3",
+    "bytes": 6580
+  },
+  {
+    "id": "apple-doc-json-webkit-wkwebsitedatastore",
+    "url": "https://developer.apple.com/tutorials/data/documentation/webkit/wkwebsitedatastore/nonpersistent().json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.443827+00:00",
+    "status": 200,
+    "sha256": "3a7ac00e40feb71d6c5e2b753a843cc537ddc7dc1ffe170b80c68e4605ced7dc",
+    "bytes": 11144
+  },
+  {
+    "id": "apple-doc-json-webkit-wkwebviewconfiguration",
+    "url": "https://developer.apple.com/tutorials/data/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback.json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.444815+00:00",
+    "status": 200,
+    "sha256": "ffaf328db058ae7a97cb0d53703e43a00b8806d8b8cf074fb32dcbbc50ae15b8",
+    "bytes": 15405
+  },
+  {
+    "id": "apple-doc-json-avfoundation-avasset",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/avasset/loadchaptermetadatagroups(bestmatchingpreferredlanguages:).json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.445286+00:00",
+    "status": "UNAVAILABLE",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "id": "apple-doc-json-avfoundation-avasset",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/avasset/loadmediaselectiongroup(for:).json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.445808+00:00",
+    "status": "UNAVAILABLE",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "id": "apple-doc-json-avfoundation-configuring-your-app-for-media-playback.json",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/configuring-your-app-for-media-playback.json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.446332+00:00",
+    "status": 200,
+    "sha256": "b6f9c4c38ba4684e5eab3e0de228f1cf9b65fa96b9fe1a2bb5f0a79dda833c1e",
+    "bytes": 17338
+  },
+  {
+    "id": "apple-doc-json-localauthentication-lacontext",
+    "url": "https://developer.apple.com/tutorials/data/documentation/localauthentication/lacontext/evaluatepolicy(_:localizedreason:reply:).json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.446884+00:00",
+    "status": 200,
+    "sha256": "b9f9e2d1de33330de006e8da7859e5b9b9d7ebebc1fa329deaf653cb78fefeec",
+    "bytes": 30719
+  },
+  {
+    "id": "apple-doc-json-widgetkit-keeping-a-widget-up-to-date.json",
+    "url": "https://developer.apple.com/tutorials/data/documentation/widgetkit/keeping-a-widget-up-to-date.json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.672071+00:00",
+    "status": 200,
+    "sha256": "893b735557f543b51bd07fa60a6a5247bc10beffdf7c9001b38f27e3d79fef31",
+    "bytes": 47187
+  },
+  {
+    "id": "apple-doc-json-bundleresources-describing-use-of-required-reason-api.json",
+    "url": "https://developer.apple.com/tutorials/data/documentation/bundleresources/describing-use-of-required-reason-api.json",
+    "retrieved_at_utc": "2026-10-16T10:19:12.677975+00:00",
+    "status": 200,
+    "sha256": "d49be095f6898f0b441e395c2b4ff9f8b4227afdfbe77046208868ae7108a1cd",
+    "bytes": 17105
+  },
+  {
+    "id": "youtube-terms-web-primary",
+    "url": "https://www.youtube.com/t/terms",
+    "retrieved_at_utc": "2026-10-16",
+    "method": "web open of official source",
+    "status": "READ",
+    "displayed_version": "January 5, 2022; DE/EEA English courtesy translation",
+    "sections_reviewed": [
+      "Permissions and Restrictions 1\u20133, 9\u201310",
+      "License to Other Users",
+      "Reservation"
+    ],
+    "note": "Direct workspace HTTP blocked; primary source read through web tool. No page/hash invented."
+  },
+  {
+    "id": "apple-native-background-policy",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/avplayer/audiovisualbackgroundplaybackpolicy.json",
+    "retrieved_at_utc": "2026-10-16T10:51:10.004164+00:00",
+    "status": 200,
+    "sha256": "12641819799120b4159fecd7bf4723e28966b4ba9c934bb756cd678dcf876371",
+    "bytes": 10097,
+    "platforms": [
+      {
+        "introducedAt": "15.0",
+        "name": "iOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "iPadOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "Mac Catalyst"
+      },
+      {
+        "introducedAt": "12.0",
+        "name": "macOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "tvOS"
+      },
+      {
+        "introducedAt": "1.0",
+        "name": "visionOS"
+      },
+      {
+        "introducedAt": "8.0",
+        "name": "watchOS"
+      }
+    ]
+  },
+  {
+    "id": "apple-native-background-continues",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/avplayeraudiovisualbackgroundplaybackpolicy/continuesifpossible.json",
+    "retrieved_at_utc": "2026-10-16T10:51:10.189491+00:00",
+    "status": 200,
+    "sha256": "7e25313604da64e7c4fd70f1362d85be454bf217f6aa930dc16e06e4351fad06",
+    "bytes": 10589,
+    "platforms": [
+      {
+        "introducedAt": "15.0",
+        "name": "iOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "iPadOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "Mac Catalyst"
+      },
+      {
+        "introducedAt": "12.0",
+        "name": "macOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "tvOS"
+      },
+      {
+        "introducedAt": "1.0",
+        "name": "visionOS"
+      },
+      {
+        "introducedAt": "8.0",
+        "name": "watchOS"
+      }
+    ]
+  },
+  {
+    "id": "apple-avasset-chapters",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/avasset/loadchaptermetadatagroups(bestmatchingpreferredlanguages:completionhandler:).json",
+    "retrieved_at_utc": "2026-10-16T10:51:10.544985+00:00",
+    "status": 200,
+    "sha256": "e3470912ddc957b4d7f784960e27f0b3448f1a9e5398f6fc9ed39d1fa06557b0",
+    "bytes": 33162,
+    "platforms": [
+      {
+        "introducedAt": "15.0",
+        "name": "iOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "iPadOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "Mac Catalyst"
+      },
+      {
+        "introducedAt": "12.0",
+        "name": "macOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "tvOS"
+      },
+      {
+        "introducedAt": "1.0",
+        "name": "visionOS"
+      },
+      {
+        "introducedAt": "8.0",
+        "name": "watchOS"
+      }
+    ]
+  },
+  {
+    "id": "apple-avasset-tracks",
+    "url": "https://developer.apple.com/tutorials/data/documentation/avfoundation/avasset/loadmediaselectiongroup(for:completionhandler:).json",
+    "retrieved_at_utc": "2026-10-16T10:51:10.817655+00:00",
+    "status": 200,
+    "sha256": "d23c507deca598b6877b82d7da27335d7b45885368b3c32317953d44fb7b0c99",
+    "bytes": 28865,
+    "platforms": [
+      {
+        "introducedAt": "15.0",
+        "name": "iOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "iPadOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "Mac Catalyst"
+      },
+      {
+        "introducedAt": "12.0",
+        "name": "macOS"
+      },
+      {
+        "introducedAt": "15.0",
+        "name": "tvOS"
+      },
+      {
+        "introducedAt": "1.0",
+        "name": "visionOS"
+      },
+      {
+        "introducedAt": "8.0",
+        "name": "watchOS"
+      }
+    ]
+  }
+]

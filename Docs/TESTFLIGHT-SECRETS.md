@@ -1,3 +1,7 @@
+> Aktueller lokaler Zusatz: Für einen später ausdrücklich freigegebenen Upload wird außerdem ein echtes, zur ShareExtension passendes Profil unter dem Secret-Namen `APPLE_SHARE_PROVISIONING_PROFILE_BASE64` benötigt. Nur Quellvorbereitung und Mocktests erfolgt; kein Secret/Konto geändert, kein Upload gestartet.
+
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # GitHub-TestFlight-Workflow
 
 **Aktueller bestätigter Stand:** [Lauf 38880644099](https://github.com/Mopphie/webkweb-Video/actions/runs/38880644099), Code `9b9f6c3`: Version **0.1.0 (Build 5)** erfolgreich signiert/exportiert/hochgeladen. **46/46 native Unit-/WK-Tests und 3/3 XCUITests**, 55/55 Node- und 10/10 Helper-Tests bestanden. Apple bestätigt `VALID` und `READY_FOR_BETA_TESTING`. Der API-Schlüssel kann Beta-Gruppen nicht lesen/verwalten (HTTP 403); die Übernahme der bestehenden internen Gruppe konnte nicht durchgeführt oder geprüft werden. Falls Build 5 nicht in TestFlight erscheint, in App Store Connect der bestehenden internen Testgruppe hinzufügen. Kein Nachweis aktiver Testerzugänge oder `IN_BETA_TESTING`. [Vollständiges Ergebnis](RELEASE.md), [App Store Connect / TestFlight](https://appstoreconnect.apple.com/apps/6822711093/testflight).

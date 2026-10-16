@@ -21,8 +21,9 @@ final class BrowserIntegrationTests: XCTestCase {
                 XCTAssertFalse(report.contains(value))
             }
             let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
-            XCTAssertEqual(json["site"] as? String, privateMode ? "private" : "example.com")
-            XCTAssertEqual((json["events"] as? [[String: String]])?.count, 40)
+            if privateMode {
+                XCTAssertNil(json["events"]); XCTAssertNil(json["native"]); XCTAssertEqual(json["private"] as? Bool, true)
+            } else { XCTAssertEqual(json["site"] as? String, "example.com"); XCTAssertEqual((json["events"] as? [[String: String]])?.count, 40) }
         }
     }
     func testPrivatePopupRetainsConfiguredWebsiteDataStore() {

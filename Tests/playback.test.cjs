@@ -156,21 +156,18 @@ test('caption selection and off use exposed text tracks only',()=>{
  h.api.setCaption(1);assert.equal(textTracks[1].mode,'showing');assert.equal(textTracks[0].mode,'disabled');
  h.api.setCaption(-1);assert.ok(textTracks.every(t=>t.mode==='disabled'));
 });
-test('original-audio preference selects only explicitly marked original and manual selection works',()=>{
- const audioTracks=[{label:'English dubbed',enabled:true},{label:'Original audio',enabled:false}],h=harness([element('VIDEO',{audioTracks})]);
- h.api.setOptions({preferOriginal:true});assert.equal(audioTracks[1].enabled,true);assert.equal(audioTracks[0].enabled,false);
- h.api.setAudio(0);assert.equal(audioTracks[0].enabled,true);h.api.setAudio(99);assert.equal(audioTracks[0].enabled,true);
-});
-test('unknown audio labels are not guessed to be original',()=>{
- const audioTracks=[{label:'English',enabled:true},{label:'Deutsch',enabled:false}],h=harness([element('VIDEO',{audioTracks})]);h.api.setOptions({preferOriginal:true});assert.equal(audioTracks[0].enabled,true);
+test('manual audio selection uses exposed tracks without inferring an original language',()=>{
+ const audioTracks=[{label:'English',enabled:true},{label:'Deutsch Original',enabled:false}],h=harness([element('VIDEO',{audioTracks})]);
+ assert.equal(audioTracks[0].enabled,true);assert.equal(audioTracks[1].enabled,false);assert.equal(h.api.setOptions,undefined);
+ h.api.setAudio(1);assert.equal(audioTracks[0].enabled,false);assert.equal(audioTracks[1].enabled,true);
 });
 test('rate limits reject invalid settings without changing volume',()=>{
  const v=element('VIDEO',{volume:0.4,playbackRate:1}),h=harness([v]);h.api.setRate(2);assert.equal(v.playbackRate,2);h.api.setRate(99);assert.equal(v.playbackRate,2);assert.equal(v.volume,0.4);
 });
-test('fullscreen and PiP are separate and auto-PiP respects pause and timer stop',()=>{
- let fullscreen=0,pip=0;const v=element('VIDEO',{webkitEnterFullscreen(){fullscreen++;},webkitSupportsPresentationMode:()=>true,webkitSetPresentationMode(){pip++;}}),h=harness([v]);
- h.api.fullscreen();assert.equal(fullscreen,1);assert.equal(pip,0);h.api.setOptions({autoPiP:true});h.api.autoPiP();assert.equal(pip,1);
- h.api.pause(true);h.api.autoPiP();assert.equal(pip,1);h.api.clearStop();h.api.autoPiP();assert.equal(pip,1);
+test('website fullscreen remains public while forced website PiP and AirPlay are absent',()=>{
+ let fullscreen=0;const h=harness([element('VIDEO',{webkitEnterFullscreen(){fullscreen++;}})]);
+ h.api.fullscreen();assert.equal(fullscreen,1);
+ for(const key of ['pip','autoPiP','airplay','setOptions'])assert.equal(h.api[key],undefined);
 });
 test('waiting recovery respects timer latch and preserves mute',()=>{
  const v=element('VIDEO',{muted:true}),h=harness([v]);v.listeners.waiting();assert.equal(h.state().waiting,true);
@@ -194,9 +191,9 @@ test('background ticks reduce state traffic and skip discovery',()=>{
  const h=harness();h.api.setBackground(true);const before=h.messages.length,queries=h.queries();for(let i=0;i<10;i++)h.tick();
  assert.equal(h.messages.slice(before).filter(m=>m.kind==='state').length,2);assert.equal(h.queries(),queries);
 });
-test('Shorts opt-in rejects route on genuine YouTube only',()=>{
- const h=harness(undefined,'https://m.youtube.com/shorts/abcdefghijk');let redirected='';h.location.replace=url=>{redirected=url;};h.api.setOptions({hideShorts:true});assert.equal(redirected,'https://m.youtube.com/');
- const fake=harness(undefined,'https://youtube.com.evil.example/shorts/abcdefghijk');let fakeRedirect=false;fake.location.replace=()=>{fakeRedirect=true;};fake.api.setOptions({hideShorts:true});assert.equal(fakeRedirect,false);
+test('YouTube Shorts navigation is left unchanged without hidden route rewriting',()=>{
+ const h=harness(undefined,'https://m.youtube.com/shorts/abcdefghijk');let redirected=false;h.location.replace=()=>{redirected=true;};h.tick();
+ assert.equal(redirected,false);assert.equal(h.location.pathname,'/shorts/abcdefghijk');assert.equal(h.api.setOptions,undefined);
 });
 test('repeat identifies the ended primary instead of restarting a surviving loop player',()=>{
  const main=element(),loop=element('VIDEO',{width:16,height:16,loop:true,currentTime:33}),h=harness([main,loop]),id=h.state().mediaID;

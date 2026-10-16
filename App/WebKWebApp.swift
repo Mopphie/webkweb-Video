@@ -8,24 +8,13 @@ struct WebKWebApp: App {
     @StateObject private var browser = BrowserModel()
     private let container: ModelContainer?
     private let storageError: String?
-    private let cloudWarning: String?
 
     init() {
-        let options = PreferencesStorage.load()
-        let cloud: ModelConfiguration.CloudKitDatabase = options.cloudSync ? ReleaseConfiguration.cloudContainer.map { .private($0) } ?? .none : .none
-        var warning = options.cloudSync && ReleaseConfiguration.cloudContainer == nil ? "iCloud ist nicht provisioniert; lokaler Speicher wird verwendet." : nil
         var localContainer: ModelContainer?
         var failure: String?
-        do { localContainer = try ModelContainer(for: SavedPage.self, configurations: ModelConfiguration(cloudKitDatabase: cloud)) }
-        catch {
-            if options.cloudSync {
-                do {
-                    localContainer = try ModelContainer(for: SavedPage.self, configurations: ModelConfiguration(cloudKitDatabase: .none))
-                    warning = "iCloud konnte nicht gestartet werden; lokaler Speicher bleibt verfügbar. \(error.localizedDescription)"
-                } catch { failure = error.localizedDescription }
-            } else { failure = error.localizedDescription }
-        }
-        container = localContainer; storageError = failure; cloudWarning = warning
+        do { localContainer = try ModelContainer(for: SavedPage.self, configurations: ModelConfiguration(cloudKitDatabase: .none)) }
+        catch { failure = error.localizedDescription }
+        container = localContainer; storageError = failure
     }
 
     var body: some Scene {
@@ -33,10 +22,13 @@ struct WebKWebApp: App {
             if let container {
                 BrowserView()
                     .environmentObject(browser)
+                    .environmentObject(browser.library)
+                    .environmentObject(browser.nativePlayer)
+                    .preferredColorScheme(browser.options.appearance == .system ? nil : browser.options.appearance == .dark ? .dark : .light)
                     .modelContainer(container)
                     .tint(.teal)
-                    .task { if let cloudWarning { browser.notice = cloudWarning } }
                     .onOpenURL { url in
+                        guard !browser.privacyLocked else { return }
                         if url.scheme == "devntube", url.host == "home" { browser.addTab() }
                         else if let input = AddressResolver.deepLink(url) { browser.open(input) }
                     }

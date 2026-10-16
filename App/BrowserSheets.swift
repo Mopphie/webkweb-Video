@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import WebKit
+import LocalAuthentication
 
 enum LibrarySection: String, CaseIterable { case favorites = "Favoriten", history = "Verlauf" }
 
@@ -37,10 +38,11 @@ struct LibraryView: View {
     @State private var selectedSection: LibrarySection = .favorites
     @State private var search = ""
     @State private var clearHistory = false
+    @State private var clearProgress = false
     @State private var editingPage: SavedPage?
     private var favorites: [SavedPage] { pages.filter(\.favorite).sorted { $0.favoriteOrder < $1.favoriteOrder } }
     private var filtered: [SavedPage] {
-        (selectedSection == .favorites ? favorites : pages.filter { !$0.favorite }).filter {
+        (selectedSection == .favorites ? favorites : pages.filter { !$0.favorite && $0.isHistory }).filter {
             search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search)
         }
     }
@@ -72,7 +74,7 @@ struct LibraryView: View {
                 }
             }
             .confirmationDialog("Verlauf löschen? Favoriten bleiben.", isPresented: $clearHistory, titleVisibility: .visible) {
-                Button("Verlauf löschen", role: .destructive) { for page in pages where !page.favorite { context.delete(page) }; didChange() }
+                Button("Verlauf löschen", role: .destructive) { for page in pages { if page.favorite { page.visitedAt = .distantPast; page.isHistory = false } else { context.delete(page) } }; browser.clearRecentNavigation(); didChange() }
             }
             .sheet(item: $editingPage) { page in FavoriteEditor(page: page, didSave: didChange) }
         }
@@ -95,6 +97,7 @@ struct LibraryView: View {
         .swipeActions(edge: .leading) {
             Button {
                 page.favorite.toggle()
+                if !page.favorite && !page.isHistory { context.delete(page) }
                 if page.favorite { page.favoriteOrder = (favorites.map(\.favoriteOrder).max() ?? 0) + 1 }
                 didChange()
             } label: { Label(page.favorite ? "Entfernen" : "Favorit", systemImage: page.favorite ? "star.slash" : "star") }.tint(.orange)
@@ -124,6 +127,7 @@ private struct FavoriteEditor: View {
                         Button("Speichern") {
                             guard let url = AddressResolver.directURL(address) else { error = "HTTP(S)-Adresse ohne Zugangsdaten erforderlich."; return }
                             page.title = title.isEmpty ? (url.host ?? "Favorit") : title
+                            if page.address != url.absoluteString { page.isHistory = false; page.visitedAt = .distantPast }
                             page.address = url.absoluteString; page.customTitle = !title.isEmpty; didSave(); dismiss()
                         }
                     }
@@ -136,19 +140,31 @@ private struct FavoriteEditor: View {
 struct TabsView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+    @State private var tabGroup = ""
     var body: some View {
         NavigationStack {
             List {
-                ForEach(browser.tabs) { tab in
+                ForEach(browser.tabs.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) || $0.address.localizedCaseInsensitiveContains(search) || $0.group.localizedCaseInsensitiveContains(search) }.sorted { $0.pinned && !$1.pinned }) { tab in
                     TabRow(tab: tab, selected: tab.id == browser.selectedID) {
                         browser.selectedID = tab.id
                         dismiss()
                     }
-                    .swipeActions {
-                        Button("Schließen", role: .destructive) { browser.close(tab.id) }
+                    .swipeActions { Button("Schließen", role: .destructive) { browser.close(tab.id) } }
+                    .contextMenu {
+                        Button(tab.pinned ? "Lösen" : "Anheften") { browser.objectWillChange.send(); tab.pinned.toggle(); browser.persistSession() }
+                        Button("Gruppe zuweisen") { browser.objectWillChange.send(); tab.group = String(tabGroup.prefix(60)); browser.persistSession() }
+                        Button("Gruppe entfernen") { browser.objectWillChange.send(); tab.group = ""; browser.persistSession() }
                     }
                 }
+                Section("Tabgruppen") {
+                    TextField("Gruppenname", text: $tabGroup)
+                    Text("Gruppen über das Tabmenü zuweisen; nach Namen suchen. Private Gruppen bleiben flüchtig.").font(.caption)
+                    Button("Geschlossenen normalen Tab wiederherstellen") { browser.reopenClosedTab() }.disabled(browser.closedTabs.isEmpty || browser.tabs.count >= 12)
+                    Button("Private Sitzung beenden", role: .destructive) { browser.endPrivateSession() }.disabled(!browser.tabs.contains(where: \.isPrivate))
+                }
             }
+            .searchable(text: $search, prompt: "Tabs oder Gruppen")
             .navigationTitle("Tabs")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }
@@ -171,9 +187,11 @@ private struct TabRow: View {
     var body: some View {
         Button(action: select) {
             HStack {
-                Image(systemName: tab.playing ? "speaker.wave.2" : "globe").foregroundStyle(.teal)
+                Image(systemName: tab.playing ? (tab.muted ? "speaker.slash" : "speaker.wave.2") : "globe").foregroundStyle(.teal)
                 VStack(alignment: .leading) {
-                    Text(tab.title).foregroundStyle(.primary).lineLimit(2)
+                    Text((tab.pinned ? "📌 " : "") + tab.title).foregroundStyle(.primary).lineLimit(2)
+                    if !tab.group.isEmpty { Text(tab.group).font(.caption).foregroundStyle(.teal) }
+                    if tab.isPrivate { Text("Privat").font(.caption) }
                     Text(tab.address.isEmpty ? "Startseite" : tab.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Spacer()
@@ -196,7 +214,7 @@ struct SleepTimerView: View {
         NavigationStack {
             Form {
                 Picker("Pause nach", selection: $mode) {
-                    Text("Dauer").tag(0); Text("Videos").tag(1); Text("Aktuelles Video").tag(2)
+                    Text("Dauer").tag(0); Text("Videos").tag(1); Text("Aktuelles Video").tag(2); Text("Queue-Ende").tag(3)
                 }
                 if mode == 0 {
                     Stepper("\(hours) Stunden", value: $hours, in: 0...23)
@@ -205,12 +223,14 @@ struct SleepTimerView: View {
                 } else if mode == 1 { Stepper("\(videos) Videos", value: $videos, in: 1...100) }
                 Button("Timer starten") {
                     if mode == 0 { browser.sleep(seconds: hours * 3600 + minutes * 60 + seconds) }
+                    else if mode == 3 { browser.sleepAfterQueue() }
                     else { browser.sleep(videos: mode == 2 ? 1 : videos, currentVideoOnly: mode == 2) }
                     dismiss()
-                }.disabled(mode == 0 ? (hours * 3600 + minutes * 60 + seconds == 0) : (browser.current.activeMediaKind != "video"))
-                Text("Nur der primäre Webseiten-Videoplayer zählt. Kein Live-Zähler. Zeit-Timer bleibt nach Neustart erhalten; private Tab-Zähler werden nicht gespeichert. Ende-des-aktuellen-Videos wird nach Neustart verworfen. Eine suspendierte App kann erst beim Fortsetzen pausieren.")
+                }.disabled(mode == 0 ? (hours * 3600 + minutes * 60 + seconds == 0) : (browser.nativePlayer.isOpen ? browser.nativePlayer.duration == nil : browser.current.activeMediaKind != "video" || !browser.current.canControlMedia || browser.current.duration == nil || mode == 3))
+                Text("Zeitdauer läuft auch bei Pause und Quellenwechsel weiter. Native Video-/Queue-Enden zählen tatsächliche Endereignisse. Bei Live-Medien gibt es keine Ende-Option. Während nativer Audio-/PiP-/AirPlay-Wiedergabe wird der Zeit-Timer geprüft; für suspendierte Webseiten erst nach Rückkehr. Exakte Ausführung während Gerätesperre muss am Gerät geprüft werden.")
                     .font(.caption).foregroundStyle(.secondary)
-                if browser.sleepPlan.isActive { Button("Timer abbrechen", role: .destructive) { browser.cancelSleep(); dismiss() } }
+                if browser.sleepPlan.deadline != nil { Button("Um 10 Minuten verlängern") { browser.extendSleep() } }
+                if browser.sleepPlan.isActive || browser.sleepAfterNativeQueue { Button("Timer abbrechen", role: .destructive) { browser.cancelSleep(); dismiss() } }
             }.navigationTitle("Sleep-Timer")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
         }
@@ -221,7 +241,6 @@ struct SleepTimerView: View {
 struct SettingsView: View {
     @EnvironmentObject private var browser: BrowserModel
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var rules = RuleStore.shared
     @State private var clearWebsiteData = false
     var body: some View {
         NavigationStack {
@@ -230,35 +249,39 @@ struct SettingsView: View {
                     Picker("Suchmaschine", selection: $browser.options.searchEngine) {
                         ForEach(SearchEngine.allCases) { Text($0.title).tag($0) }
                     }
-                    Toggle("Desktop-Kennung", isOn: $browser.options.desktop)
+                    Toggle("Desktopansicht", isOn: $browser.options.desktop)
                     LabeledContent("Seitenzoom", value: "\(Int(browser.options.zoom * 100)) %")
                     Slider(value: $browser.options.zoom, in: 0.5...2, step: 0.1)
                     Button("Aktuelle Seite neu laden") { browser.current.reload() }.disabled(browser.current.address.isEmpty)
                     Toggle("Gestenfläche zum Spulen", isOn: $browser.gesturesEnabled)
                 }
-                Section("Wiedergabe") {
-                    Toggle("Auto-PiP beim Appwechsel", isOn: $browser.options.autoPiP)
-                    Toggle("YouTube Shorts ausblenden", isOn: $browser.options.hideShorts)
-                    Toggle("Original-Audio bevorzugen", isOn: $browser.options.preferOriginalAudio)
-                    Text("Auto-PiP versucht nur laufende Videos zu übernehmen; iOS und der Player können es verhindern. Original-Audio benötigt eine ausdrücklich bezeichnete Spur in der öffentlichen audioTracks-API.").font(.caption).foregroundStyle(.secondary)
+                Section("Wiedergabe und Darstellung") {
+                    Picker("Sprungweite", selection: $browser.options.skipSeconds) { ForEach([5, 10, 15, 30, 60], id: \.self) { Text("\($0) Sekunden").tag($0) } }
+                    Picker("Erscheinungsbild", selection: $browser.options.appearance) { ForEach(AppAppearance.allCases) { Text($0.title).tag($0) } }
+                    Text("Native Medien unterstützen Hintergrund-Audio. Websitefunktionen bleiben beim jeweiligen Anbieter; keine Premium-Freischaltung.").font(.caption)
                 }
-                Section("Netzwerkfilter") {
-                    Toggle("Filter aktiv", isOn: $browser.blockingEnabled)
-                    Text(rules.status).font(.caption).foregroundStyle(.secondary)
-                    NavigationLink("Filterquellen & Import") { FilterSourcesView() }
-                    NavigationLink("Erlaubte Webseiten") { FilterAllowlistView() }
-                    Button(rules.refreshing ? "Wird aktualisiert …" : "Jetzt aktualisieren") { Task { await rules.refreshIfNeeded(force: true) } }.disabled(rules.refreshing)
-                    if let date = rules.lastUpdate { Text(date.formatted()).font(.caption).foregroundStyle(.secondary) }
+                Section("Website-Einstellungen") {
+                    if let host = URL(string: browser.current.address)?.host, !browser.current.isPrivate {
+                        Text(host)
+                        Button("Aktuelle Browseransicht für diese Website speichern") { browser.setSitePreference(desktop: browser.options.desktop, zoom: browser.options.zoom) }
+                        Button("Website-Einstellung zurücksetzen") { browser.options.sitePreferences.removeValue(forKey: host); browser.current.applyAppearance() }
+                    } else { Text("Im Privatmodus werden keine Website-Einstellungen dauerhaft gespeichert.").font(.caption) }
+                    NavigationLink("Website-Sperrliste") { FilterSourcesView() }
                 }
                 Section("Lokale Daten") {
                     Toggle("Verlauf speichern", isOn: $browser.options.history)
                     Toggle("Normale Tabs wiederherstellen", isOn: $browser.options.restoreTabs)
-                    Text("Private Tabs verwenden einen separaten flüchtigen Webspeicher; kein Verlauf und keine Wiederherstellung. Manuell gespeicherte Favoriten bleiben erhalten. Privat bedeutet keine Anonymität im Netz.").font(.caption).foregroundStyle(.secondary)
+                    Toggle("Favoriten für Widgets und Siri freigeben", isOn: $browser.options.shareFavoritesWithSystem)
+                    Toggle("App mit Gerätecode / Biometrie sperren", isOn: Binding(get: { browser.options.privateLock }, set: { value in
+                        if value { var failure: NSError?; guard LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &failure) else { browser.notice = "Richte zuerst einen Gerätecode in iOS ein."; return } }
+                        browser.options.privateLock = value
+                    }))
+                    Text("Die Sperre benötigt einen eingerichteten Gerätecode. Sie ist keine zusätzliche Datenverschlüsselung. Private Tabs verwenden flüchtigen Webspeicher, keine Wiederherstellung, Diagnose oder System-PiP. Privates Website-Audio wird beim Appwechsel pausiert. Speichern außerhalb des Privatbereichs benötigt Bestätigung. Privat bedeutet keine Anonymität im Netz.").font(.caption).foregroundStyle(.secondary)
                     Button(browser.wipingData ? "Wird gelöscht …" : "Website-Daten löschen", role: .destructive) { clearWebsiteData = true }.disabled(browser.wipingData)
                 }
                 Section("iCloud") {
-                    Toggle("Verlauf & Favoriten synchronisieren", isOn: $browser.options.cloudSync).disabled(ReleaseConfiguration.cloudContainer == nil && !browser.options.cloudSync)
-                    Text(ReleaseConfiguration.cloudContainer == nil ? "iCloud ist in dieser Version nicht verfügbar." : "Änderung gilt nach App-Neustart. Verlauf und Favoriten werden synchronisiert; private Tabs bleiben lokal.")
+                    Text("iCloud-Abgleich ist nicht eingerichtet.")
+                    Text("iCloud ist in dieser Version nicht verfügbar.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("Datenschutz & Support") {
@@ -290,7 +313,7 @@ struct AirPlayView: View {
             Form {
                 Section("AirPlay") {
                     HStack { Text("Ausgabegerät wählen"); Spacer(); AirPlayControl().frame(width: 44, height: 44) }
-                    Button("AirPlay für Webseitenvideo öffnen") { tab.runMedia("globalThis.__webkweb?.airplay()") }
+                    Text("Für Websitevideos nutze die von der Website angebotene AirPlay-Funktion. Der Systemdialog alleine bestätigt keine Video-Unterstützung.")
                 }
                 Section {
                     Text("AirPlay verwendet die Systemrouten von iOS. Verfügbarkeit und Wiedergabe hängen von Webseite, Gerät und Netzwerk ab.")
@@ -308,11 +331,10 @@ struct PrivacyView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Datenschutz").font(.largeTitle.bold())
-                Text("DevnTube speichert Verlauf und Favoriten lokal. Bei aktivem Verlauf werden die letzten 500 nicht favorisierten Seiten behalten. Private Tabs werden nicht gespeichert; normale Tabs und Zeit-Timer können lokal wiederhergestellt werden. Favoriten werden zusätzlich lokal für Widgets und Siri abgelegt. Es gibt keinen eigenen Analytics- oder Werbedienst. Verfügbares iCloud wird ausdrücklich aktiviert und synchronisiert Verlauf und Favoriten mit der privaten iCloud-Datenbank deines Apple-Kontos.")
-                Text("Webseiten erhalten übliche Browseranfragen einschließlich IP-Adresse und können Cookies oder eigene Tracker verwenden. Suchbegriffe gehen an die gewählte Suchmaschine Google, DuckDuckGo oder Bing. Website-Daten lassen sich in den Einstellungen löschen; Verlauf und Favoriten in der Bibliothek.")
-                Text("Aktivierte Filterquellen werden täglich im Vordergrund sowie bei manuellen Updates oder Änderungen geladen. Presets sind AdGuard DNS und HaGeZi; eigene Quellen und lokale Textimporte sind möglich. Verlauf und Favoriten werden nicht an die Listenhosts gesendet.")
-                Text("Die normale Wiedergabequeue wird lokal gespeichert, ohne private Tabs. Diese App bietet keine Medien-Downloads. Bereits aus früheren Versionen lokal gespeicherte Dateien bleiben unangetastet.")
-                Text("AirPlay verwendet die von iOS angebotenen Ausgabegeräte. Die Geräte und besuchten Webseiten haben eigene Datenschutzregeln.")
+                Text("DevnTube speichert normale Favoriten, Verlauf und eigene Mediathekdaten lokal. Private Tabs nutzen nicht persistenten WebKit-Speicher und werden weder wiederhergestellt noch exportiert. Sie senden keine Inhalte an Widgets, Siri oder App-Diagnosen. Bewusstes Speichern verlässt nach Bestätigung den Privatbereich.")
+                Text("Websites und Suchanbieter erhalten Browseranfragen einschließlich IP-Adresse und können eigene Cookies oder Tracker nutzen. Kein eigenes Analytics-, Werbe- oder Proxy-Backend. Es gibt keine Filterlisten-Abrufe. Website-Daten und Verlauf lassen sich getrennt löschen.")
+                Text("Die Freigabe normaler Favoriten für Widgets und Siri ist optional. iCloud ist nicht eingerichtet. Exporte enthalten nur eigene ausgewählte App-Daten, keine Cookies oder Sitzungen. Dateiberechtigungen bleiben lokal. Native Medien können System-Medienanzeigen und AirPlay verwenden; private Website-Wiedergabe wird beim Appwechsel pausiert.")
+                Text("Die App-Sperre und verdeckte App-Umschalteransicht ersetzen keine vollständige Verschlüsselung oder Anonymität. Betriebssystem und Websites haben eigene Datenschutzregeln.")
                 Text(ReleaseConfiguration.operatorContact.isEmpty ? "Anbieter- und Kontaktangaben sind noch nicht hinterlegt." : ReleaseConfiguration.operatorContact)
                 if let url = ReleaseConfiguration.privacyURL { Link("Vollständige Datenschutzerklärung", destination: url) }
                 if let url = ReleaseConfiguration.supportURL { Link("Support", destination: url) }

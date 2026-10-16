@@ -1,41 +1,28 @@
-Third-party notices — DevnTube / WebKWeb
-Checked: 2026-10-15
+DevnTube — Komponenten- und Nutzungshinweise
+Stand: 16. Oktober 2026
 
-AdGuard DNS filter
-Maintained by AdGuard Software Ltd / AdguardTeam and contributors.
-Source and notices: https://github.com/AdguardTeam/AdGuardSDNSFilter
-License: GNU General Public License version 3
-https://github.com/AdguardTeam/AdGuardSDNSFilter/blob/master/LICENSE
-Configured data URL: https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+Die App enthält eigenen Anwendungscode und verwendet öffentliche Apple-
+Frameworks: SwiftUI, UIKit, WebKit, AVFoundation/AVKit, MediaPlayer, SwiftData,
+WidgetKit, App Intents, UniformTypeIdentifiers und LocalAuthentication.
+Apple-Frameworks und SF Symbols unterliegen Apples SDK-/Distributionsverträgen;
+sie sind nicht gemeinfrei. Die Verwendung der Systemdecoder gibt keine Rechte
+an fremden Videos. iCloud und eigene In-App-Käufe sind nicht eingerichtet.
 
-HaGeZi Multi LIGHT
-Maintained by HaGeZi and contributors.
-Source and notices: https://github.com/hagezi/dns-blocklists
-License: GNU General Public License version 3
-https://github.com/hagezi/dns-blocklists/blob/main/LICENSE
-Configured data URL: https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/light.txt
-Input-source information: https://github.com/hagezi/dns-blocklists/blob/main/sources.md
+Keine Drittanbieter-SDKs, Filterlisten, SponsorBlock-Daten oder Google-Cast-
+Komponenten werden ausgeliefert oder nachgeladen. Frühere kompilierte Filter
+und bekannte Listen-/Integrationscaches werden beim Upgrade entfernt. Eigene
+importierte Textdateien werden erhalten, aber nicht geladen oder angewendet.
 
-These lists are fetched separately when enabled. No copy of either list or
-third-party SDK is bundled with this app. Original downloaded list text,
-including its headers, is kept in the local source cache. Our converter
-changes supported domain/hosts/network rules into WebKit content rules;
-scriptlets, cosmetic rules and unsupported syntax are not executed.
-The version and date are those in each downloaded file, not this notice date.
-The GPL permits commercial use subject to its conditions. The complete GPLv3
-text accompanies these notices. If lists or derived rule data are redistributed,
-their notices, licenses and applicable corresponding-source duties must also
-be fulfilled. These notices do not license unrelated imported lists.
+Das App-Icon entsteht aus dem eigenen geometrischen Generator im Repository.
+Es enthält keine Plattformlogos oder fremden Schriften. Testmedien sind eigene
+synthetische Signale und ausschließlich den Test-Targets zugeordnet.
 
-Apple frameworks and system symbols
-SwiftUI, WebKit, AVKit, AVFoundation, MediaPlayer, SwiftData, WidgetKit,
-App Intents and SF Symbols are provided by Apple under Apple's applicable
-SDK and distribution agreements. System symbols are referenced through APIs;
-no third-party font or icon pack is bundled.
+Website-Namen bezeichnen gewöhnliche Browser-Lesezeichen. Die App bündelt keine
+fremden Thumbnails, Logos, Videos oder Referenzscreenshots. Beim Browsen werden
+Inhalte direkt vom jeweiligen Betreiber unter dessen Bedingungen geladen.
+Keine Partnerschaft, Inhalteigentümerschaft, Premium-Freischaltung oder
+werbefreie Plattformwiedergabe wird zugesichert. Native Medienfunktionen gelten
+für eigene Dateien und ausdrücklich berechtigt nutzbare Direktquellen.
 
-Website names and content
-Website names identify ordinary bookmarks. The app does not bundle website
-logos, thumbnails, videos or third-party reference screenshots. Website content
-loads from the website under its terms. No partnership or content ownership
-is implied by these bookmarks. Permission to browse does not grant a right
-to redistribute or monetize third-party media.
+Details, Quellen und noch offene Rechtefragen: LICENSE_REGISTER.md und
+PROVIDER_CAPABILITIES.md im Quellprojekt. Keine weltweite rechtliche Freigabe.

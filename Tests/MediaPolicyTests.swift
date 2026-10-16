@@ -1,5 +1,9 @@
 import XCTest
+#if canImport(WebKWeb)
 @testable import WebKWeb
+#else
+@testable import DevnTubeCore
+#endif
 
 final class MediaPolicyTests: XCTestCase {
     func testIdleLaunchAndForegroundDoNotClaimLocalAudio() {
@@ -10,6 +14,8 @@ final class MediaPolicyTests: XCTestCase {
     func testExistingAudioWaitsForActualPauseAcknowledgement() {
         XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: true, stopped: true, alreadyActive: true))
         XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, stopped: true, alreadyActive: true))
+        XCTAssertTrue(MediaPolicy.requiresAudioSession(localPlaying: false, waiting: true, stopped: false, alreadyActive: true))
+        XCTAssertFalse(MediaPolicy.requiresAudioSession(localPlaying: false, waiting: true, stopped: true))
     }
     func testNowPlayingRateReflectsSpeedAndPause() {
         XCTAssertEqual(MediaPolicy.nowPlayingRate(playing: true, rate: 1.5), 1.5)
@@ -26,17 +32,21 @@ final class MediaPolicyTests: XCTestCase {
         XCTAssertEqual(MediaPolicy.playbackOwner(currentID: current, queueID: queue, candidates: [playing, selected]), current)
         XCTAssertEqual(MediaPolicy.playbackOwner(currentID: current, queueID: queue, candidates: [pausedQueue]), queue)
     }
-    func testFavoritePersistenceAndDeepLinkRemoveCredentialInformation() throws {
+    func testFavoritePersistenceAndDeepLinksRejectCredentialInformation() throws {
         let raw = "https://alice:secret@example.com/video?v=1#comments"
-        XCTAssertEqual(StoredAddress.clean(raw), "https://example.com/video?v=1#comments")
+        XCTAssertNil(StoredAddress.clean(raw))
+        XCTAssertNil(FavoriteSnapshot(id: "id", title: "Favorite", address: raw).deepLink)
         XCTAssertNil(StoredAddress.clean("javascript:alert(1)"))
-        let favorite = FavoriteSnapshot(id: "id", title: "Favorite", address: raw)
+        let favorite = FavoriteSnapshot(id: "id", title: "Favorite", address: "https://example.com/video?v=1#comments")
         let deepLink = try XCTUnwrap(favorite.deepLink)
-        XCTAssertEqual(AddressResolver.deepLink(deepLink), "https://example.com/video?v=1#comments")
+        XCTAssertEqual(AddressResolver.deepLink(deepLink), favorite.address)
         let defaults = try XCTUnwrap(UserDefaults(suiteName: FavoriteStorage.groupID)), key = FavoriteStorage.key
-        let old = defaults.data(forKey: key); defer { defaults.set(old, forKey: key) }
-        FavoriteStorage.write([favorite]); let encoded = try XCTUnwrap(defaults.data(forKey: key))
+        let old = defaults.data(forKey: key), oldConsent = defaults.object(forKey: FavoriteStorage.consentKey); defer { defaults.set(old, forKey: key); defaults.set(oldConsent, forKey: FavoriteStorage.consentKey) }
+        FavoriteStorage.write([FavoriteSnapshot(id: "bad", title: "Bad", address: raw), favorite], consent: true)
+        let encoded = try XCTUnwrap(defaults.data(forKey: key))
         XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains("secret"))
-        XCTAssertEqual(FavoriteStorage.read().first?.address, "https://example.com/video?v=1#comments")
+        XCTAssertEqual(FavoriteStorage.read().map(\.address), [favorite.address])
+        defaults.set(false, forKey: FavoriteStorage.consentKey)
+        XCTAssertTrue(FavoriteStorage.read().isEmpty, "Widget/Intent must not trust old auto-exported snapshots before the app's next launch")
     }
 }

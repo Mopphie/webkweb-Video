@@ -1,5 +1,9 @@
 import XCTest
+#if canImport(WebKWeb)
 @testable import WebKWeb
+#else
+@testable import DevnTubeCore
+#endif
 
 final class QueueTests: XCTestCase {
     private func entries(_ count: Int) -> [QueueEntry] { (0..<count).map { QueueEntry(title: "Title \($0)", address: "https://example.com/\($0)") } }

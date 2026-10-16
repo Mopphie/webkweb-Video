@@ -1,41 +1,25 @@
-# App-Store-Eintrag – Arbeitsentwurf, nicht eingereicht
+# Storetext — aktueller lokaler Entwurf, nicht veröffentlicht
 
-Stand: 15. Oktober 2026. Die Texte beschreiben den geplanten **Standardbuild** und müssen nach einem echten Xcode-/Gerätetest gegen die tatsächlich ausgelieferte App geprüft werden. Keine Store-Daten wurden hochgeladen. Keine erfundenen Screenshots, Zugänge oder Betreiberangaben.
+16.10.2026. Vor Verwendung müssen [Releaseblocker](RELEASE_BLOCKERS.md), tatsächliche Gerätefunktionen und Betreiber-/Rechtsangaben geklärt werden. Keine Preisentscheidung oder Kontoänderung.
 
-## Metadaten (de-DE)
+## Name und Untertitel
 
-- Name: **DevnTube** (8 Zeichen; Verfügbarkeit in App Store Connect noch prüfen)
-- Untertitel: **Videobrowser für iPhone & iPad** (30 Zeichen)
-- Stichwörter, vorläufig: `browser,video,tabs,favoriten,privatmodus,airplay,bildinbild,sleeptimer,werbeblocker` (83 Zeichen). Vor Nutzung rechtlich und ASO-seitig prüfen; keine Dienstmarken als Suchwörter vereinnahmen.
-- Kategorie: **offen**; Betreiber wählt passend zur tatsächlichen App-Store-Einordnung.
-- Preis/Regionen: **offen**.
-- Altersfreigabe: **offen**; die aktualisierten Fragen in App Store Connect für einen Browser mit unbeschränktem Webseitenzugang und tatsächlicher Inhaltsdarstellung beantworten. Keine Kinderfreigabe ohne Prüfung behaupten.
+DevnTube
 
-### Beschreibungsvorschlag
+Browser und eigene Videomediathek
 
-DevnTube ist ein Browser für iPhone und iPad mit Tabs, Favoriten und Werkzeugen für die Wiedergabe von Webseitenvideos. Öffne Webseiten, speichere Favoriten und nutze private Tabs, deren Sitzungen nicht wiederhergestellt werden.
+## Beschreibung
 
-Für unterstützte HTML-Videos bietet die App Wiedergabesteuerung, Bild-in-Bild, AirPlay und einen Sleep-Timer. Ob eine Funktion verfügbar ist, bestimmen die jeweilige Webseite, das Video und iOS. Ein optionaler Netzwerkfilter kann bestimmte Anfragen reduzieren; er garantiert keine werbefreie Wiedergabe.
+Öffne Websites in einem nativen WebKit-Browser und verwalte eigene Videos, Links, Playlists und Notizen an einem Ort.
 
-DevnTube ist unabhängig von den aufgerufenen Webseiten und deren Betreibern. Die Nutzung fremder Dienste unterliegt deren Bedingungen.
+- Suche, normale und private Tabs, Favoriten, Verlauf und erreichbare Zurück-/Startnavigation.
+- Eigene Dateien und ausdrücklich berechtigt nutzbare Direktmedien im Systemplayer; Miniplayer, Wiedergabepositionen, Queue und eigene Zeitmarken.
+- Untertitel, Kapitel, Geschwindigkeit, Wiederholung, System-PiP und AirPlay, soweit Medium, System und deine Nutzungsrechte es erlauben.
+- Sleep-Timer, lokale Sicherungen und optionale Geräteauthentifizierung.
+- Bewusst freigegebene normale Favoriten als Widget-/Siri-Schnellzugriff sowie explizites Übernehmen geteilter Links.
 
-**Vor Einreichung prüfen:** Jede Aussage am Standardbuild, echte Nutzbarkeit unter iOS 17 und iOS 26, Datenschutz, Dienstbedingungen und Markenrechte. CloudKit nicht in der Beschreibung nennen, solange es nicht provisioniert und im eingereichten Build enthalten ist. Native Medien-Downloads, SponsorBlock und Google Cast sind aus allen Konfigurationen entfernt und dürfen nicht beworben werden.
+Websitefunktionen hängen vom jeweiligen Dienst, Account, Standort und Betriebssystem ab. Die App schaltet keine Premiumfunktionen frei und bietet keine Plattform-Werbeblockierung, Stream-Extraktion oder Plattformdownloads. Websites und eigene Medien können eigene Nutzungsbedingungen haben. Es gibt kein verpflichtendes eigenes Konto, keinen eigenen Analytics-/Werbedienst und kein neu eingeführtes Nutzerabo. iCloud-Abgleich und App-In-App-Käufe sind nicht eingerichtet.
 
-## Vorhandene und offene Eingaben
+## Noch auszufüllen / zu prüfen
 
-- Öffentliche HTTPS-Datenschutz-URL: **vorhanden**, <https://mopphie.github.io/webkweb-privacy/> (`WebKWebPrivacyURL`)
-- Öffentliche HTTPS-Support-URL: **vorhanden**, <https://mopphie.github.io/webkweb-privacy/support/> (`WebKWebSupportURL`)
-- Betreibername/Kontakt: **von der bestehenden Printatops-Seite übernommen**, <https://mopphie.github.io/webkweb-privacy/impressum/> (`WebKWebOperatorContact`); finale Betreiberfreigabe/rechtliche Prüfung ausstehend
-- Apple-Team `HUN9MS832X`, explizite IDs `de.mopphie.devntube` und `de.mopphie.devntube.favorites` sowie App Group `group.de.mopphie.devntube`: **im Portal angelegt, Zuordnung bei beiden IDs geprüft**. Beide App-Store-Profile erstellt und gegen IDs, Gruppe und lokales Zertifikat geprüft. Frühere Signierung/TestFlight laut [RELEASE.md](RELEASE.md) erfolgt; erneuter Build dieser Bereinigung und Gerätetests: **OFFEN**
-- iCloud-Container: **NICHT BESTÄTIGT**; CloudKit deaktiviert lassen
-- App-Privacy-Antworten einschließlich besuchter Webseiten und optionalem iCloud: **OFFEN**, nach finalem Build und Datenflussaudit ausfüllen
-- Export-/Verschlüsselungsfragen, Altersfreigabe, Rechte an Icon/Marke und Dienstbedingungen: **OFFEN**
-- Native Medien-Downloads sind wegen fehlender belegter Quellenautorisierung vollständig entfernt, ebenso SponsorBlock und Google Cast. [Entfernung und Prüfpfad](NO-DOWNLOAD-VARIANT.md), [Lizenzprüfung](COMMERCIAL-USE.md). Es gibt keine abweichende Entwickler-/Reviewer-Variante.
-
-## Echte Screenshots und Review-Hinweise – noch zu erstellen
-
-Auf einem autorisierten Mac mit signiertem Standardbuild auf iPhone und iPad aufnehmen: Startseite mit acht Icons, allgemeine Tabs/Adressleiste, YouTube-Watch-Ansicht mit rotem Menübutton (nur bei erlaubter Marken-/Inhaltsnutzung), Favoriten und Player/Timer. Portrait/Querformat, große Schrift und VoiceOver separat prüfen. Nur **echte App-Screenshots** der finalen Buildversion hochladen; Konzeptgrafiken oder Bildkompositionen sind kein Ersatz. Rechte an sichtbaren Webseiteninhalten vor Store-Verwendung klären.
-
-App-Review-Notizen nach erfolgreichem Gerätetest: native Menünavigation der Watch-Ansicht erklären, Abhängigkeit von Webseiten-/iOS-Funktionen und optionale Einstellungen benennen; Demo-Zugang nur falls tatsächlich benötigt, niemals erfinden. TestFlight-Upload und App-Store-Einreichung erst nach ausdrücklicher Freigabe.
-
-Quelle für die Build-Mindestanforderung und neuen Altersfreigabe-Fragebogen: [Apple Upcoming Requirements](https://developer.apple.com/news/upcoming-requirements/). Weitere Review-Risiken: [APP-REVIEW-DESIGN.md](APP-REVIEW-DESIGN.md), [RELEASE.md](RELEASE.md).
+Tatsächlicher Betreiber und Kontakt, korrekte öffentliche Datenschutz-/Supporttexte, Vertriebsländer, Markenfreigabe, ehrliche Alters-/App-Privacy-/Exportangaben, Screenshots des wirklich getesteten Releasebuilds und ggf. gesonderte bestehende Preisgestaltung. Keine Versionsnummer oder Abnahmeevidenz erfinden. Keine Screenshots von Drittplattformvideos oder fremden Personen ohne ausreichende Rechte als eigene Storeassets übernehmen.

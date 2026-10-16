@@ -1,0 +1,49 @@
+{
+  "created_at_utc": "2026-10-16T11:25:32.704133+00:00",
+  "swift_core": {
+    "passed": 31,
+    "failed": 0,
+    "platform": "Linux / Swift 6.1.3 / own dependency-free Foundation target"
+  },
+  "node": {
+    "passed": 52,
+    "failed": 0
+  },
+  "chromium": {
+    "passed": 18,
+    "failed": 0,
+    "playback_sha256": "1b3fb22457c8eacd61036f25c957ea93e68caad681489c4888150a694e7261e4",
+    "scope": "own generated media / loopback only"
+  },
+  "release_helper_mocks": {
+    "passed": 14,
+    "failed": 0,
+    "real_signing_or_apple_api": false
+  },
+  "swift_syntax": {
+    "files": 42,
+    "status": "PASS",
+    "apple_sdk_typecheck": false
+  },
+  "native_ios_build": "NOT_RUN",
+  "native_ios_unit_definitions": 65,
+  "native_ios_ui_definitions": 4,
+  "all_native_ios_tests": "NOT_RUN",
+  "live_provider_tests": "NOT_RUN",
+  "cost_and_external_mutations": {
+    "github_actions_runs": 0,
+    "ci_minutes": 0,
+    "remote_pushes": 0,
+    "prs": 0,
+    "uploads": 0,
+    "apple_account_changes": 0,
+    "paid_services_booked": 0
+  },
+  "release_ready": false,
+  "blockers_document": "Docs/RELEASE_BLOCKERS.md",
+  "implementation_commit": "8ebb88e",
+  "formatting_only_after_tests": [
+    "App/LibraryModels.swift",
+    "App/NavigationPolicy.swift"
+  ]
+}

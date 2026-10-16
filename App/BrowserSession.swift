@@ -26,6 +26,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     static let world = WKContentWorld.world(name: "WebKWebPlayback")
     let id: UUID
     let isPrivate: Bool
+    @Published var pinned = false
+    @Published var group = ""
     private(set) var webView: WKWebView
     weak var browser: BrowserModel?
     @Published var title = "Neuer Tab"
@@ -81,13 +83,19 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     private var backgroundOpening: Bool
     private var playbackEvents: [[String: String]] = []
     var sessionAddress: String { lastRequestedURL?.absoluteString ?? address }
+    var canControlMedia: Bool {
+        SourceCapabilities.allowsBridgeControls(mainHost: URL(string: address)?.host,
+            frameHost: activeFrameID.flatMap { frames[$0]?.url?.host })
+    }
     var presentsWatchImmersively: Bool { watchPresentation.isImmersive(at: URL(string: address)) }
 
     func notePlaybackEvent(_ event: String) {
+        guard !isPrivate else { return }
         playbackEvents.append(["at": ISO8601DateFormatter().string(from: Date()), "event": String(event.prefix(120))])
         if playbackEvents.count > 40 { playbackEvents.removeFirst(playbackEvents.count - 40) }
     }
     func mediaDiagnosticReport() -> String {
+        guard !isPrivate else { return "{\"private\":true,\"diagnostics\":\"disabled\"}" }
         let value: [String: Any] = [
             "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
             "app_build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
@@ -110,12 +118,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         // Keep WebKit's popup configuration/opener, but not the opener's handler.
         config.userContentController = WKUserContentController()
         if configuration == nil { config.websiteDataStore = isPrivate ? .nonPersistent() : .default() }
-        config.defaultWebpagePreferences.preferredContentMode = PreferencesStorage.load().desktop ? .desktop : .mobile
+        if isPrivate && config.websiteDataStore.isPersistent { config.websiteDataStore = .nonPersistent() }
+        config.defaultWebpagePreferences.preferredContentMode = !isPrivate && PreferencesStorage.load().desktop ? .desktop : .mobile
         config.allowsInlineMediaPlayback = true
         // A tab's initial background/restore state must not permanently change
         // WebKit's playback policy after the user selects or navigates that tab.
         config.mediaTypesRequiringUserActionForPlayback = []
-        config.allowsPictureInPictureMediaPlayback = true
+        config.allowsPictureInPictureMediaPlayback = !isPrivate
         config.allowsAirPlayForMediaPlayback = true
         Self.installScripts(in: config.userContentController, startPaused: background)
         webView = WKWebView(frame: .zero, configuration: config)
@@ -142,7 +151,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         if startPaused {
             controller.addUserScript(WKUserScript(source: "globalThis.__webkwebStartPaused = true", injectionTime: .atDocumentStart, forMainFrameOnly: false, in: world))
         }
-        for (name, mainOnly) in [("Playback", false), ("WatchPresentation", true)] {
+        for (name, mainOnly) in [("Playback", false)] {
             if let url = Bundle.main.url(forResource: name, withExtension: "js"), let source = try? String(contentsOf: url, encoding: .utf8) {
                 controller.addUserScript(WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: mainOnly, in: world))
             }
@@ -160,17 +169,14 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         // WebKit supplies the real current engine, OS and device identity.
         // Desktop/mobile preference is applied to each navigation below.
         webView.customUserAgent = nil
-        webView.pageZoom = browser?.options.zoom ?? PreferencesStorage.load().zoom
+        webView.pageZoom = isPrivate ? 1 : (browser?.sitePreference(for: URL(string: address)).zoom ?? PreferencesStorage.load().zoom)
     }
     func applyPlaybackOptions() {
         guard let browser else { return }
-        run("globalThis.__webkweb?.setOptions({autoPiP:\(browser.options.autoPiP ? "true" : "false"),hideShorts:\(browser.options.hideShorts ? "true" : "false"),preferOriginal:\(browser.options.preferOriginalAudio ? "true" : "false")})", allFrames: true)
         run("globalThis.__webkweb?.setBackground(\(browser.selectedID == id ? "false" : "true"))", allFrames: true)
-        if backgroundOpening {
-            run("globalThis.__webkweb?.pause(true)", allFrames: true)
-        }
+        if backgroundOpening { run("globalThis.__webkweb?.pause(true)", allFrames: true) }
     }
-    func attemptAutoPiP() { guard browser?.options.autoPiP == true, browser?.playbackStopped == false, playing else { return }; runMedia("globalThis.__webkweb?.autoPiP()") }
+    func attemptAutoPiP() {} // Website PiP belongs to its own player controls.
     func cancelAutoplay() { requestedAutoplay = false; committedAutoplay = false; autoplayNavigation = nil }
     private func attemptAutoplay() {
         guard committedAutoplay, hasMedia else { return }
@@ -186,7 +192,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         lastRequestedURL = url; error = nil; openTask?.cancel()
         openTask = Task { [weak self] in
             guard let self else { return }
-            await RuleStore.shared.apply(to: self.webView, tabID: self.id, enabled: self.browser?.shouldBlock(url) ?? true)
+            self.webView.configuration.userContentController.removeAllContentRuleLists()
             guard !Task.isCancelled, self.alive, !self.wiping else { return }
             let navigation = self.webView.load(URLRequest(url: url))
             self.autoplayNavigation = self.requestedAutoplay ? navigation : nil
@@ -199,7 +205,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     }
     func showWatchPresentation() { watchPresentation.show(); syncWatchPresentation() }
     private func syncWatchPresentation() {
-        run("globalThis.__webkwebWatch?.setImmersive(\(presentsWatchImmersively ? "true" : "false"))")
+        // Native chrome changes only; leave the website DOM and its controls intact.
     }
     func leaveWatch() {
         guard browser?.wipingData != true else { return }
@@ -210,11 +216,6 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         let destination = WatchPresentationState.exitURL(previous: previous)
         if let previous, previous == destination, webView.canGoBack { webView.goBack() }
         else { load(destination, userInitiated: true) }
-    }
-    func reloadWithoutFilter() {
-        guard let url = lastRequestedURL ?? webView.url, let host = url.host?.lowercased(), let browser else { return }
-        if !browser.options.allowlist.contains(host) { browser.options.allowlist.append(host) }
-        reload()
     }
     func run(_ script: String, allFrames: Bool = false) {
         guard alive else { return }
@@ -232,12 +233,25 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             Task { @MainActor in self?.removeFrame(frame.id) }
         }
     }
+    func pauseForPrivacy() {
+        guard isPrivate else { return }
+        AudioController.shared.clearPrivateMetadata()
+        run("globalThis.__webkweb?.pause(true)", allFrames: true)
+        webView.pauseAllMediaPlayback { [weak self] in
+            Task { @MainActor in
+                self?.run("if(globalThis.navigator?.mediaSession) globalThis.navigator.mediaSession.metadata = null", allFrames: true)
+                AudioController.shared.clearPrivateMetadata()
+            }
+        }
+    }
     func close() {
+        if isPrivate { pauseForPrivacy(); webView.setAllMediaPlaybackSuspended(true, completionHandler: nil) }
         run("globalThis.__webkweb?.pause(true)", allFrames: true)
         alive = false; openTask?.cancel(); visitWork?.cancel(); clearFrames(); finishBlank(URLError(.cancelled))
+        webView.pauseAllMediaPlayback(completionHandler: nil)
         webView.stopLoading(); webView.configuration.userContentController.removeScriptMessageHandler(forName: "playback", contentWorld: Self.world)
         webView.navigationDelegate = nil; webView.uiDelegate = nil; observations.removeAll()
-        RuleStore.shared.unregister(id); browser?.cancelDialogs(for: id)
+        browser?.cancelDialogs(for: id)
     }
     func cancelPendingLoad() { openTask?.cancel(); openTask = nil; visitWork?.cancel(); webView.stopLoading() }
     func prepareForWipe() async throws {
@@ -270,8 +284,19 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
               !documentID.isEmpty, documentID.count < 100 else { return }
         let value = body["address"] as? String ?? ""
         let url = URL(string: value)
-        if let url, url.scheme != "about", url.host != message.frameInfo.securityOrigin.host { return }
+        let allowedKinds: Set<String> = ["ready", "dispose", "navigation", "userplay", "state", "ended", "queueended", "notice", "started"]
+        guard allowedKinds.contains(kind), value.utf8.count <= 8192, body.count <= 40 else { return }
+        if let url, url.scheme != "about" {
+            let origin = message.frameInfo.securityOrigin
+            guard ["http", "https"].contains(url.scheme ?? ""), url.user == nil, url.password == nil,
+                  url.host?.lowercased() == origin.host.lowercased(), url.scheme == origin.protocol else { return }
+            let port = url.port ?? (url.scheme == "https" ? 443 : 80)
+            guard origin.port == 0 || origin.port == port else { return }
+        }
+        if kind == "state", let mediaID = body["mediaID"] as? String, !mediaID.isEmpty,
+           (!mediaID.hasPrefix(documentID + ":") || mediaID.count > 200) { return }
         if kind == "ready" {
+            guard frames[documentID] != nil || frames.count < 32 else { return }
             if frames[documentID] == nil { frames[documentID] = Frame(id: documentID, info: message.frameInfo, url: url) }
             if browser?.playbackStopped == true { evaluate("globalThis.__webkweb?.pause(true)", frame: frames[documentID]!) }
             applyPlaybackOptions()
@@ -287,13 +312,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             if message.frameInfo.isMainFrame, let url, ["https", "http"].contains(url.scheme ?? "") {
                 address = url.absoluteString; lastRequestedURL = url; syncWatchPresentation(); scheduleVisit()
             }
-        case "userplay":
+        case "started", "userplay":
             guard let mediaID = body["mediaID"] as? String, mediaID.hasPrefix(documentID + ":") else { return }
             browser?.didStartFromWebsite(in: id)
         case "state":
             let keys = ["paused", "ended", "stopLatched", "readyState", "networkState", "waiting", "muted"]
-            frame.diagnostics = body.filter { (keys + ["decodedFrames"]).contains($0.key) && $0.value is NSNumber }
-            if let source = body["sourceKind"] as? String, ["http", "https", "blob", "data", "none"].contains(source) {
+            frame.diagnostics = isPrivate ? [:] : body.filter { (keys + ["decodedFrames"]).contains($0.key) && $0.value is NSNumber }
+            if !isPrivate, let source = body["sourceKind"] as? String, ["http", "https", "blob", "data", "none"].contains(source) {
                 frame.diagnostics["source_kind"] = source
             }
             let signature = keys.map { "\($0)=\(frame.diagnostics[$0] ?? "?")" }.joined(separator: " ")
@@ -301,11 +326,11 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             frame.url = url; frame.hasMedia = body["hasMedia"] as? Bool ?? false
             frame.playing = body["playing"] as? Bool ?? false
             frame.anyPlaying = body["anyPlaying"] as? Bool ?? frame.playing
-            frame.time = finite(body["time"]) ?? 0; frame.duration = finite(body["duration"])
+            frame.time = max(0, finite(body["time"]) ?? 0); frame.duration = finite(body["duration"]).flatMap { $0 > 0 ? $0 : nil }
             frame.priority = finite(body["priority"]) ?? 0; frame.interaction = finite(body["interactionAt"]) ?? 0
             frame.mediaID = body["mediaID"] as? String ?? ""; frame.kind = body["mediaKind"] as? String ?? ""
-            frame.captions = (body["captions"] as? [[String: Any]] ?? []).compactMap(MediaTrack.init)
-            frame.audioTracks = (body["audioTracks"] as? [[String: Any]] ?? []).compactMap(MediaTrack.init)
+            frame.captions = Array((body["captions"] as? [[String: Any]] ?? []).prefix(100)).compactMap(MediaTrack.init)
+            frame.audioTracks = Array((body["audioTracks"] as? [[String: Any]] ?? []).prefix(100)).compactMap(MediaTrack.init)
             frame.rate = finite(body["rate"]) ?? 1; frame.waiting = body["waiting"] as? Bool ?? false
             frame.muted = body["muted"] as? Bool ?? false; frame.error = String((body["mediaError"] as? String ?? "").prefix(100))
             if let w = finite(body["width"]), let h = finite(body["height"]), w > 0, h > 0, w <= 65535, h <= 65535 { frame.resolution = "\(Int(w)) × \(Int(h))" } else { frame.resolution = "" }
@@ -316,12 +341,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
                   activeFrameID == documentID, let mediaID = body["mediaID"] as? String, mediaID == activeMediaID,
                   let eventID = body["eventID"] as? String, eventID.count < 200 else { return }
             browser?.ended(in: id, eventID: eventID, mediaID: mediaID)
-        case "queueended":
-            guard body["primary"] as? Bool == true, activeFrameID == documentID,
-                  let mediaID = body["mediaID"] as? String, mediaID == activeMediaID,
-                  let eventID = body["eventID"] as? String, eventID.count < 200 else { return }
-            let encodedID = String(decoding: (try? JSONEncoder().encode(mediaID)) ?? Data("null".utf8), as: UTF8.self)
-            browser?.queueEnded(in: id, eventID: eventID, repeatPlayback: { [weak self] in self?.evaluate("globalThis.__webkweb?.restart(\(encodedID))", frame: frame) })
+        case "queueended": break // Website links never auto-advance.
         case "notice": if let text = body["text"] as? String { browser?.notice = String(text.prefix(300)) }
         default: break
         }
@@ -337,7 +357,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         activeFrameID = active?.id; hasMedia = active != nil; playing = active?.playing ?? false
         hasActivePlayback = frames.values.contains { $0.anyPlaying }
         for frame in frames.values {
-            let managed = browser?.queueTabID == id && frame.id == activeFrameID
+            let managed = false // Automatic website queue transitions are not enabled.
             if frame.queueManaged != managed { frame.queueManaged = managed; evaluate("globalThis.__webkweb?.setQueueManaged(\(managed ? "true" : "false"))", frame: frame) }
         }
         playbackTime = active?.time ?? 0; duration = active?.duration
@@ -374,7 +394,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     func webViewWebContentProcessDidTerminate(_ view: WKWebView) { clearFrames(); if wiping { finishBlank() } else { error = "Die Webseite wurde beendet. Lade sie erneut." } }
     func webView(_ view: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences,
                  decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
-        preferences.preferredContentMode = (browser?.options.desktop ?? PreferencesStorage.load().desktop) ? .desktop : .mobile
+        preferences.preferredContentMode = !isPrivate && (browser?.sitePreference(for: action.request.url).desktop ?? PreferencesStorage.load().desktop) ? .desktop : .mobile
         webView(view, decidePolicyFor: action) { decisionHandler($0, preferences) }
     }
     func webView(_ view: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
@@ -382,27 +402,30 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         let scheme = url.scheme?.lowercased() ?? ""
         if action.targetFrame?.isMainFrame == true, [.linkActivated, .backForward].contains(action.navigationType) { browser?.commandRevision += 1 }
         if action.targetFrame?.isMainFrame == true, [.linkActivated, .backForward].contains(action.navigationType), browser?.queueTabID == id { browser?.detachQueue() }
-        if browser?.blocksShorts(url) == true {
-            decisionHandler(.cancel)
-            if action.targetFrame?.isMainFrame == true { browser?.notice = "Shorts sind ausgeschaltet." }
-            return
+        if SiteNavigationPolicy.blocks(url, mainFrame: action.targetFrame?.isMainFrame == true, privateMode: isPrivate, sites: browser?.options.blockedSites ?? []) {
+            decisionHandler(.cancel); browser?.notice = "Diese Website ist in deiner Sperrliste. Du kannst sie in den Einstellungen freigeben."; return
         }
+        if ["http", "https"].contains(scheme), (url.user != nil || url.password != nil) { decisionHandler(.cancel); return }
         if ["http", "https", "about"].contains(scheme) {
             if action.targetFrame?.isMainFrame == true, scheme != "about" {
                 lastRequestedURL = url
                 Task { [weak self] in
                     guard let self else { decisionHandler(.cancel); return }
-                    await RuleStore.shared.apply(to: view, tabID: self.id, enabled: self.browser?.shouldBlock(url) ?? true)
+                    view.configuration.userContentController.removeAllContentRuleLists()
                     decisionHandler(self.alive && !self.wiping && self.browser?.wipingData != true ? .allow : .cancel)
                 }
             } else { decisionHandler(.allow) }
         } else {
             decisionHandler(.cancel)
-            if action.navigationType == .linkActivated, ["mailto", "tel"].contains(scheme), UIApplication.shared.canOpenURL(url) { UIApplication.shared.open(url) }
+            if action.navigationType == .linkActivated, ["mailto", "tel"].contains(scheme), UIApplication.shared.canOpenURL(url) {
+                browser?.enqueue(BrowserDialog(tabID: id, kind: .confirm, message: "Externe App für \(scheme) öffnen?", defaultText: "", reply: { result in
+                    if result != nil { UIApplication.shared.open(url) }
+                }))
+            }
         }
     }
     func webView(_ view: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        guard action.targetFrame == nil, let browser, !browser.wipingData else { return nil }
+        guard action.targetFrame == nil, let browser, browser.tabs.count < 12, !browser.wipingData else { return nil }
         if let url = action.request.url, !["http", "https", "about"].contains(url.scheme ?? "") { return nil }
         return browser.addTab(isPrivate: isPrivate, configuration: configuration).webView
     }
@@ -444,6 +467,11 @@ final class BrowserModel: ObservableObject {
             persistSession(); tabs.forEach { $0.applyPlaybackOptions() }; publishNowPlaying()
         }
     }
+    let library: LibraryStore
+    let nativePlayer = NativePlayer()
+    @Published private(set) var closedTabs: [TabSnapshot] = []
+    @Published private(set) var sleepAfterNativeQueue = false
+    @Published var privacyLocked = false
     @Published var notice: String?
     @Published private(set) var dialog: BrowserDialog?
     @Published private(set) var sleepPlan = SleepPlan()
@@ -457,16 +485,11 @@ final class BrowserModel: ObservableObject {
             PreferencesStorage.save(options)
             tabs.forEach { tab in
                 if options.desktop != oldValue.desktop || options.zoom != oldValue.zoom { tab.applyAppearance() }
-                if options.autoPiP != oldValue.autoPiP || options.hideShorts != oldValue.hideShorts || options.preferOriginalAudio != oldValue.preferOriginalAudio { tab.applyPlaybackOptions() }
-                Task { await RuleStore.shared.apply(to: tab.webView, tabID: tab.id, enabled: shouldBlock(tab.webView.url)) }
+
             }
-            if options.sources != oldValue.sources { Task { await RuleStore.shared.refreshIfNeeded(force: true) } }
-            else if options.blocking && !oldValue.blocking { Task { await RuleStore.shared.refreshIfNeeded() } }
             if !options.restoreTabs { UserDefaults.standard.removeObject(forKey: "browserSessionV2") }
-            if options.cloudSync != oldValue.cloudSync { notice = "iCloud-Einstellung wird beim nächsten App-Start angewendet." }
         }
     }
-    var blockingEnabled: Bool { get { options.blocking } set { options.blocking = newValue } }
     var gesturesEnabled: Bool { get { options.gestures } set { options.gestures = newValue } }
     var onVisit: ((String, String) -> Void)?
     var commandRevision = 0
@@ -475,19 +498,29 @@ final class BrowserModel: ObservableObject {
     private var dialogQueue: [BrowserDialog] = []
     private var dialogPumpScheduled = false
     init() {
-        options = PreferencesStorage.load()
         #if DEBUG
-        let uiFixture = ProcessInfo.processInfo.arguments.contains("--ui-test-browser")
+        let testMode = ProcessInfo.processInfo.arguments.contains("--ui-test-browser") || ProcessInfo.processInfo.arguments.contains("--ui-test-native")
+        let fixtureStore = FileManager.default.temporaryDirectory.appendingPathComponent("DevnTube-UI-Library.json")
+        if testMode { try? FileManager.default.removeItem(at: fixtureStore) }
+        library = LibraryStore(file: testMode ? fixtureStore : nil)
+        #else
+        library = LibraryStore()
+        #endif
+        ComplianceMigration.run()
+        options = PreferencesStorage.load()
+        privacyLocked = options.privateLock
+        #if DEBUG
+        let uiFixture = testMode
         if uiFixture {
             options = BrowserPreferences()
-            options.restoreTabs = false; options.history = false; options.blocking = false; options.sources = []
+            options.restoreTabs = false; options.history = false
             for key in ["sleepPlanV2", "playbackQueueV1"] { UserDefaults.standard.removeObject(forKey: key) }
         }
         #endif
         if options.restoreTabs, let data = UserDefaults.standard.data(forKey: "browserSessionV2"),
            let snapshot = try? JSONDecoder().decode(BrowserSessionSnapshot.self, from: data) {
-            for saved in snapshot.tabs {
-                let tab = BrowserTab(id: saved.id, background: true); tab.browser = self; tab.title = saved.title
+            for saved in snapshot.tabs.prefix(12) {
+                let tab = BrowserTab(id: saved.id, background: true); tab.browser = self; tab.title = saved.title; tab.pinned = saved.pinned ?? false; tab.group = saved.group ?? ""
                 tabs.append(tab)
                 if let url = URL(string: saved.address), ["http", "https"].contains(url.scheme ?? ""), URLComponents(url: url, resolvingAgainstBaseURL: false)?.user == nil { tab.load(url) }
             }
@@ -502,12 +535,44 @@ final class BrowserModel: ObservableObject {
             else { sleepPlan = restored; if restored.deadline != nil { startTimer() } }
         }
         initializingSession = false
+        nativePlayer.didActivateAudio = { AudioController.shared.didActivateNativeSession() }
+        nativePlayer.library = library
+        nativePlayer.restoreQueue()
+        nativePlayer.beforePlay = { [weak self] in
+            guard let self else { return }
+            self.tabs.forEach { $0.run("globalThis.__webkweb?.pause(true)", allFrames: true) }
+            self.playbackStopped = false
+            // Await WebKit's actual pause acknowledgement before starting AVPlayer.
+            for tab in self.tabs {
+                await withCheckedContinuation { (reply: CheckedContinuation<Void, Never>) in
+                    tab.webView.pauseAllMediaPlayback(completionHandler: { reply.resume() })
+                }
+            }
+        }
+        nativePlayer.onState = { [weak self] in self?.enforceSleepDeadline(); self?.publishNowPlaying() }
+        nativePlayer.onEnded = { [weak self] id, queueFinished in
+            guard let self else { return false }
+            if self.sleepAfterNativeQueue && queueFinished { self.finishSleep(); return true }
+            if self.sleepPlan.ended(in: self.nativePlayer.sessionID, eventID: UUID().uuidString, mediaID: id.uuidString) { self.finishSleep(); return true }
+            self.persistSleep(); return false
+        }
         AudioController.shared.attach(self)
         #if DEBUG
-        if uiFixture { loadUITestFixture() }
+        if uiFixture { if ProcessInfo.processInfo.arguments.contains("--ui-test-native") { loadNativeUITestFixture() } else { loadUITestFixture() } }
         #endif
     }
     #if DEBUG
+    private func loadNativeUITestFixture() {
+        let value = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_MEDIA"] ?? ""
+        guard let data = Data(base64Encoded: value), data.count < 1_000_000 else { return }
+        do {
+            let first = FileManager.default.temporaryDirectory.appendingPathComponent("Own-UI-First.mp4")
+            let second = FileManager.default.temporaryDirectory.appendingPathComponent("Own-UI-Second.mp4")
+            try data.write(to: first); try data.write(to: second)
+            let a = try library.addFile(first), b = try library.addFile(second)
+            nativePlayer.playPlaylist([a, b])
+        } catch { notice = "Lokale Testfixture konnte nicht geöffnet werden." }
+    }
     private func loadUITestFixture() {
         // Only the explicit Debug UI-test launch uses the test runner's own
         // generated H.264/AAC signal. Release contains no fixture launch path.
@@ -533,17 +598,46 @@ final class BrowserModel: ObservableObject {
         let id = MediaPolicy.playbackOwner(currentID: current.id, queueID: queueTabID, candidates: tabs.map { PlaybackCandidate(id: $0.id, hasMedia: $0.hasMedia, playing: $0.playing) })
         return tabs.first { $0.id == id } ?? current
     }
-    func shouldBlock(_ url: URL?) -> Bool {
-        guard options.blocking else { return false }
-        guard let host = url?.host?.lowercased() else { return true }
-        return !options.allowlist.contains { host == $0 || host.hasSuffix("." + $0) }
+    func shouldBlock(_ url: URL?) -> Bool { false }
+    func blocksShorts(_ url: URL) -> Bool { false }
+    func sitePreference(for url: URL?) -> SitePreference {
+        return url?.host.flatMap { options.sitePreferences[$0.lowercased()] } ?? SitePreference(desktop: options.desktop, zoom: options.zoom)
     }
-    func blocksShorts(_ url: URL) -> Bool {
-        guard options.hideShorts, let host = url.host?.lowercased() else { return false }
-        return (host == "youtube.com" || host.hasSuffix(".youtube.com")) && url.path.hasPrefix("/shorts/")
+    func setSitePreference(desktop: Bool, zoom: Double) {
+        guard !current.isPrivate, let host = URL(string: current.address)?.host?.lowercased() else { return }
+        options.sitePreferences[host] = SitePreference(desktop: desktop, zoom: min(2, max(0.5, zoom)))
+        current.applyAppearance() // Reload remains an explicit separate action.
+    }
+    func backOrHome() { if current.canGoBack { current.webView.goBack() } else { home() } }
+    func home() {
+        if tabs.count < 12 { addTab() }
+        else { current.cancelPendingLoad(); current.webView.loadHTMLString("<!doctype html><html></html>", baseURL: nil); current.address = ""; current.title = "Startseite" }
+    }
+    func consumeSharedLinks() {
+        guard !privacyLocked else { return }
+        for link in ShareInbox.take() {
+            switch link.action {
+            case .open:
+                guard tabs.count < 12 else { notice = "Geteilter Link nicht geöffnet: Tablimit erreicht."; continue }
+                let tab = addTab(isPrivate: false)
+                if let url = AddressResolver.directURL(link.address) { tab.load(url, userInitiated: true) }
+            case .queue: enqueue(address: link.address, title: URL(string: link.address)?.host ?? "Link")
+            case .save: _ = library.addLink(title: URL(string: link.address)?.host ?? "Link", address: link.address)
+            }
+        }
+    }
+    func clearRecentNavigation() { closedTabs = []; library.clearProgress() }
+    func endPrivateSession() {
+        for id in tabs.filter(\.isPrivate).map(\.id) { close(id) }
+        publishNowPlaying()
+    }
+    func reopenClosedTab() {
+        guard tabs.count < 12, let saved = closedTabs.popLast() else { return }
+        let tab = addTab(); tab.pinned = saved.pinned ?? false; tab.group = saved.group ?? ""
+        if let url = AddressResolver.directURL(saved.address) { tab.load(url, userInitiated: true) }
     }
     func open(_ input: String) {
-        guard !wipingData else { return }
+        guard !privacyLocked, !wipingData else { return }
         guard let url = AddressResolver.resolve(input, engine: options.searchEngine) else { notice = "Ungültige Adresse. URLs mit Zugangsdaten werden weder geladen noch gesucht."; return }
         guard !blocksShorts(url) else { notice = "Shorts sind ausgeschaltet."; return }
         guard UIApplication.shared.canOpenURL(url) else { current.error = "Diese Adresse kann nicht geöffnet werden."; return }
@@ -553,11 +647,17 @@ final class BrowserModel: ObservableObject {
     }
     @discardableResult func addTab(isPrivate: Bool = false, configuration: WKWebViewConfiguration? = nil, background: Bool = false) -> BrowserTab {
         if wipingData, !tabs.isEmpty { return current }
+        guard tabs.count < 12 else { notice = "Maximal 12 offene Tabs. Schließe einen Tab; aktive Wiedergabe bleibt erhalten."; return current }
         let tab = BrowserTab(isPrivate: isPrivate, configuration: configuration, background: background); tab.browser = self; tab.title = isPrivate ? "Privater Tab" : "Neuer Tab"
         tabs.append(tab); if !background { selectedID = tab.id }; persistSession(); return tab
     }
     func close(_ id: UUID) {
         guard !wipingData else { return }
+        if let tab = tabs.first(where: { $0.id == id }), !tab.isPrivate,
+           let address = LibraryAddress.clean(tab.sessionAddress) {
+            closedTabs.append(TabSnapshot(id: tab.id, address: address, title: tab.title, pinned: tab.pinned, group: tab.group))
+            if closedTabs.count > 20 { closedTabs.removeFirst(closedTabs.count - 20) }
+        }
         tabs.first { $0.id == id }?.close(); tabs.removeAll { $0.id == id }
         if queueTabID == id { queueTabID = nil }
         if sleepPlan.tabID == id { cancelSleep() }
@@ -566,6 +666,8 @@ final class BrowserModel: ObservableObject {
         persistSession()
     }
     func play() {
+        if nativePlayer.isOpen { nativePlayer.play(); return }
+        guard playbackTab.canControlMedia else { notice = "Bitte die Bedienelemente der Website verwenden."; return }
         playbackTab.notePlaybackEvent("native.play")
         commandRevision += 1; clearPlaybackStop()
         playbackTab.prepareForPlayback()
@@ -573,14 +675,18 @@ final class BrowserModel: ObservableObject {
         playbackTab.runMedia("globalThis.__webkweb?.resume()")
     }
     func togglePlayback() {
+        if nativePlayer.isOpen { nativePlayer.toggle(); return }
         if playbackTab.playing { pauseAll(blockAutoplay: true) }
         else { play() }
     }
     func seek(_ seconds: Double) {
         guard seconds.isFinite else { return }
+        if nativePlayer.isOpen { nativePlayer.skip(seconds); return }
+        guard playbackTab.canControlMedia else { return }
         playbackTab.runMedia("globalThis.__webkweb?.seek(\(max(-120, min(120, seconds))))")
     }
     func pauseAll(blockAutoplay: Bool = true, reason: PlaybackPauseReason = .user) {
+        nativePlayer.pause()
         tabs.forEach { $0.notePlaybackEvent("native.pause.\(reason.rawValue) latch=\(blockAutoplay)") }
         commandRevision += 1; playbackStopped = blockAutoplay
         tabs.forEach { $0.cancelAutoplay(); $0.run("globalThis.__webkweb?.pause(\(blockAutoplay ? "true" : "false"))", allFrames: true) }
@@ -589,6 +695,8 @@ final class BrowserModel: ObservableObject {
     private func clearPlaybackStop() { playbackStopped = false; tabs.forEach { $0.run("globalThis.__webkweb?.clearStop()", allFrames: true) } }
     func didStartFromWebsite(in tabID: UUID) {
         guard !wipingData, tabs.contains(where: { $0.id == tabID }) else { return }
+        if nativePlayer.isOpen { nativePlayer.close() }
+        tabs.filter { $0.id != tabID }.forEach { $0.run("globalThis.__webkweb?.pause(true)", allFrames: true) }
         // The isolated bridge only sends this after trusted input on a player.
         // Playback already started; do not issue a second play command.
         commandRevision += 1
@@ -604,21 +712,26 @@ final class BrowserModel: ObservableObject {
         cancelSleep(); sleepPlan.arm(seconds: seconds); persistSleep(); if sleepPlan.isActive { startTimer() }
     }
     func sleep(videos: Int, currentVideoOnly: Bool = false) {
+        if let id = nativePlayer.mediaID, nativePlayer.duration != nil, (1...100).contains(videos) {
+            cancelSleep(); sleepPlan.arm(videos: videos, tabID: nativePlayer.sessionID, mediaID: currentVideoOnly ? id.uuidString : nil); persistSleep(); return
+        }
         guard (1...100).contains(videos),
-              current.activeMediaKind == "video", (!currentVideoOnly || !current.activeMediaID.isEmpty) else {
+              current.canControlMedia, current.duration != nil, current.activeMediaKind == "video", (!currentVideoOnly || !current.activeMediaID.isEmpty) else {
             notice = "Videozählung benötigt 1 bis 100 Videos und einen Webseiten-Videoplayer."
             return
         }
         cancelSleep()
         sleepPlan.arm(videos: videos, tabID: current.id, mediaID: currentVideoOnly ? current.activeMediaID : nil); persistSleep()
     }
-    func cancelSleep() { timer?.invalidate(); timer = nil; sleepPlan.cancel(); persistSleep(); clearPlaybackStop() }
+    func cancelSleep() { timer?.invalidate(); timer = nil; sleepAfterNativeQueue = false; sleepPlan.cancel(); persistSleep() }
+    func extendSleep() { if let deadline = sleepPlan.deadline { sleep(seconds: min(86400, max(1, Int(deadline.timeIntervalSinceNow)) + 600)) } }
+    func sleepAfterQueue() { guard nativePlayer.isOpen else { notice = "Nach Queue ist nur für native Medien verfügbar."; return }; cancelSleep(); sleepAfterNativeQueue = true }
     func enforceSleepDeadline() { if sleepPlan.hasExpired() { finishSleep() } }
     func ended(in tabID: UUID, eventID: String, mediaID: String) {
         if sleepPlan.ended(in: tabID, eventID: eventID, mediaID: mediaID) { finishSleep() } else { persistSleep() }
     }
     func openBackground(_ address: String, isPrivate: Bool? = nil) {
-        guard !wipingData, let url = AddressResolver.directURL(address), !blocksShorts(url) else { return }
+        guard !wipingData, tabs.count < 12, let url = AddressResolver.directURL(address), !blocksShorts(url) else { return }
         let tab = addTab(isPrivate: isPrivate ?? current.isPrivate, background: true)
         tab.load(url)
     }
@@ -627,13 +740,15 @@ final class BrowserModel: ObservableObject {
         enqueue(address: url.absoluteString, title: current.title)
     }
     func enqueue(address: String, title: String) {
-        guard let url = AddressResolver.directURL(address), !blocksShorts(url) else { notice = "Die Queue benötigt eine gültige HTTP(S)-Adresse."; return }
+        guard let clean = LibraryAddress.clean(address), let url = AddressResolver.directURL(clean) else { notice = "Die Queue benötigt einen Link ohne Zugangsdaten oder signierte Tokens."; return }
         queue.append(QueueEntry(title: String(title.prefix(300)), address: url.absoluteString))
     }
     func startQueue(_ id: UUID) {
         guard !wipingData, let item = queue.select(id) else { return }
         playQueue(item)
     }
+    func nextPlaybackItem() { if nativePlayer.isOpen { nativePlayer.next() } else { nextQueue() } }
+    func previousPlaybackItem() { if nativePlayer.isOpen { nativePlayer.previous() } else { previousQueue() } }
     func nextQueue() {
         guard queueTabID != nil, let item = queue.next() else { return }; playQueue(item, selectTab: false)
     }
@@ -645,25 +760,17 @@ final class BrowserModel: ObservableObject {
         queue.remove(id)
     }
     func detachQueue() { queueTabID = nil }
-    func queueEnded(in tabID: UUID, eventID: String, repeatPlayback: (() -> Void)? = nil) {
-        guard queueTabID == tabID, !playbackStopped, queueEvents.insert(eventID).inserted else { return }
-        if queueEvents.count > 1000 { queueEvents = [eventID] }
-        let old = queue.currentID
-        guard let item = queue.next(automatic: true) else { return }
-        if item.id == old { repeatPlayback?() }
-        else { playQueue(item, selectTab: false) }
-    }
     private func playQueue(_ item: QueueEntry, selectTab: Bool = true) {
         guard let url = AddressResolver.directURL(item.address), !blocksShorts(url) else { notice = "Queue-Adresse ist ungültig oder Shorts sind gesperrt."; return }
         commandRevision += 1; clearPlaybackStop()
         let tab = tabs.first { $0.id == queueTabID } ?? addTab()
-        queueTabID = tab.id; if selectTab { selectedID = tab.id }; tab.load(url, autoplay: true)
+        queueTabID = tab.id; if selectTab { selectedID = tab.id }; tab.load(url, autoplay: false)
     }
     private func persistQueue() {
         if let data = try? JSONEncoder().encode(queue) { UserDefaults.standard.set(data, forKey: "playbackQueueV1") }
     }
     private func finishSleep() {
-        timer?.invalidate(); timer = nil; sleepPlan.cancel(); persistSleep()
+        timer?.invalidate(); timer = nil; sleepAfterNativeQueue = false; sleepPlan.cancel(); persistSleep()
         pauseAll(blockAutoplay: true, reason: .sleepTimer); notice = "Sleep-Timer: Wiedergabe pausiert."
     }
     private func startTimer() {
@@ -671,14 +778,14 @@ final class BrowserModel: ObservableObject {
         RunLoop.main.add(value, forMode: .common); timer = value
     }
     private func persistSleep() {
+        if !tabs.isEmpty && current.isPrivate { UserDefaults.standard.removeObject(forKey: "sleepPlanV2"); return }
         if sleepPlan.tabID.flatMap({ id in tabs.first { $0.id == id }?.isPrivate }) == true { UserDefaults.standard.removeObject(forKey: "sleepPlanV2"); return }
         if let data = try? JSONEncoder().encode(sleepPlan) { UserDefaults.standard.set(data, forKey: "sleepPlanV2") }
     }
     func persistSession() {
         guard options.restoreTabs, !tabs.isEmpty else { return }
         let saved = tabs.filter { !$0.isPrivate }.map { tab -> TabSnapshot in
-            var parts = URLComponents(string: tab.sessionAddress); parts?.user = nil; parts?.password = nil
-            return TabSnapshot(id: tab.id, address: parts?.url?.absoluteString ?? "", title: tab.title)
+            return TabSnapshot(id: tab.id, address: LibraryAddress.clean(tab.sessionAddress) ?? "", title: LibraryAddress.clean(tab.sessionAddress) == nil ? "Neuer Tab" : tab.title, pinned: tab.pinned, group: tab.group)
         }
         let selected = current.isPrivate ? nil : selectedID
         if let data = try? JSONEncoder().encode(BrowserSessionSnapshot(tabs: saved, selected: selected)) { UserDefaults.standard.set(data, forKey: "browserSessionV2") }
@@ -687,7 +794,7 @@ final class BrowserModel: ObservableObject {
         persistSession()
         guard !wipingData, !tab.isPrivate, options.history, let url = URL(string: tab.address), ["http", "https"].contains(url.scheme ?? "") else { return }
         var parts = URLComponents(url: url, resolvingAgainstBaseURL: false); parts?.user = nil; parts?.password = nil
-        if let sanitized = parts?.url?.absoluteString { onVisit?(tab.title, sanitized) }
+        if let sanitized = parts?.url?.absoluteString, LibraryAddress.clean(sanitized) != nil { onVisit?(tab.title, sanitized) }
     }
     func wipeWebsiteData() async {
         guard !wipingData else { return }; wipingData = true; pauseAll(blockAutoplay: true, reason: .dataWipe)
@@ -703,7 +810,7 @@ final class BrowserModel: ObservableObject {
         notice = "Website-Daten gelöscht; aktive Seiten wurden geschlossen."
     }
     func enqueue(_ next: BrowserDialog) {
-        guard !wipingData, tabs.contains(where: { $0.id == next.tabID }) else { next.reply(nil); return }
+        guard !wipingData, dialogQueue.count < 32, tabs.contains(where: { $0.id == next.tabID }) else { next.reply(nil); return }
         dialogQueue.append(next); scheduleDialogPump()
     }
     private func scheduleDialogPump() {
@@ -728,7 +835,9 @@ final class BrowserModel: ObservableObject {
     }
     func publishNowPlaying() { if !tabs.isEmpty { AudioController.shared.update(tab: playbackTab) } }
     func foreground() async {
-        enforceSleepDeadline(); AudioController.shared.updateDemand()
-        if options.blocking { await RuleStore.shared.refreshIfNeeded() }
+        enforceSleepDeadline(); AudioController.shared.updateDemand(); if !privacyLocked { consumeSharedLinks() }
+        if UserDefaults.standard.bool(forKey: "complianceCleanupPending") {
+            ComplianceMigration.run(); notice = "Alte Integrationscaches konnten nicht vollständig gelöscht werden. Bereinigung wird erneut versucht; alte Filter sind nicht aktiv."
+        }
     }
 }

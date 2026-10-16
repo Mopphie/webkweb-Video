@@ -1,3 +1,5 @@
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # Prüfung vor einem Release
 
 ## TestFlight 0.1.0 (Build 5), 16.10.2026

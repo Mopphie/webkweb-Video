@@ -1,0 +1,401 @@
+{
+  "created_at_utc": "2026-10-16T11:26:32.667994+00:00",
+  "baseline_commit": "40b09287a40e7d51a3f82e07812ef9309814b99a",
+  "branch": "local/compliance-features-20261016",
+  "deployment_target": {
+    "iOS": "17.0"
+  },
+  "targets": [
+    "WebKWeb",
+    "FavoritesWidget",
+    "ShareExtension",
+    "WebKWebTests",
+    "WebKWebUITests"
+  ],
+  "external_app_packages": {},
+  "native_unit_definitions": 65,
+  "native_ui_definitions": 4,
+  "files": [
+    {
+      "path": "App/AppIntents.swift",
+      "bytes": 4584,
+      "sha256": "893f1a9855e7243be05ef8d408a11c916b7d1b98f2d059c7fbcc8956ab991770"
+    },
+    {
+      "path": "App/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "bytes": 7496,
+      "sha256": "5cb9a6f70ace5362ec1ffb0dc988b3571bec3d4ed711424bccdff92c930185ea"
+    },
+    {
+      "path": "App/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "bytes": 134,
+      "sha256": "6ad2c5c3bbcf972c7f02d217d6afcac3f24a10e30510c7e2d06c582371ed9d22"
+    },
+    {
+      "path": "App/Assets.xcassets/Contents.json",
+      "bytes": 40,
+      "sha256": "10e3b5dc202f1cd9fad1f688c8fc9fe9e9669bf3f8295e67d216b10fd99b6f49"
+    },
+    {
+      "path": "App/AudioController.swift",
+      "bytes": 11314,
+      "sha256": "6c46fb166ca2a7c6206491ae3145de74f8f314b4617aa24bd356d4e0ba8eea13"
+    },
+    {
+      "path": "App/BrowserGlass.swift",
+      "bytes": 2451,
+      "sha256": "3c45154823f207a0938ee2386c6552c7024fef3e66283f6573492a2cc7779b0b"
+    },
+    {
+      "path": "App/BrowserModels.swift",
+      "bytes": 5852,
+      "sha256": "ce93a4998015f8a5f6316e15c5b300a4b3d4ee535275bfc064651ce05c64375c"
+    },
+    {
+      "path": "App/BrowserPreferences.swift",
+      "bytes": 4062,
+      "sha256": "ca6502c4363df9fcadb8ebe7c7a402c10851818ecbf14500c690779116342521"
+    },
+    {
+      "path": "App/BrowserSession.swift",
+      "bytes": 54166,
+      "sha256": "63a002fa3d7fdce511582b128070aed43a9906834d78ecb94f9afd10e66fd793"
+    },
+    {
+      "path": "App/BrowserSheets.swift",
+      "bytes": 21421,
+      "sha256": "0fafbc656e918830602a6682024f9245aa43679dafed3d7c8bd3d68308a4ad90"
+    },
+    {
+      "path": "App/BrowserView.swift",
+      "bytes": 32207,
+      "sha256": "5f425a651e8a6a43c593b689fd837325ad34da2789d9087428d8890434efd857"
+    },
+    {
+      "path": "App/FilterSettingsView.swift",
+      "bytes": 1842,
+      "sha256": "ce59267b8e63032f60bb0f6328112df9f2ab5c4f2fc289581c7a4331f48cc2cf"
+    },
+    {
+      "path": "App/Info.plist",
+      "bytes": 2253,
+      "sha256": "044028e2c5e70c393505293bfafceb7fe4ae7700fd5f8705dd41c37e6f32116d"
+    },
+    {
+      "path": "App/LibraryHubView.swift",
+      "bytes": 17918,
+      "sha256": "82a471e6b138f1551da8951a98f23dcf01d9d5c45dcaf4e3230a1f37b83e75e7"
+    },
+    {
+      "path": "App/LibraryModels.swift",
+      "bytes": 5539,
+      "sha256": "e2e5b4e9f8749d4b01665f15d75b3150171d9ea81abf993d1183a1229c9136d2"
+    },
+    {
+      "path": "App/LibraryStore.swift",
+      "bytes": 10536,
+      "sha256": "b98a94cc51cda6a0a4fc76e6d5a3c0d6e64f803b0ffefb16b9641259d8668a46"
+    },
+    {
+      "path": "App/MediaPolicy.swift",
+      "bytes": 1077,
+      "sha256": "6eeed5f1e9aae8bb09531253e31050a1044d542be6522f519915010abbe435e5"
+    },
+    {
+      "path": "App/Models.swift",
+      "bytes": 607,
+      "sha256": "2a59bb3681fec1700e1b50c4a0eb7325d92a3ba335df95844c216206d2574f89"
+    },
+    {
+      "path": "App/NativePlayer.swift",
+      "bytes": 16994,
+      "sha256": "4dedd165ad442bf16823d31da425d1b8c3ff7234d2f13467181d8ec55404e2b3"
+    },
+    {
+      "path": "App/NativePlayerPanel.swift",
+      "bytes": 9137,
+      "sha256": "425a370a923044ff6546d3b0890f5bb2a5fb2f278b66dab018164a13fffde1d8"
+    },
+    {
+      "path": "App/NavigationPolicy.swift",
+      "bytes": 1059,
+      "sha256": "eff6683dcba49eab14b59793360f22c0e491413bf80f8e01ed3a92e72f14ef12"
+    },
+    {
+      "path": "App/PlaybackQueue.swift",
+      "bytes": 5217,
+      "sha256": "6186496c641f104cd96a5d25a353ef3f36882c793df50166e88f2165fc0c8a57"
+    },
+    {
+      "path": "App/PlayerViews.swift",
+      "bytes": 7486,
+      "sha256": "4f22144ad0bdbb445f3dad732ccbe96e3b4a0ac1fed00fb039a6dd8de8ba6a14"
+    },
+    {
+      "path": "App/PrivacyShield.swift",
+      "bytes": 3122,
+      "sha256": "d930a0c557def0cfdab85f1b75e1ea2dd55c79f3021b129ebfe9fe9664d519e0"
+    },
+    {
+      "path": "App/Resources/Playback.js",
+      "bytes": 14417,
+      "sha256": "1b3fb22457c8eacd61036f25c957ea93e68caad681489c4888150a694e7261e4"
+    },
+    {
+      "path": "App/Resources/PrivacyInfo.xcprivacy",
+      "bytes": 626,
+      "sha256": "5aec2466307e3b5990cce28e31c61c8860a457ffda9d9ea2546c369d53ff1545"
+    },
+    {
+      "path": "App/Resources/ThirdPartyNotices.txt",
+      "bytes": 1685,
+      "sha256": "f18d7d4c4ed2e6ee1c77763ce9ee603162bf138b7b3a58f3e6d09dbb39bd7577"
+    },
+    {
+      "path": "App/Rules.swift",
+      "bytes": 2600,
+      "sha256": "1b804acac888208150560916bff2a762af8c23ecfc4be1278210ca50ff32bf84"
+    },
+    {
+      "path": "App/SourceCapabilities.swift",
+      "bytes": 2975,
+      "sha256": "b5d6c4aedaf2a581c821b185b6dd27d04a17dde137498813aeb66c9b178b8e77"
+    },
+    {
+      "path": "App/ThirdPartyNoticesView.swift",
+      "bytes": 937,
+      "sha256": "989d1aa560ad42e359112ebf5a773ab9b15b1cf36395bccb1862fd6c15bb9fda"
+    },
+    {
+      "path": "App/WebKWeb.entitlements",
+      "bytes": 294,
+      "sha256": "0e924b6f406dcd571e23375c2485ca8dccdd90cb832beffe4fb580ef71018cce"
+    },
+    {
+      "path": "App/WebKWebApp.swift",
+      "bytes": 1713,
+      "sha256": "42835acf47038bdd9948cb30af41a93dabc83cd9c421d590ff21d945eef9d3d5"
+    },
+    {
+      "path": "App/WebView.swift",
+      "bytes": 6243,
+      "sha256": "2023c91d10d3034c7ecd6fcf76f350cba658f4c91732dcff13646f74d86b9d8f"
+    },
+    {
+      "path": "Shared/FavoriteEntity.swift",
+      "bytes": 1376,
+      "sha256": "4f7894428e8bc7d64c248cf24d9ec954d36dd03ad214031c42af014442d6a053"
+    },
+    {
+      "path": "Shared/FavoriteSnapshot.swift",
+      "bytes": 1652,
+      "sha256": "a7e2bea0ea0cdf92fca2b0624cd28affedec5bd5454c2f2d7bb19692b27ea8ce"
+    },
+    {
+      "path": "Shared/ShareInbox.swift",
+      "bytes": 1421,
+      "sha256": "ff1c69d3d7c6306a438dcf78958109fd762aa73daa9997de54acbf94d6242d57"
+    },
+    {
+      "path": "Shared/StoredAddress.swift",
+      "bytes": 1509,
+      "sha256": "f65d7dd0dfbb388ef779477df8545344fafd0bc59852d77ca45035bbdeae8607"
+    },
+    {
+      "path": "Widgets/FavoritesWidget.entitlements",
+      "bytes": 294,
+      "sha256": "0e924b6f406dcd571e23375c2485ca8dccdd90cb832beffe4fb580ef71018cce"
+    },
+    {
+      "path": "Widgets/FavoritesWidget.swift",
+      "bytes": 3075,
+      "sha256": "6cf810ab5ada46b41f74aacbc4ad6422351cd1b61773e98607384f36878069b9"
+    },
+    {
+      "path": "Widgets/Info.plist",
+      "bytes": 901,
+      "sha256": "61b6a63c51963098c1668fb2e7c105b6f41a6d7b5b5ac4f8d567ed286c5ebfb6"
+    },
+    {
+      "path": "Widgets/PrivacyInfo.xcprivacy",
+      "bytes": 595,
+      "sha256": "87cde876423396a1cc7dc5faf1e07dea51db6b55adc852a2cb58141b9f3d3788"
+    },
+    {
+      "path": "ShareExtension/Info.plist",
+      "bytes": 1159,
+      "sha256": "1a749284b48c92a00cf425cd3af1ee0c913d3b5ea37bdf75e5462210d3b85e9b"
+    },
+    {
+      "path": "ShareExtension/PrivacyInfo.xcprivacy",
+      "bytes": 595,
+      "sha256": "87cde876423396a1cc7dc5faf1e07dea51db6b55adc852a2cb58141b9f3d3788"
+    },
+    {
+      "path": "ShareExtension/ShareExtension.entitlements",
+      "bytes": 294,
+      "sha256": "0e924b6f406dcd571e23375c2485ca8dccdd90cb832beffe4fb580ef71018cce"
+    },
+    {
+      "path": "ShareExtension/ShareViewController.swift",
+      "bytes": 3705,
+      "sha256": "6b335e3273b4467d77c2fa557a10a20a132b8458a814c69d5cf065119f0b6bd7"
+    },
+    {
+      "path": "Tests/BrowserIntegrationTests.swift",
+      "bytes": 8938,
+      "sha256": "82739a8309f66f7d1200c5032e6191ad71398d36b5b31008ce1ea7e68c112660"
+    },
+    {
+      "path": "Tests/ComplianceMigrationTests.swift",
+      "bytes": 3451,
+      "sha256": "63b667bc5f022f035e4346f1fdb912162ce507bf8709937165acfbd53f0c00aa"
+    },
+    {
+      "path": "Tests/CoreTests.swift",
+      "bytes": 7135,
+      "sha256": "f9b42442ff4e798f1f7c2bd5e8c79ebdad76bf2cf0d366d260984658f3b0379a"
+    },
+    {
+      "path": "Tests/Fixtures/README.txt",
+      "bytes": 1456,
+      "sha256": "2c7a928094b7ca91f8a07ccbbde3870cadb3468a89712b9945091a8f8ece2f74"
+    },
+    {
+      "path": "Tests/Fixtures/audible.mp4",
+      "bytes": 74632,
+      "sha256": "a50c0f69afc6b733c7bdf6a05d8dc8c3768498ef2eec901f988337eccfae361e"
+    },
+    {
+      "path": "Tests/Fixtures/media.html",
+      "bytes": 1594,
+      "sha256": "06ca87c29853c0264e980a04f5d4168e807f56e7ef41190799c8a267bf39b2f0"
+    },
+    {
+      "path": "Tests/Fixtures/sample.mp4",
+      "bytes": 20628,
+      "sha256": "bd95d348a9a4bb8935295aa291b83bb92f78e1c4d0ed78c66eb792af57c0429c"
+    },
+    {
+      "path": "Tests/LibraryAndPolicyTests.swift",
+      "bytes": 10462,
+      "sha256": "81f23512c5dd9253ac4998cf7ac503890d971eff6fbde61901a4e19be21a7180"
+    },
+    {
+      "path": "Tests/MediaPlaybackIntegrationTests.swift",
+      "bytes": 18081,
+      "sha256": "e21aff54b847cfe492c2f1b84d51dd1195cde4d2ee22081ec4915cf509899a09"
+    },
+    {
+      "path": "Tests/MediaPolicyTests.swift",
+      "bytes": 3721,
+      "sha256": "48955f96896d9789b22b66d7c6163fec1c08ee6b10d2156b9cf26bdf46a1d9a2"
+    },
+    {
+      "path": "Tests/NativePlayerTests.swift",
+      "bytes": 4735,
+      "sha256": "3643f238d826b9316a54a69d0c897799f5a56d920f937b9ae3e7428450149f41"
+    },
+    {
+      "path": "Tests/QueueTests.swift",
+      "bytes": 2941,
+      "sha256": "03ff7f0c680922082422d74d3ceacb400eaf1fed99c7d18a83e40258c77b2568"
+    },
+    {
+      "path": "Tests/WorkspacePrivacyTests.swift",
+      "bytes": 4180,
+      "sha256": "ca50a81a7bcadff57c436be012fc3ada94e6acf36d81fd02b9241afeddd726b3"
+    },
+    {
+      "path": "Tests/compliance.test.cjs",
+      "bytes": 2624,
+      "sha256": "8e404bf38784213f6bdf98de0d568e4e7333355a651301016d9ef2311a04e25c"
+    },
+    {
+      "path": "Tests/playback.test.cjs",
+      "bytes": 17890,
+      "sha256": "5dd4381019f7805a1e2d17d94fdf674340e4dd3b06806a90dfe0bd907fdd0112"
+    },
+    {
+      "path": "UITests/BrowserActionsUITests.swift",
+      "bytes": 7405,
+      "sha256": "3979124e750c0d39b2887902261f3a5b9ee6bc6f3333946f987652509315abd2"
+    },
+    {
+      "path": "UITests/NativePlaybackJourneyUITests.swift",
+      "bytes": 3539,
+      "sha256": "f6b2e3e86bfa9a546664c20eab9cc9c83d145fde86d58a417d919e07139773be"
+    },
+    {
+      "path": "Scripts/Tests/test_app_store_connect.py",
+      "bytes": 9099,
+      "sha256": "4049afbe1aff6176206153957370c6d28f4d494aac6739f1e74f1a1fd3586516"
+    },
+    {
+      "path": "Scripts/Tests/test_signing.py",
+      "bytes": 2725,
+      "sha256": "5ed7544b140e4e31cec33d81be1da3a5aa1878ff3cbd462b6d33578afa91dadb"
+    },
+    {
+      "path": "Scripts/app-store-connect.py",
+      "bytes": 12783,
+      "sha256": "b9522a90990453df5b2406eb4a718e42a41f45458c3b145c9859499004e52d3c"
+    },
+    {
+      "path": "Scripts/check-browser.py",
+      "bytes": 23647,
+      "sha256": "82f1d5199c3dc75d2d0372f5e30a633ce6134ab4a942630570010aa920e2d0d6"
+    },
+    {
+      "path": "Scripts/check-core.sh",
+      "bytes": 917,
+      "sha256": "7d117eae0a040fad38459b79f07871ae79adc871c349da0fa94b286e626c0876"
+    },
+    {
+      "path": "Scripts/check-macos.sh",
+      "bytes": 2505,
+      "sha256": "4d7263f8592d880d669be57cde9fadd3af1dd531dc6f6ec7001f6102a5fa123d"
+    },
+    {
+      "path": "Scripts/check-portable.py",
+      "bytes": 8492,
+      "sha256": "a4f822ebc75e8c942f09d28fac59c8eb31ff1b4c353786733b6261685574f9d1"
+    },
+    {
+      "path": "Scripts/ci-signing.py",
+      "bytes": 3471,
+      "sha256": "9d83ef2e3e0dec3f0b302bf323ec4df798c1f073e00382389dcd3752ab218851"
+    },
+    {
+      "path": "Scripts/configure-cloudkit.py",
+      "bytes": 1317,
+      "sha256": "d7dafd0094a3f0b12d2ccbd08708e206245af59ed4a28d2cb209eee1d2a19af2"
+    },
+    {
+      "path": "Scripts/generate-app-icon.py",
+      "bytes": 1045,
+      "sha256": "5bbd51b8fda40e8be28cd331c2eef75fcf01d8a6d24a2e5e4a35424c4604ab65"
+    },
+    {
+      "path": ".github/workflows/testflight.yml",
+      "bytes": 11932,
+      "sha256": "7052057574355eff5335d8b8ca8648f3fb23b2921e390f341310af0200d9ef4e"
+    },
+    {
+      "path": ".github/workflows/validate.yml",
+      "bytes": 1870,
+      "sha256": "09bf96e5bfb9cb3991b06afbd7b646fba3549b88554cb0344168446f63d147a5"
+    },
+    {
+      "path": "project.yml",
+      "bytes": 3159,
+      "sha256": "fb8d901a8b7a0e5e59ec450cc4ee06bab79a3b0b685335f0f6944f73272fd07c"
+    },
+    {
+      "path": "Package.swift",
+      "bytes": 1909,
+      "sha256": "c8afd282e1628006b162b445ff8075a260bc891c59de7712eaadfdd71ae47030"
+    }
+  ],
+  "implementation_commit": "8ebb88e"
+}

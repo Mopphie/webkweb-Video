@@ -9,7 +9,7 @@ private struct BrowserGlass: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if reduceTransparency {
-            content.background(Color(white: 0.13), in: shape)
+            content.background(Color(.secondarySystemBackground), in: shape)
                 .overlay { shape.strokeBorder(.white.opacity(0.18), lineWidth: 0.75) }
         } else {
             #if compiler(>=6.2)
@@ -65,6 +65,6 @@ enum HomeSite: String, CaseIterable, Identifiable {
 struct HomeSiteGlyph: View {
     let site: HomeSite
     var body: some View {
-        Image(systemName: "globe").font(.system(size: 31, weight: .regular)).foregroundStyle(.white)
+        Image(systemName: "globe").font(.system(size: 31, weight: .regular)).foregroundStyle(.primary)
     }
 }

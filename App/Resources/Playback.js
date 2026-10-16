@@ -4,7 +4,7 @@
   const documentID = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const attached = new WeakMap();
   const knownMedia = new Set(), observedRoots = new WeakSet();
-  let background = false, autoPiP = false, preferOriginal = false, hideShorts = false, queueManaged = false;
+  let background = false, queueManaged = false;
   let lastDiscovery = 0, lastHeartbeat = 0, lastState = 0, lastSignature = "";
   let serial = 0;
   let lastAddress = "", stopped = Boolean(globalThis.__webkwebStartPaused), selected = null;
@@ -17,13 +17,6 @@
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
-  const videoID = () => {
-    if (!/(^|\.)youtube\.com$/.test(location.hostname)) return null;
-    const url = new URL(location.href);
-    const id = url.pathname === "/watch" ? url.searchParams.get("v") : url.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/)?.[1];
-    return /^[\w-]{11}$/.test(id || "") ? id : null;
-  };
-  const isAd = () => Boolean(document.querySelector(".ad-showing,.ad-interrupting"));
   function discover(root) {
     if (root?.tagName === "VIDEO" || root?.tagName === "AUDIO") knownMedia.add(root);
     root?.querySelectorAll?.("video,audio").forEach(v => knownMedia.add(v));
@@ -60,7 +53,7 @@
   function entry(v) {
     const e = attached.get(v);
     if (!e) return null;
-    const sourceKey = (v.currentSrc || "") + ":" + (videoID() || "");
+    const sourceKey = (v.currentSrc || "") + ":" + location.href;
     if (sourceKey !== e.sourceKey) {
       e.sourceKey = sourceKey; e.cycle++; e.ended = false; e.waiting = false;
       // Keep the page's pre-queue loop preference until queue management ends.
@@ -121,11 +114,12 @@
           stopped = false;
           post("userplay", {mediaID: mediaID(v)});
         }
+        post("started", {mediaID: mediaID(v)});
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
         state();
       });
       v.addEventListener("pause", () => { entry(v).waiting = false; state(); });
-      v.addEventListener("loadedmetadata", () => { entry(v); applyOriginal(v); state(); });
+      v.addEventListener("loadedmetadata", () => { entry(v); state(); });
       v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
       v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
       v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
@@ -135,12 +129,11 @@
       v.addEventListener("volumechange", state);
       v.textTracks?.addEventListener?.("change", state);
       v.audioTracks?.addEventListener?.("change", state);
-      v.audioTracks?.addEventListener?.("addtrack", () => { applyOriginal(v); state(); });
-      applyOriginal(v);
+      v.audioTracks?.addEventListener?.("addtrack", () => { state(); });
       v.addEventListener("timeupdate", () => state(false));
       v.addEventListener("ended", () => {
         const e = entry(v);
-        if (e.ended || isAd() || v !== lastPrimary) return;
+        if (e.ended || v !== lastPrimary) return;
         const id = mediaID(v); e.ended = true;
         if (v.tagName === "VIDEO") post("ended", {eventID: id, mediaID: id, mediaKind: "video", primary: true});
         post("queueended", {eventID: id, mediaID: id, mediaKind: v.tagName === "VIDEO" ? "video" : "audio", primary: true}); state();
@@ -170,30 +163,13 @@
       }
     }
     if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
-    if (v && stopped && event.isTrusted) playIntent = {media: v, at: Date.now()};
+    if (v && event.isTrusted) { playIntent = {media: v, at: Date.now()}; if (!stopped) post("userplay", {mediaID: mediaID(v)}); }
   };
   document.addEventListener("pointerdown", choose, true);
   document.addEventListener("click", choose, true);
   document.addEventListener("keydown", event => {
     if (event.key === " " || event.key === "Enter") choose(event);
   }, true);
-  function applyOriginal(v) {
-    if (!preferOriginal || !v.audioTracks) return;
-    const list = Array.from(v.audioTracks), original = list.find(t => /\boriginal(?:ton| audio)?\b/i.test(t.label || ""));
-    if (original) list.forEach(t => { t.enabled = t === original; });
-  }
-  function shortsPolicy() {
-    const youtube = /(^|\.)youtube\.com$/.test(location.hostname);
-    let style = document.getElementById?.("webkweb-shorts-policy");
-    if (hideShorts && youtube && !style && document.createElement && document.head) {
-      style = document.createElement("style"); style.id = "webkweb-shorts-policy";
-      style.textContent = 'ytd-reel-shelf-renderer,ytd-reel-video-renderer,ytm-reel-shelf-renderer,a[href^="/shorts/"],a[href*="youtube.com/shorts/"]{display:none!important}';
-      document.head.appendChild(style);
-    } else if (!hideShorts || !youtube) style?.remove();
-    if (hideShorts && youtube && location.pathname.startsWith("/shorts/")) {
-      post("notice", {text: "Shorts sind ausgeschaltet."}); location.replace?.("https://m.youtube.com/");
-    }
-  }
   globalThis.__webkweb = {
     pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); playIntent = null; commandMedia(); nodes().forEach(v => v.pause()); state(); },
     clearStop() { stopped = false; playIntent = null; },
@@ -216,10 +192,6 @@
       if (v) { selected = v; interactionAt = Date.now(); playIntent = {media: v, at: Date.now()}; }
     },
     seek,
-    setOptions(options = {}) {
-      autoPiP = Boolean(options.autoPiP); preferOriginal = Boolean(options.preferOriginal); hideShorts = Boolean(options.hideShorts);
-      nodes().forEach(applyOriginal); shortsPolicy();
-    },
     setBackground(value) { background = Boolean(value); },
     setQueueManaged(value) {
       queueManaged = Boolean(value);
@@ -248,21 +220,6 @@
         else post("notice", {text: "Dieser Player unterstützt kein Vollbild."});
       } catch (_) { post("notice", {text: "Tippe für Vollbild auf den Webseitenplayer."}); }
     },
-    autoPiP() {
-      if (!autoPiP || stopped) return;
-      const v = commandMedia();
-      if (!v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
-      try { this.pip(); } catch (_) {} // User gesture / background timing remains iOS-dependent.
-    },
-    pip() {
-      const v = commandMedia(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
-      try {
-        if (v.webkitSupportsPresentationMode?.("picture-in-picture")) v.webkitSetPresentationMode("picture-in-picture");
-        else if (v.requestPictureInPicture) v.requestPictureInPicture().catch(() => post("notice", {text: "Bild-in-Bild ist hier nicht verfügbar."}));
-        else post("notice", {text: "Dieser Player unterstützt kein Bild-in-Bild."});
-      } catch (_) { post("notice", {text: "Tippe für Bild-in-Bild auf den Webseitenplayer."}); }
-    },
-    airplay() { const v = commandMedia(); if (v?.webkitShowPlaybackTargetPicker) v.webkitShowPlaybackTargetPicker(); else post("notice", {text: "Nutze AirPlay im Kontrollzentrum."}); },
     state
   };
   const tick = () => {
@@ -272,7 +229,6 @@
     if (lastAddress !== location.href) {
       lastAddress = location.href;
       post("navigation");
-      shortsPolicy();
     }
     if (!hidden && now - lastDiscovery >= 15000) { discover(document); lastDiscovery = now; }
     attach();
@@ -283,6 +239,6 @@
   setInterval(tick, 1000);
   window.addEventListener?.("pagehide", () => post("dispose"));
   window.addEventListener?.("pageshow", event => { if (event.persisted) { lastHeartbeat = 0; lastState = 0; post("ready"); tick(); } });
-  document.addEventListener("visibilitychange", () => { lastHeartbeat = 0; lastState = 0; if (document.hidden) globalThis.__webkweb.autoPiP(); tick(); });
+  document.addEventListener("visibilitychange", () => { lastHeartbeat = 0; lastState = 0; tick(); });
   document.addEventListener("yt-navigate-finish", tick);
 })();

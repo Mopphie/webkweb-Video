@@ -1,11 +1,11 @@
-# Vollständige Entfernung der Medien-Downloadfunktion
+# Dateien und Downloads — aktueller Umfang
 
-Stand: 15.10.2026. Der Nutzer hat die Entfernung autorisiert. Ohne belegte Autorisierung fremder Medienquellen wurde die native Audio-/Video-Downloadfunktion aus dem gesamten Projekt entfernt, einschließlich Entwicklungsbuilds. Es gibt keinen Compile-Flag, keinen internen Download-Sheet-Pfad und keinen versteckten Nutzungs- oder Reviewer-Schalter mehr.
+16.10.2026. Der neue lokale Stand besitzt keine abweichende versteckte Review-/Releasevariante.
 
-Entfernt wurden Downloader/Jobs/Dateiverwaltung, Downloadmenüs und -Ansicht, Download-spezifische Tests und die Medien-URL-/MIME-Weitergabe. Die bisherige Release-only-Bedingung ist entfallen. SponsorBlock und Google Cast sind ebenfalls vollständig entfernt; Begründung und verbleibende Lizenzen: [COMMERCIAL-USE.md](COMMERCIAL-USE.md).
+Kein Plattformdownloader, MP3-Extraktor, Streamsuchdienst, DRM-/Zugangs- oder Bezahlschranken-Workaround. SponsorBlock-/Cast-/Ressourcenfilterintegrationen bleiben entfernt. Code, Targets, Skripte, Entitlements, UI und Texte werden gemeinsam geprüft; [Entfernungen und Migrationen](REMOVALS_AND_MIGRATIONS.md).
 
-Bestehende Nutzerdateien im bisherigen Application-Support/Downloads-Verzeichnis werden nicht automatisch gelöscht, migriert oder übertragen. Die neue App erzeugt dort keine Dateien und bietet keine Download-/Dateiverwaltungsoberfläche mehr. Eine Deinstallation unterliegt weiterhin der normalen iOS-Datenlöschung.
+**Eigene Dateien bleiben eine eigene zulässige Funktion:** Dateien-App öffnen, explizit eine eigene/berechtigte Datei auswählen, Security-Scoped Bookmark lokal halten, AVFoundation-Formate auf tatsächliche Spielbarkeit prüfen, bei verschobenen/gelöschten Dateien neu verknüpfen. Vorhandene unabhängige Nutzerdateien werden nicht gelöscht. Die App kopiert keine Websitevideos automatisch in die Mediathek und führt keine Konvertierungsbibliothek ein.
 
-`python Scripts/check-portable.py` prüft die Abwesenheit der entfernten Dateien, Produktionssymbole, Buildflags und Cast-Netzwerkberechtigungen sowie verbleibende Tests und Projektstruktur. Das ersetzt keinen echten iOS-Build. Vor Veröffentlichung auf einem Mac mit Xcode 26+/iOS-26-SDK `./Scripts/check-macos.sh` ausführen, Debug/Release und das Archiv prüfen und bestehende Nutzerdateien bei einem Update kontrollieren.
+Autorisierte Direktquellen werden nur manuell nach ausdrücklicher Rechtebestätigung hinzugefügt. Bekannte Plattformhosts und übliche signierte/Token-/OAuth-URLs sind keine dauerhaften Direktquellen. Eine technisch erreichbare URL ist kein Lizenznachweis. Einzelne Dateianbieter können eigene Netzwerk-/Kontovoraussetzungen besitzen.
 
-AirPlay, HTML-Wiedergabesteuerung, PiP, Timer und Browserfunktionen bleiben erhalten. Nutzungsbedingungen besuchter Dienste, öffentliche Datenschutzangaben und App Review bleiben gesonderte Release-Prüfpunkte. Keine GitHub-Actions-Ausführung oder Apple-Einreichung wurde dadurch ausgelöst.
+Teststatus: [TEST_REPORT.md](TEST_REPORT.md), Quellenabgrenzung: [PROVIDER_CAPABILITIES.md](PROVIDER_CAPABILITIES.md), Rechte: [LICENSE_REGISTER.md](LICENSE_REGISTER.md). Es wurde kein neuer iOS-Build hochgeladen.

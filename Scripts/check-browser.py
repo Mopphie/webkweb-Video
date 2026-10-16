@@ -336,13 +336,9 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             await p.click('#play'); await p.click('#fullscreen')
             await p.wait_for_function('document.fullscreenElement || __messages.some(m=>m.kind==="notice")')
 
-        async def pip(p):
-            await p.click('#play'); await p.click('#pip')
-            await p.wait_for_function('document.pictureInPictureElement || __messages.some(m=>m.kind==="notice")')
-
-        async def airplay_fallback(p):
-            await p.click('#airplay')
-            await p.wait_for_function('__messages.some(m=>m.kind==="notice" && m.text.includes("AirPlay"))')
+        async def no_forced_routes(p):
+            result = await p.evaluate('Object.fromEntries(["pip","autoPiP","airplay","setOptions"].map(k=>[k,typeof globalThis.__webkweb[k]]))')
+            assert all(v == 'undefined' for v in result.values()), result
 
         checks = [('play-pause-seek-rate','video',playback), ('captions','video',captions),
                   ('website-play-after-native-stop','video',website_play_after_stop),
@@ -352,8 +348,7 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
                   ('rapid-open-shadow-player','empty',shadow_player), ('source-identity','video',source_identity),
                   ('same-and-cross-origin-frames','frames',frames), ('spa-navigation','video',navigation),
                   ('audio-queue-not-video-count','audio',audio), ('media-error-recovery','video',media_error),
-                  ('fullscreen-or-fallback','video',fullscreen), ('pip-or-fallback','video',pip),
-                  ('airplay-unavailable-fallback','video',airplay_fallback)]
+                  ('fullscreen-or-fallback','video',fullscreen), ('no-forced-website-routes','video',no_forced_routes)]
         checks += [('buffered-network-stall','video',buffered_network_stall),
                    ('segmented-stream-pause-recovery','video',segmented_stream_pause_recovery)]
         for name, mode, check in checks: await case(name, mode, check)

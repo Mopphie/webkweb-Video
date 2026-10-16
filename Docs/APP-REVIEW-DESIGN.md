@@ -1,3 +1,5 @@
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # Design- und App-Review-Prüfung
 
 Stand: 16. Oktober 2026. Prüfung des Quelltexts und der öffentlich abrufbaren Apple-Richtlinien; portable Checks unter Linux sowie freigegebene native Build-/XCTest-Prüfung in GitHub Actions. Der aktuelle [TestFlight-Lauf besteht 46/46 native Unit-/WK-Tests und 3/3 XCUITests sowie signiertes Gerätearchiv und IPA-Export](https://github.com/Mopphie/webkweb-Video/actions/runs/38880644099); reale Geräte-/Diensteprüfungen bleiben erforderlich. Daraus folgt keine Zusage einer App-Store-Zulassung. Der aktuelle Prüfbericht steht in `build/reports/portable-check.json`. Der Store-Eintrag ist nur als [Arbeitsentwurf](APP-STORE-DRAFT.md) vorbereitet.

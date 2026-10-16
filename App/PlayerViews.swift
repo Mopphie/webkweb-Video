@@ -12,7 +12,7 @@ struct QueueView: View {
             List {
                 Section {
                     Toggle("Shuffle", isOn: Binding(get: { browser.queue.shuffled }, set: { browser.queue.setShuffle($0) }))
-                    Picker("Wiederholen", selection: $browser.queue.repeatMode) { ForEach(QueueRepeat.allCases) { Text($0.title).tag($0) } }
+                    Picker("Wiederholen", selection: $browser.queue.repeatMode) { ForEach([QueueRepeat.none, .all]) { Text($0.title).tag($0) } }
                     HStack {
                         Button { browser.previousQueue() } label: { Image(systemName: "backward.end.fill").frame(width: 44, height: 44) }.accessibilityLabel("Vorheriger Titel").disabled(!browser.queue.canPrevious || browser.queueTabID == nil)
                         Spacer()
@@ -44,9 +44,9 @@ struct QueueView: View {
                     }.disabled(!pages.contains(where: \.favorite))
                 }
                 Section {
-                    Text("Die lokale Queue umfasst ihre gesamten Einträge. Webseiten müssen einen HTML-Player mit Endereignissen bereitstellen. Private Tabs werden nicht übernommen. YouTube-Playlists werden nicht ausgelesen.").font(.caption).foregroundStyle(.secondary)
+                    Text("Linkqueue: Website-Einträge werden bewusst einzeln geöffnet, ohne automatische Übergänge. Die native Medienqueue ist getrennt am Player erreichbar. Private Tabs werden nicht übernommen; Anbieter-Playlists werden nicht ausgelesen.").font(.caption).foregroundStyle(.secondary)
                 }
-            }.navigationTitle("Queue")
+            }.navigationTitle("Linkqueue")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } }; ToolbarItem(placement: .primaryAction) { EditButton() } }
         }
     }
@@ -60,11 +60,13 @@ struct PlayerOptionsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section { Text(SourceCapabilities.forSource(.website).explanation).font(.footnote) }
+                if tab.canControlMedia {
                 Section("Player") {
                     HStack {
                         Button("Vollbild", systemImage: "arrow.up.left.and.arrow.down.right") { tab.runMedia("globalThis.__webkweb?.fullscreen()"); dismiss() }
                         Spacer()
-                        Button("PiP", systemImage: "pip") { tab.runMedia("globalThis.__webkweb?.pip()"); dismiss() }
+                        Text("PiP über die Website")
                     }.disabled(tab.activeMediaKind != "video")
                     Picker("Geschwindigkeit", selection: Binding(get: { tab.playbackRate }, set: { tab.runMedia("globalThis.__webkweb?.setRate(\($0))") })) {
                         ForEach(Array(Set([0.5, 0.75, 1.0, 1.25, 1.5, 2.0, tab.playbackRate])).sorted(), id: \.self) { Text("\($0.formatted())×").tag($0) }
@@ -75,7 +77,7 @@ struct PlayerOptionsView: View {
                     if !tab.mediaError.isEmpty { Text(tab.mediaError).foregroundStyle(.red) }
                     Button("Wiedergabe erneut versuchen") { tab.runMedia("globalThis.__webkweb?.recover()") }.disabled(!tab.hasMedia)
                     NativeVolumeControl().frame(minHeight: 44).accessibilityLabel("Systemlautstärke")
-                    if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
+                    if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek, interval: Double(browser.options.skipSeconds)) }
                 }
                 Section("Untertitel") {
                     Picker("Spur", selection: Binding(get: { tab.captions.first(where: \.selected)?.id ?? -1 }, set: { tab.runMedia("globalThis.__webkweb?.setCaption(\($0))") })) {
@@ -89,11 +91,12 @@ struct PlayerOptionsView: View {
                         if tab.audioTracks.isEmpty { Text("Webseitenplayer").tag(-1) }
                         ForEach(tab.audioTracks) { Text($0.title).tag($0.id) }
                     }.disabled(tab.audioTracks.isEmpty)
-                    Toggle("Original bevorzugen", isOn: $browser.options.preferOriginalAudio)
+
                     Text("Nur verfügbar, wenn der Webseitenplayer eine Originalspur anbietet.").font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
                     Text("Qualität wird vom Webseitenplayer gewählt. AirPlay behält die aktuelle Quelle; 1080p lässt sich ohne passende Quelle nicht erzwingen. HTML-Untertitel können im nativen Vollbild erscheinen, Webseiten-Overlays möglicherweise nicht.").font(.caption).foregroundStyle(.secondary)
+                }
                 }
             }.navigationTitle("Player")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }

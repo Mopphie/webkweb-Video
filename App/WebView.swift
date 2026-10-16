@@ -49,7 +49,7 @@ struct BrowserWebView: UIViewRepresentable {
             touchObserver.cancelsTouchesInView = false
             view.addGestureRecognizer(touchObserver)
         }
-        func detach() { webView?.removeGestureRecognizer(pan); webView?.removeGestureRecognizer(touchObserver); webView = nil }
+        func detach() { webView?.removeGestureRecognizer(pan); webView?.removeGestureRecognizer(touchObserver); webView = nil; playerTouch = { _ in }; leaveWatch = {}; enabled = false }
         func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
             guard enabled, let view = webView, let pan = gesture as? UIPanGestureRecognizer else { return false }
             let velocity = pan.velocity(in: view), point = pan.location(in: view), delta = pan.translation(in: view)
@@ -104,14 +104,15 @@ struct AirPlayControl: UIViewRepresentable {
 @MainActor
 struct SeekGesturePad: View {
     let seek: (Double) -> Void
+    var interval = 10.0
     @State private var movement = 0.0
     var body: some View {
         HStack(spacing: 0) {
-            Text("−10 s").frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle()).onTapGesture(count: 2) { seek(-10) }
+            Text("−\(Int(interval)) s").frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle()).onTapGesture(count: 2) { seek(-interval) }
             Image(systemName: "hand.draw").accessibilityHidden(true)
-            Text("+10 s").frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle()).onTapGesture(count: 2) { seek(10) }
+            Text("+\(Int(interval)) s").frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle()).onTapGesture(count: 2) { seek(interval) }
         }
         .font(.caption).foregroundStyle(.secondary)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -120,7 +121,7 @@ struct SeekGesturePad: View {
             .onEnded { _ in seek(movement); movement = 0 })
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Spulen: links oder rechts doppelt tippen; horizontal wischen")
-        .accessibilityAdjustableAction { seek($0 == .increment ? 10 : -10) }
+        .accessibilityAdjustableAction { seek($0 == .increment ? interval : -interval) }
         .overlay(alignment: .top) {
             if movement != 0 { Text("\(Int(movement)) s").font(.caption).offset(y: -18) }
         }

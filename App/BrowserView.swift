@@ -5,7 +5,7 @@ import WebKit
 import UIKit
 
 private enum BrowserSheet: String, Identifiable {
-    case library, history, tabs, sleep, settings, airplay, queue, player, address
+    case library, collection, history, tabs, sleep, settings, airplay, queue, player, address
     var id: String { rawValue }
 }
 
@@ -19,6 +19,9 @@ struct BrowserView: View {
     @State private var sheet: BrowserSheet?
     @State private var persistenceError: String?
     @State private var promptText = ""
+    @State private var confirmPrivateFavorite = false
+    @StateObject private var shield = PrivacyShield()
+    @EnvironmentObject private var native: NativePlayer
 
     private var favoriteDigest: [String] {
         pages.filter(\.favorite).map { "\($0.identifier)|\($0.title)|\($0.address)|\($0.favoriteOrder)" }.sorted()
@@ -26,7 +29,8 @@ struct BrowserView: View {
 
     var body: some View {
         NavigationStack {
-            BrowserScreen(tab: browser.current, showLibrary: { sheet = .library },
+            VStack(spacing: 0) {
+            BrowserScreen(tab: browser.current, showLibrary: { sheet = .collection },
                 showHistory: { sheet = .history },
                 showTabs: { sheet = .tabs }, showSleep: { sheet = .sleep },
                 showSettings: { sheet = .settings }, showAirPlay: { sheet = .airplay },
@@ -34,9 +38,12 @@ struct BrowserView: View {
                 showAddress: { sheet = .address },
                 favorite: { favoriteCurrent() }, isFavorite: pages.contains { $0.favorite && $0.address == StoredAddress.clean(browser.current.address) })
                 .id(browser.current.id)
+                .frame(height: native.isOpen && native.focus ? 0 : nil)
+                .clipped().accessibilityHidden(native.isOpen && native.focus)
                 .toolbar(.hidden, for: .navigationBar)
                 .sheet(item: $sheet) { selected in
                     switch selected {
+                    case .collection: LibraryHubView(library: browser.library)
                     case .library: LibraryView(open: { address in browser.open(address); sheet = nil }, didChange: saveAndSync)
                     case .history: LibraryView(open: { address in browser.open(address); sheet = nil }, didChange: saveAndSync, initialSection: .history)
                     case .tabs: TabsView()
@@ -48,24 +55,46 @@ struct BrowserView: View {
                     case .address: AddressEntryView().presentationDetents([.medium, .large])
                     }
                 }
+                if native.isOpen { NativePlayerPanel(playback: native) }
+            }
+        }
+        .opacity(browser.privacyLocked ? 0 : 1)
+        .allowsHitTesting(!browser.privacyLocked)
+        .accessibilityHidden(browser.privacyLocked)
+        .confirmationDialog("Diesen Link aus dem Privatbereich in normale Favoriten übernehmen? Er kann nach deiner Freigabe auch in Widgets, Exporten und Kurzbefehlen erscheinen.", isPresented: $confirmPrivateFavorite, titleVisibility: .visible) {
+            Button("In normale Favoriten speichern") { favoriteCurrent(allowPrivate: true) }
         }
         .task {
             browser.onVisit = recordVisit
             normalizeSavedPages()
             syncFavorites()
-            if browser.blockingEnabled { await RuleStore.shared.refreshIfNeeded() }
+            shield.update(phase: scenePhase, browser: browser)
+            if !browser.privacyLocked { browser.consumeSharedLinks() }
         }
         .onChange(of: favoriteDigest) { _, _ in syncFavorites() }
+        .onChange(of: browser.options.shareFavoritesWithSystem) { _, _ in syncFavorites() }
+        .onChange(of: browser.options.privateLock) { _, _ in shield.update(phase: scenePhase, browser: browser) }
+        .onChange(of: browser.privacyLocked) { _, locked in if !locked { browser.consumeSharedLinks() } }
         .onChange(of: scenePhase) { _, phase in
+            native.sceneActive = phase == .active
+            browser.enforceSleepDeadline()
+            shield.update(phase: phase, browser: browser)
             if phase == .active { Task { await browser.foreground() } }
             else { if phase == .inactive { browser.playbackTab.attemptAutoPiP() }; browser.persistSession() }
         }
         .onReceive(router.$revision) { _ in
             for command in router.drain() {
+                guard !browser.privacyLocked else { browser.notice = "App zuerst entsperren und Aktion erneut ausführen."; continue }
                 switch command {
                 case .open(let address): browser.open(address)
                 case .sleep(let minutes): browser.sleep(minutes: minutes)
                 case .pause: browser.pauseAll(blockAutoplay: true, reason: .shortcut)
+                case .save(let address): _ = browser.library.addLink(title: URL(string: address)?.host ?? "Link", address: address)
+                case .playlist(let name):
+                    if let list = browser.library.document.playlists.first(where: { $0.name == name }) {
+                        let native = list.mediaIDs.filter { id in browser.library.document.media.contains { $0.id == id && $0.kind != .website } }
+                        if native.isEmpty { browser.notice = "Diese Liste enthält keine nativ abspielbaren Medien." } else { browser.nativePlayer.playPlaylist(native) }
+                    } else { browser.notice = "Playlist nicht gefunden." }
                 }
             }
         }
@@ -92,7 +121,12 @@ struct BrowserView: View {
     private func normalizeSavedPages() {
         var seen = Set<String>()
         for (index, page) in pages.enumerated() {
-            if let clean = StoredAddress.clean(page.address) { page.address = clean }
+            if StoredAddress.clean(page.address) == nil {
+                if page.favorite, var parts = URLComponents(string: page.address), ["http", "https"].contains(parts.scheme ?? ""), parts.host != nil {
+                    parts.user = nil; parts.password = nil; parts.query = nil; parts.fragment = nil
+                    page.address = parts.url?.absoluteString ?? ""
+                } else { context.delete(page); continue }
+            }
             if page.identifier.isEmpty || !seen.insert(page.identifier).inserted { page.identifier = UUID().uuidString; seen.insert(page.identifier) }
             if page.favoriteOrder == 0 { page.favoriteOrder = Double(index + 1) }
         }
@@ -105,7 +139,7 @@ struct BrowserView: View {
             request.fetchLimit = 1
             if let existing = try context.fetch(request).first {
                 if !existing.customTitle { existing.title = title }
-                existing.visitedAt = .now
+                existing.visitedAt = .now; existing.isHistory = true
             } else {
                 context.insert(SavedPage(title: title, address: address))
             }
@@ -118,14 +152,15 @@ struct BrowserView: View {
         } catch { persistenceError = "Verlauf konnte nicht gespeichert werden: \(error.localizedDescription)" }
     }
 
-    private func favoriteCurrent() {
+    private func favoriteCurrent(allowPrivate: Bool = false) {
         let tab = browser.current
-        guard let address = StoredAddress.clean(tab.address) else { return }
+        guard let address = LibraryAddress.clean(tab.address) else { persistenceError = "Vertrauliche oder ungültige Adresse wird nicht gespeichert."; return }
+        if tab.isPrivate && !allowPrivate && !pages.contains(where: { $0.favorite && $0.address == address }) { confirmPrivateFavorite = true; return }
         do {
             var request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.address == address })
             request.fetchLimit = 1
             if let existing = try context.fetch(request).first {
-                existing.favorite.toggle(); if existing.favorite { existing.favoriteOrder = (pages.filter(\.favorite).map(\.favoriteOrder).max() ?? 0) + 1 }
+                existing.favorite.toggle(); if existing.favorite { existing.favoriteOrder = (pages.filter(\.favorite).map(\.favoriteOrder).max() ?? 0) + 1 } else if !existing.isHistory { context.delete(existing) }
             }
             else {
                 let page = SavedPage(title: tab.title, address: address, favorite: true)
@@ -141,10 +176,11 @@ struct BrowserView: View {
     }
 
     private func syncFavorites() {
+        guard browser.options.shareFavoritesWithSystem else { FavoriteStorage.write([]); WidgetCenter.shared.reloadAllTimelines(); return }
         let request = FetchDescriptor<SavedPage>(predicate: #Predicate { $0.favorite },
             sortBy: [SortDescriptor(\SavedPage.favoriteOrder), SortDescriptor(\SavedPage.visitedAt, order: .reverse)])
         guard let favorites = try? context.fetch(request) else { return }
-        FavoriteStorage.write(favorites.compactMap { page in StoredAddress.clean(page.address).map { FavoriteSnapshot(id: page.identifier, title: page.title, address: $0) } })
+        FavoriteStorage.write(favorites.compactMap { page in StoredAddress.clean(page.address).map { FavoriteSnapshot(id: page.identifier, title: page.title, address: $0) } }, consent: true)
         WidgetCenter.shared.reloadTimelines(ofKind: "WebKWebFavorites")
     }
 }
@@ -169,6 +205,7 @@ private struct BrowserScreen: View {
     @State private var pendingAction: (() -> Void)?
     @FocusState private var editing: Bool
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @EnvironmentObject private var library: LibraryStore
     @Environment(\.dynamicTypeSize) private var dynamicType
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 60
     private var isHome: Bool { tab.address.isEmpty && !tab.loading }
@@ -193,26 +230,25 @@ private struct BrowserScreen: View {
                         Label("Seite nicht geladen", systemImage: "wifi.exclamationmark")
                     } description: { Text(error) } actions: {
                         Button("Erneut laden") { tab.reload() }.buttonStyle(.borderedProminent)
-                        Button("Ohne Filter neu laden") { tab.reloadWithoutFilter() }
-                        Button("Zur Startseite") { browser.addTab() }
+
+                        Button("Zur Startseite") { browser.home() }
                     }.background(.background)
                 }
             }
             if !isWatch {
-                if tab.hasMedia { mediaControls }
-                if browser.sleepPlan.isActive { timerStatus }
+                if tab.hasMedia && tab.canControlMedia { mediaControls }
+                if browser.sleepPlan.isActive || browser.sleepAfterNativeQueue { timerStatus }
                 bottomBar
             }
         }
         .overlay(alignment: .bottomTrailing) {
             if isWatch { browserMenu.padding(.trailing, 14).padding(.bottom, 18) }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(Color(.systemBackground).ignoresSafeArea())
         .sheet(isPresented: $actionsPresented, onDismiss: {
             let action = pendingAction; pendingAction = nil; action?()
         }) { browserActions }
-        .preferredColorScheme(.dark)
-        .tint(.white)
+        .tint(.primary)
         .onAppear { draft = tab.address }
         .onChange(of: tab.address) { _, value in if !editing { draft = value } }
     }
@@ -232,12 +268,12 @@ private struct BrowserScreen: View {
                 .accessibilityIdentifier("browser.watch.home")
             Spacer()
         }.font(.system(size: 19, weight: .medium)).buttonStyle(.plain)
-            .padding(.horizontal, 8).background(.black)
+            .padding(.horizontal, 8).background(Color(.systemBackground))
     }
 
     private var addressBar: some View {
         HStack(spacing: 12) {
-            Image(systemName: tab.isPrivate ? "hand.raised" : "magnifyingglass").foregroundStyle(.white.opacity(0.65)).accessibilityHidden(true)
+            Image(systemName: tab.isPrivate ? "hand.raised" : "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
             TextField("Suchen oder Adresse", text: $draft)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.webSearch)
                 .submitLabel(.go).focused($editing)
@@ -271,10 +307,15 @@ private struct BrowserScreen: View {
                             shortcut(site.title, action: { browser.open(site.address) }) { HomeSiteGlyph(site: site) }
                         }
                     }
+                    if !tab.isPrivate {
+                        ForEach(Array(library.document.media.filter { $0.kind != .website && $0.position > 0 && !$0.completed }.sorted { ($0.lastPlayedAt ?? .distantPast) > ($1.lastPlayedAt ?? .distantPast) }.prefix(3))) { item in
+                            Button { browser.nativePlayer.open(item.id) } label: { Label(item.title, systemImage: "play.circle").lineLimit(1) }.accessibilityLabel("Weitersehen: " + item.title)
+                        }
+                    }
                     LazyVGrid(columns: columns, spacing: 24) {
-                        shortcut("Favoriten", symbol: "star", action: showLibrary)
+                        shortcut("Mediathek", symbol: "star", action: showLibrary)
                         shortcut("Verlauf", symbol: "clock.arrow.circlepath", action: showHistory)
-                        shortcut("Timer", symbol: "moon.zzz", action: showSleep)
+                        shortcut("Linkqueue", symbol: "music.note.list", action: showQueue)
                         shortcut("Einstellungen", symbol: "slider.horizontal.3", action: showSettings)
                     }
                 }
@@ -291,7 +332,7 @@ private struct BrowserScreen: View {
         Button(action: action) {
             VStack(spacing: 9) {
                 icon().frame(width: shortcutSize, height: shortcutSize)
-                Text(title).font(.caption2).foregroundStyle(.white.opacity(0.72))
+                Text(title).font(.caption2).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center).lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }.frame(maxWidth: .infinity).contentShape(Rectangle())
         }
@@ -301,7 +342,7 @@ private struct BrowserScreen: View {
 
     private func shortcut(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
         shortcut(title, action: action) {
-            Image(systemName: symbol).font(.system(size: 23, weight: .medium)).foregroundStyle(.white.opacity(0.88))
+            Image(systemName: symbol).font(.system(size: 23, weight: .medium)).foregroundStyle(.primary)
         }
     }
 
@@ -312,66 +353,54 @@ private struct BrowserScreen: View {
                     TabPill(tab: item, selected: item.id == browser.selectedID,
                         select: { browser.selectedID = item.id }, close: { browser.close(item.id) })
                 }
-                Button { browser.addTab() } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+                Button { browser.home() } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
             }.padding(.horizontal, 12)
         }.padding(.bottom, 8)
     }
 
     private var mediaControls: some View {
-        VStack(spacing: 8) {
-            ViewThatFits(in: .horizontal) {
-                if !dynamicType.isAccessibilitySize {
-                    HStack(spacing: 8) { playbackButtons; playbackPosition; Spacer(minLength: 0); routeButtons }
-                }
-                VStack(spacing: 4) {
-                    HStack(spacing: 8) { playbackButtons; Spacer(minLength: 0); playbackPosition }
-                    HStack(spacing: 8) { Spacer(); routeButtons; Spacer() }
-                }
-            }.font(.title3)
-            NativeVolumeControl().frame(height: 28).accessibilityLabel("Systemlautstärke")
-            if tab.waiting || !tab.mediaError.isEmpty {
-                HStack {
-                    if tab.waiting { ProgressView().controlSize(.small) }
-                    Text(tab.mediaError.isEmpty ? "Player lädt …" : tab.mediaError).font(.caption)
-                    Spacer()
-                    Button { tab.runMedia("globalThis.__webkweb?.recover()") } label: { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Wiedergabe erneut versuchen")
-                }
-            }
-            if browser.gesturesEnabled { SeekGesturePad(seek: browser.seek) }
-        }.padding(.horizontal, 18).padding(.vertical, 10)
-            .browserGlass(radius: 22).padding(.horizontal, 8)
-    }
-
-    private var playbackButtons: some View {
-        Group {
-            Button { browser.seek(-10) } label: { Image(systemName: "gobackward.10").frame(width: 44, height: 44) }.accessibilityLabel("10 Sekunden zurück")
+        // Keep the website visible. Detailed controls, volume, recovery and
+        // optional seek gestures live in the player sheet, not a second panel.
+        HStack(spacing: 4) {
             Button { browser.togglePlayback() } label: {
                 Image(systemName: tab.playing ? "pause.fill" : "play.fill").frame(width: 44, height: 44)
             }.accessibilityLabel(tab.playing ? "Pausieren" : "Abspielen")
-            Button { browser.seek(10) } label: { Image(systemName: "goforward.10").frame(width: 44, height: 44) }.accessibilityLabel("10 Sekunden vor")
+
+            ProgressView(value: mediaProgress ?? 0).progressViewStyle(.linear)
+                .tint(.primary).frame(height: 2).clipped()
+                .accessibilityLabel("Wiedergabefortschritt")
+                .accessibilityValue(mediaProgress == nil ? "Live oder unbekannte Dauer" : time(tab.playbackTime))
+
+            Button(action: showPlayer) {
+                Group {
+                    if !tab.mediaError.isEmpty { Image(systemName: "exclamationmark.circle").foregroundStyle(.red) }
+                    else if tab.waiting { ProgressView().controlSize(.small) }
+                    else { Image(systemName: "slider.horizontal.3") }
+                }.frame(width: 44, height: 44)
+            }.accessibilityLabel("Player-Einstellungen")
+                .accessibilityValue(tab.mediaError.isEmpty ? (tab.waiting ? "Player lädt" : "") : tab.mediaError)
+                .accessibilityHint("Öffnet weitere Bedienelemente und Hilfe bei Wiedergabefehlern")
         }
+        .font(.system(size: 15, weight: .medium)).buttonStyle(.plain)
+        .padding(.horizontal, 12).frame(height: 44)
+        .frame(maxWidth: 700).frame(maxWidth: .infinity)
+        .background(.ultraThinMaterial)
     }
-    private var playbackPosition: some View {
-        Text(time(tab.playbackTime)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-    }
-    private var routeButtons: some View {
-        Group {
-            Button { tab.runMedia("globalThis.__webkweb?.fullscreen()") } label: { Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44) }
-                .disabled(tab.activeMediaKind != "video").accessibilityLabel("Vollbild")
-            Button { tab.runMedia("globalThis.__webkweb?.pip()") } label: { Image(systemName: "pip").frame(width: 44, height: 44) }
-                .accessibilityLabel("Bild-in-Bild")
-            AirPlayControl().frame(width: 44, height: 44).accessibilityLabel("AirPlay-Auswahl")
-            Button(action: showAirPlay) { Image(systemName: "tv").frame(width: 44, height: 44) }.accessibilityLabel("AirPlay-Optionen")
-            Button(action: showPlayer) { Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44) }.accessibilityLabel("Player-Einstellungen")
-        }
+
+    private var mediaProgress: Double? {
+        guard let duration = tab.duration, duration.isFinite, duration > 0,
+              tab.playbackTime.isFinite else { return nil }
+        return min(1, max(0, tab.playbackTime / duration))
     }
 
     private var timerStatus: some View {
         HStack {
             Image(systemName: "moon.zzz")
             if let deadline = browser.sleepPlan.deadline { Text(deadline, style: .timer).monospacedDigit() }
+            else if browser.sleepAfterNativeQueue { Text("Nach Queue-Ende") }
             else if let remaining = browser.sleepPlan.remainingVideos { Text("\(remaining) Video(s)") }
             Spacer()
+            if browser.sleepPlan.deadline != nil { Button("+10 Min") { browser.extendSleep() } }
             Button { browser.cancelSleep() } label: { Image(systemName: "xmark") }.accessibilityLabel("Timer abbrechen")
         }.font(.caption).padding(12).browserGlass(radius: 18).padding(.horizontal, 12).padding(.top, 8)
             .accessibilityLabel("Sleep-Timer")
@@ -381,8 +410,8 @@ private struct BrowserScreen: View {
         HStack(spacing: isHome ? 12 : 8) {
             if !isHome {
                 HStack(spacing: 2) {
-                    Button { tab.webView.goBack() } label: { Image(systemName: "chevron.left").frame(width: 44, height: 48) }
-                        .disabled(!tab.canGoBack).accessibilityLabel("Zurück")
+                    Button { browser.backOrHome() } label: { Image(systemName: "chevron.left").frame(width: 44, height: 48) }
+                        .accessibilityLabel(tab.canGoBack ? "Zurück" : "Startseite")
                     Button { tab.webView.goForward() } label: { Image(systemName: "chevron.right").frame(width: 44, height: 48) }
                         .disabled(!tab.canGoForward).accessibilityLabel("Vorwärts")
                 }.browserGlass(radius: 24)
@@ -390,14 +419,8 @@ private struct BrowserScreen: View {
                     .browserGlass(radius: 24).accessibilityLabel(isFavorite ? "Favorit entfernen" : "Als Favorit speichern")
                 Spacer(minLength: 0)
             } else {
-                Button { browser.blockingEnabled.toggle() } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: browser.blockingEnabled ? "shield.lefthalf.filled" : "shield")
-                        Circle().fill(browser.blockingEnabled ? Color.green.opacity(0.8) : Color.white.opacity(0.3)).frame(width: 5, height: 5)
-                    }.frame(width: 72, height: 48)
-                }.browserGlass(radius: 24).accessibilityLabel("Netzwerkfilter")
-                    .accessibilityValue(browser.blockingEnabled ? "Aktiv" : "Aus")
-                    .accessibilityHint("Doppeltippen schaltet den Filter um")
+                Button { browser.home() } label: { Image(systemName: "house").frame(width: 72, height: 48) }
+                    .browserGlass(radius: 24).accessibilityLabel("Startseite")
             }
             Button(action: showTabs) {
                 HStack(spacing: 7) {
@@ -435,9 +458,9 @@ private struct BrowserScreen: View {
         NavigationStack {
             List {
                 Section("Navigation") {
-                    action("Zurück", symbol: "chevron.left", enabled: tab.canGoBack) { tab.webView.goBack() }
+                    action("Zurück oder Startseite", symbol: "chevron.left") { browser.backOrHome() }
                     action("Vorwärts", symbol: "chevron.right", enabled: tab.canGoForward) { tab.webView.goForward() }
-                    action("Startseite", symbol: "house") { browser.addTab() }
+                    action("Startseite", symbol: "house") { browser.home() }
                     action("Tabs", symbol: "square.on.square", perform: showTabs)
                     action("Adresse oder Suche", symbol: "magnifyingglass", perform: showAddress)
                     action("Neu laden", symbol: "arrow.clockwise", enabled: !isHome) { tab.reload() }
@@ -448,12 +471,14 @@ private struct BrowserScreen: View {
                     }
                 }
                 Section("Wiedergabe") {
-                    action("Abspielen", symbol: "play", enabled: tab.hasMedia) { browser.play() }
-                    action("Alles pausieren", symbol: "pause.circle") { browser.pauseAll() }
-                    action("10 Sekunden zurück", symbol: "gobackward.10", enabled: tab.hasMedia) { browser.seek(-10) }
-                    action("10 Sekunden vor", symbol: "goforward.10", enabled: tab.hasMedia) { browser.seek(10) }
-                    action("Auf dem Fernseher", symbol: "tv", perform: showAirPlay)
+                    if tab.canControlMedia {
+                    action("Abspielen", symbol: "play", enabled: tab.hasMedia && tab.canControlMedia) { browser.play() }
+                    action("\(browser.options.skipSeconds) Sekunden zurück", symbol: "gobackward", enabled: tab.hasMedia && tab.canControlMedia) { browser.seek(-Double(browser.options.skipSeconds)) }
+                    action("\(browser.options.skipSeconds) Sekunden vor", symbol: "goforward", enabled: tab.hasMedia && tab.canControlMedia) { browser.seek(Double(browser.options.skipSeconds)) }
                     action("Player", symbol: "slider.horizontal.3", enabled: tab.hasMedia, perform: showPlayer)
+                    } else { Text(SourceCapabilities.forSource(.website).explanation).font(.footnote).foregroundStyle(.secondary) }
+                    action("Alles pausieren", symbol: "pause.circle") { browser.pauseAll() }
+                    action("AirPlay", symbol: "tv", perform: showAirPlay)
                     action("Sleep-Timer", symbol: "moon.zzz", perform: showSleep)
                     if browser.sleepPlan.isActive { action("Timer abbrechen", symbol: "xmark") { browser.cancelSleep() } }
                 }
@@ -461,24 +486,18 @@ private struct BrowserScreen: View {
                     action("Favoriten", symbol: "star", perform: showLibrary)
                     action("Verlauf", symbol: "clock.arrow.circlepath", perform: showHistory)
                     action(isFavorite ? "Favorit entfernen" : "Als Favorit speichern", symbol: isFavorite ? "star.fill" : "star", enabled: !isHome, perform: favorite)
-                    action("Queue", symbol: "music.note.list", perform: showQueue)
+                    action("Linkqueue", symbol: "music.note.list", perform: showQueue)
                     action("Zur Queue", symbol: "text.badge.plus", enabled: !isHome && !tab.isPrivate) { browser.enqueueCurrent() }
                 }
                 Section("Browser") {
-                    action("Neuer Tab", symbol: "plus") { browser.addTab() }
+                    action("Neuer Tab", symbol: "plus") { browser.home() }
                     action("Privater Tab", symbol: "hand.raised") { browser.addTab(isPrivate: true) }
                     action("Einstellungen", symbol: "gear", perform: showSettings)
-                    Toggle("Netzwerkfilter", isOn: $browser.blockingEnabled)
-                        .frame(minHeight: 44).accessibilityIdentifier("browser.filter")
-                    action("Ohne Filter neu laden", symbol: "shield.slash", enabled: !isHome) { tab.reloadWithoutFilter() }
-                    if let host = URL(string: tab.address)?.host {
-                        Button(browser.shouldBlock(URL(string: tab.address)) ? "Filter für diese Seite aus" : "Filter für diese Seite ein") {
-                            if let allowed = browser.options.allowlist.first(where: { host == $0 || host.hasSuffix("." + $0) }) { browser.options.allowlist.removeAll { $0 == allowed } }
-                            else { browser.options.allowlist.append(host) }
-                        }.frame(minHeight: 44)
+                    if let url = URL(string: tab.address) {
+                        ShareLink(item: url).frame(minHeight: 44)
+                        if !tab.isPrivate { action("Im Standardbrowser öffnen", symbol: "safari") { UIApplication.shared.open(url) } }
                     }
-                    if let url = URL(string: tab.address) { ShareLink(item: url).frame(minHeight: 44) }
-                    action("Playerdiagnose kopieren", symbol: "doc.on.doc", enabled: tab.hasMedia) {
+                    action("Playerdiagnose kopieren", symbol: "doc.on.doc", enabled: tab.hasMedia && !tab.isPrivate) {
                         UIPasteboard.general.setItems([["public.utf8-plain-text": tab.mediaDiagnosticReport()]],
                             options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(300)])
                         browser.notice = "Playerdiagnose kopiert. Sie enthält keine Videoadressen, Seitentitel oder Cookies."
@@ -520,6 +539,6 @@ private struct TabPill: View {
             Button(action: close) { Image(systemName: "xmark").font(.caption).frame(minWidth: 28, minHeight: 28) }
                 .accessibilityLabel("Tab schließen")
         }.padding(10).browserGlass(radius: 18)
-            .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(selected ? 0.25 : 0), lineWidth: 1) }
+            .overlay { RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(selected ? 0.35 : 0), lineWidth: 1) }
     }
 }

@@ -30,7 +30,7 @@ def main():
     tests=sorted((ROOT/'Tests').glob('*.test.cjs'))
     if not node or not tests:record('JavaScript tests','FAIL','Node or .test.cjs files missing')
     else:
-        result=command([node,'--test',*tests])
+        result=command([node,'--test','--test-reporter=tap',*tests])
         (REPORT/'node-tests.tap').write_text(result.stdout+result.stderr,encoding='utf8')
         pass_match=re.search(r'\bpass\s+(\d+)',result.stdout)
         fail_match=re.search(r'\bfail\s+(\d+)',result.stdout)
@@ -39,7 +39,7 @@ def main():
         record('JavaScript tests',status,{'passed':int(pass_match[1]) if pass_match else None,
              'total':int(count_match[1]) if count_match else None,'exit':result.returncode,'raw':str(REPORT/'node-tests.tap')})
 
-    swift_files=sorted(p for section in ('App','Shared','Widgets','Tests') for p in (ROOT/section).rglob('*.swift'))
+    swift_files=sorted(p for section in ('App','Shared','Widgets','ShareExtension','Tests','UITests') for p in (ROOT/section).rglob('*.swift'))
     frontend=args.swift_frontend or shutil.which('swift-frontend')
     if frontend:
         errors=[]
@@ -62,7 +62,8 @@ def main():
         app=plistlib.loads((ROOT/'App'/'WebKWeb.entitlements').read_bytes())
         widget=plistlib.loads((ROOT/'Widgets'/'FavoritesWidget.entitlements').read_bytes())
         group='com.apple.security.application-groups'
-        assert app[group]==widget[group] and len(app[group])==1
+        share=plistlib.loads((ROOT/'ShareExtension'/'ShareExtension.entitlements').read_bytes())
+        assert app[group]==widget[group]==share[group] and len(app[group])==1
         assert 'com.apple.developer.icloud-container-identifiers' not in app
         record('Unprovisioned iCloud disabled and matching App Groups','PASS','Source configuration only; not an Apple entitlement/provisioning verification')
     except (AssertionError,KeyError) as exc:
@@ -83,7 +84,7 @@ def main():
         record('Project YAML parse and Xcode minimum','PASS','DevnTube IDs, shared group, display names and deep link align in source; XcodeGen/build NOT performed')
         removed=('App/Downloads.swift','App/SponsorBlock.swift','App/CastService.swift','Podfile')
         assert all(not (ROOT/name).exists() for name in removed)
-        production='\n'.join(p.read_text(encoding='utf8') for section in ('App','Shared','Widgets')
+        production='\n'.join(p.read_text(encoding='utf8') for section in ('App','Shared','Widgets','ShareExtension')
                              for p in (ROOT/section).rglob('*') if p.suffix in ('.swift','.js'))
         forbidden=('DownloadStore','DownloadsView','SponsorBlockService','setSponsorBlock','setSegments',
                    'undoSkip','CastService','GoogleCast','DirectMedia','WEBKWEB_NO_DOWNLOADS')

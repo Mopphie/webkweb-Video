@@ -1,3 +1,5 @@
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # Kommerzielle Nutzung: Bereinigung und verbleibende Pflichten
 
 Prüfstand: 15. Oktober 2026. Geprüft wurden die eingecheckten Quellen, Ressourcen, Abhängigkeiten und konfigurierten Dienste. Dies ist ein nachvollziehbarer technischer Prüfstand; keine umfassende Rechtsfreigabe und keine App-Store-Zusage. Lizenzen, Nutzungsbedingungen und Rechte an einzelnen Medien sind getrennt zu betrachten.

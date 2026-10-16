@@ -28,6 +28,8 @@ struct PlaybackQueue: Codable, Equatable {
     }
     var canPrevious: Bool { previousIDs.contains { id in entries.contains { $0.id == id } } }
     mutating func append(_ entry: QueueEntry) {
+        guard entries.count < 10_000, LibraryAddress.clean(entry.address) != nil,
+              !entries.contains(where: { $0.id == entry.id || $0.address == entry.address }) else { return }
         entries.append(entry)
         if shuffled {
             let lower = order.firstIndex(where: { $0 == currentID }).map { $0 + 1 } ?? 0
@@ -76,6 +78,7 @@ struct PlaybackQueue: Codable, Equatable {
     }
     mutating func move(from offsets: IndexSet, to destination: Int) {
         // Foundation-only implementation so this algorithm needs no UI layer.
+        let offsets = IndexSet(offsets.filter { entries.indices.contains($0) })
         let moving = offsets.sorted().map { entries[$0] }
         for index in offsets.sorted(by: >) { entries.remove(at: index) }
         let target = min(entries.count, max(0, destination - offsets.filter { $0 < destination }.count))
@@ -84,7 +87,7 @@ struct PlaybackQueue: Codable, Equatable {
     }
     mutating func validate() {
         var ids = Set<UUID>()
-        entries = entries.filter { ids.insert($0.id).inserted && AddressResolver.directURL($0.address) != nil }
+        entries = entries.filter { ids.insert($0.id).inserted && LibraryAddress.clean($0.address) != nil }
         let valid = Set(entries.map(\.id))
         var ordered = Set<UUID>()
         order = order.filter { valid.contains($0) && ordered.insert($0).inserted }

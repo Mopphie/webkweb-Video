@@ -1,3 +1,5 @@
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # Audit-Fixes und Prüfnachweise
 
 > Historische Audit-Momentaufnahme. Der aktuelle Stand der Tests, Website und offenen Release-Punkte steht in [RELEASE.md](RELEASE.md); ältere Testzahlen und die dort als fehlend bezeichneten Kontaktangaben sind überholt.

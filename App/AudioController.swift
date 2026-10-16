@@ -9,10 +9,12 @@ final class AudioController {
     private var tokens: [Any] = []
     private var resumeAfterInterruption = false
     private var interruptionRevision = 0
+    private var interruptionNativeRevision = 0
     private var interruptionDeadline: Date?
     private var ownsActiveSession = false
     private var categoryConfigured = false
     private var isInterrupted = false
+    private var publishedNativeMetadata = false
     private var deactivationTask: Task<Void, Never>?
     private var interruptedTabID: UUID?
     private var interruptedMediaID = ""
@@ -30,10 +32,10 @@ final class AudioController {
         center.togglePlayPauseCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.togglePlayback() }; return .success }
         center.skipForwardCommand.preferredIntervals = [10]
         center.skipBackwardCommand.preferredIntervals = [10]
-        center.skipForwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.seek(10) }; return .success }
-        center.skipBackwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.seek(-10) }; return .success }
-        center.nextTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.nextQueue() }; return .success }
-        center.previousTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.previousQueue() }; return .success }
+        center.skipForwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.seek(Double(self?.browser?.options.skipSeconds ?? 10)) }; return .success }
+        center.skipBackwardCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.seek(-Double(self?.browser?.options.skipSeconds ?? 10)) }; return .success }
+        center.nextTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.nextPlaybackItem() }; return .success }
+        center.previousTrackCommand.addTarget { [weak self] _ in Task { @MainActor in self?.browser?.previousPlaybackItem() }; return .success }
         tokens.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
             Task { @MainActor in self?.interrupted(note) }
         })
@@ -42,6 +44,7 @@ final class AudioController {
                 self?.deactivationTask?.cancel(); self?.deactivationTask = nil
                 self?.isInterrupted = false; self?.resumeAfterInterruption = false
                 self?.ownsActiveSession = false; self?.categoryConfigured = false
+                self?.browser?.nativePlayer.handleMediaServicesReset()
                 self?.configureCategory(); self?.updateDemand()
             }
         })
@@ -51,6 +54,12 @@ final class AudioController {
             }
         })
     }
+    func clearPrivateMetadata() {
+        guard browser?.nativePlayer.isOpen != true else { return }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        publishedNativeMetadata = false
+    }
+    func didActivateNativeSession() { ownsActiveSession = true; categoryConfigured = true }
     func activateForPlayback() { updateDemand(explicitPlay: true) }
     private func configureCategory() {
         guard !categoryConfigured else { return }
@@ -67,7 +76,7 @@ final class AudioController {
         // play. Activating the host in response can interrupt that same player.
         // Only an explicit native Play may acquire a host-owned session.
         guard ownsActiveSession || explicitPlay else { return }
-        let required = MediaPolicy.requiresAudioSession(localPlaying: browser.tabs.contains(where: \.hasActivePlayback), explicitPlay: explicitPlay, stopped: browser.playbackStopped, alreadyActive: ownsActiveSession)
+        let required = MediaPolicy.requiresAudioSession(localPlaying: browser.nativePlayer.playing || browser.tabs.contains(where: \.hasActivePlayback), waiting: browser.nativePlayer.waiting, explicitPlay: explicitPlay, stopped: browser.playbackStopped, alreadyActive: ownsActiveSession)
         if required { deactivationTask?.cancel(); deactivationTask = nil }
         guard required != ownsActiveSession else { return }
         if !required {
@@ -92,7 +101,7 @@ final class AudioController {
     private func releaseIfIdle() {
         deactivationTask?.cancel(); deactivationTask = nil
         guard ownsActiveSession, !isInterrupted, let browser,
-              !browser.tabs.contains(where: \.hasActivePlayback) else { return }
+              !browser.nativePlayer.playing, !browser.nativePlayer.waiting, !browser.tabs.contains(where: \.hasActivePlayback) else { return }
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             ownsActiveSession = false
@@ -101,19 +110,36 @@ final class AudioController {
     }
     func update(tab: BrowserTab) {
         updateDemand()
-        let hasContent = tab.hasMedia
+        guard let browser else { return }
+        let native = browser.nativePlayer
+        let hasContent = native.isOpen && native.error == nil
+        if !hasContent {
+            if publishedNativeMetadata {
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; publishedNativeMetadata = false
+                let center = MPRemoteCommandCenter.shared()
+                [center.playCommand, center.pauseCommand, center.stopCommand, center.togglePlayPauseCommand, center.skipForwardCommand, center.skipBackwardCommand, center.nextTrackCommand, center.previousTrackCommand].forEach { $0.isEnabled = false }
+            }
+            return
+        }
         let center = MPRemoteCommandCenter.shared()
-        [center.playCommand, center.pauseCommand, center.stopCommand, center.togglePlayPauseCommand, center.skipForwardCommand, center.skipBackwardCommand].forEach { $0.isEnabled = hasContent }
-        center.nextTrackCommand.isEnabled = browser?.queueTabID != nil && browser?.queue.canNext == true
-        center.previousTrackCommand.isEnabled = browser?.queueTabID != nil && browser?.queue.canPrevious == true
+        [center.playCommand, center.pauseCommand, center.stopCommand, center.togglePlayPauseCommand].forEach { $0.isEnabled = hasContent }
+        center.skipForwardCommand.isEnabled = hasContent && native.duration != nil
+        center.skipBackwardCommand.isEnabled = hasContent && native.duration != nil
+        center.skipForwardCommand.preferredIntervals = [NSNumber(value: browser.options.skipSeconds)]
+        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: browser.options.skipSeconds)]
+        center.nextTrackCommand.isEnabled = hasContent && native.canNext
+        center.previousTrackCommand.isEnabled = hasContent && native.canPrevious
+        // Website WebKit controls stay with the website. No app metadata for
+        // private web sessions; no artwork/remote URLs are published by us.
         guard hasContent else { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil; return }
-        let playing = tab.playing
-        var data: [String: Any] = [MPMediaItemPropertyTitle: tab.isPrivate ? "Privater Player" : tab.title,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: tab.playbackTime,
-            MPNowPlayingInfoPropertyPlaybackRate: MediaPolicy.nowPlayingRate(playing: playing, rate: tab.playbackRate)]
-        if let duration = tab.duration, duration.isFinite { data[MPMediaItemPropertyPlaybackDuration] = duration }
+        var data: [String: Any] = [MPMediaItemPropertyTitle: native.title,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: native.time,
+            MPNowPlayingInfoPropertyPlaybackRate: MediaPolicy.nowPlayingRate(playing: native.playing, rate: Double(native.rate))]
+        if let duration = native.duration { data[MPMediaItemPropertyPlaybackDuration] = duration }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = data
+        publishedNativeMetadata = true
     }
+
     private func interrupted(_ note: Notification) {
         guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt, let type = AVAudioSession.InterruptionType(rawValue: raw), let browser else { return }
         if type == .began {
@@ -121,8 +147,10 @@ final class AudioController {
             isInterrupted = true
             browser.tabs.forEach { $0.notePlaybackEvent("audio.interruption.began") }
             deactivationTask?.cancel(); deactivationTask = nil
-            resumeAfterInterruption = browser.playbackTab.playing && !browser.playbackStopped
-            interruptedTabID = browser.playbackTab.id; interruptedMediaID = browser.playbackTab.activeMediaID
+            resumeAfterInterruption = (browser.nativePlayer.playing || browser.playbackTab.playing) && !browser.playbackStopped
+            if browser.nativePlayer.isOpen { browser.nativePlayer.pause(userInitiated: false) }
+            interruptionNativeRevision = browser.nativePlayer.commandRevision
+            interruptedTabID = browser.playbackTab.id; interruptedMediaID = browser.nativePlayer.mediaID?.uuidString ?? browser.playbackTab.activeMediaID
             interruptionDeadline = browser.sleepPlan.deadline
             ownsActiveSession = false
             // WebKit handles the system interruption of its own media. Turning
@@ -135,8 +163,8 @@ final class AudioController {
             let options = AVAudioSession.InterruptionOptions(rawValue: note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0)
             browser.tabs.forEach { $0.notePlaybackEvent("audio.interruption.ended resume=\(options.contains(.shouldResume))") }
             let timerExpired = interruptionDeadline.map { Date() >= $0 } ?? false
-            if options.contains(.shouldResume), resumeAfterInterruption, !timerExpired, browser.commandRevision == interruptionRevision,
-               browser.playbackTab.id == interruptedTabID, browser.playbackTab.activeMediaID == interruptedMediaID { browser.play() }
+            if options.contains(.shouldResume), resumeAfterInterruption, !browser.playbackStopped, !timerExpired, browser.commandRevision == interruptionRevision, browser.nativePlayer.commandRevision == interruptionNativeRevision,
+               browser.playbackTab.id == interruptedTabID, (browser.nativePlayer.mediaID?.uuidString ?? browser.playbackTab.activeMediaID) == interruptedMediaID { browser.play() }
             resumeAfterInterruption = false
         }
     }

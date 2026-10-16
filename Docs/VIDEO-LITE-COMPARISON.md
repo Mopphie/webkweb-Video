@@ -1,3 +1,5 @@
+> Historischer Stand vor dem umfassenden lokalen Audit vom 16.10.2026. Aktuelle Produkt-, Rechte- und Testaussagen: [APP_AUDIT.md](APP_AUDIT.md), [FEATURE_MATRIX.md](FEATURE_MATRIX.md), [TEST_REPORT.md](TEST_REPORT.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md). Frühere Build-/Freigabeangaben gelten nicht für den neuen lokalen Stand.
+
 # Video-Lite-Vergleich und kurzer Funktionsaudit
 
 Die Liste enthält Wünsche sowie Beschwerden über eine andere App. Daraus folgen keine bereits beobachteten WebKWeb-Gerätefehler. Umsetzung und Grenzen werden anhand des eigenen Codes eingeordnet. Die minimale Liquid-Glass-Startseite bleibt erhalten; neue Funktionen liegen im Menü/Player/Settings.

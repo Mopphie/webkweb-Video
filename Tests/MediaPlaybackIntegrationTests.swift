@@ -52,7 +52,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
             for key in Self.keys { stored[key] = defaults.object(forKey: key) }
             saved = stored
             var options = BrowserPreferences()
-            options.blocking = false; options.restoreTabs = restored; options.history = false
+            options.restoreTabs = restored; options.history = false
             PreferencesStorage.save(options)
             for key in Self.keys where key != PreferencesStorage.key { defaults.removeObject(forKey: key) }
             if restored {
@@ -293,8 +293,8 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         let tab = session.browser.current, view = tab.webView
         tab.webView.loadHTMLString("<html><head><title>Original title</title></head><body><ytm-mobile-topbar-renderer>Website navigation</ytm-mobile-topbar-renderer><p id='content'>Original content</p></body></html>", baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))
         try await waitFor("genuine watch route is presented") {
-            let decorated = try await self.evaluate("document.documentElement.hasAttribute('data-webkweb-watch')", in: tab) as? Bool == true
-            return tab.presentsWatchImmersively && decorated
+            let unchanged = try await self.evaluate("!document.documentElement.hasAttribute('data-webkweb-watch') && document.querySelector('ytm-mobile-topbar-renderer').textContent === 'Website navigation'", in: tab) as? Bool == true
+            return tab.presentsWatchImmersively && unchanged
         }
         tab.showNormalWebsite()
         try await waitFor("normal website navigation is restored") {
