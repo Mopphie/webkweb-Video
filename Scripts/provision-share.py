@@ -11,6 +11,8 @@ import hashlib
 import importlib.util
 import os
 from pathlib import Path
+import plistlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -63,6 +65,14 @@ def run(p12, output, bootstrap):
             print('Xcode Share signing setup exit status:', code)
             if code:
                 log.seek(0); text = log.read().decode('utf-8', errors='replace')
+                for line in [line for line in text.splitlines() if 'error:' in line.lower()][:8]:
+                    for name in ('APP_STORE_CONNECT_KEY_ID', 'APP_STORE_CONNECT_ISSUER_ID', 'APPLE_CERTIFICATE_PASSWORD',
+                                 'APP_STORE_CONNECT_API_KEY_BASE64', 'APPLE_CERTIFICATE_BASE64'):
+                        value = os.environ.get(name, '')
+                        if value: line = line.replace(value, '<redacted>')
+                    line = re.sub(r'[\w.+-]+@[\w.-]+', '<account>', line)
+                    line = re.sub(r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+', '<token>', line)
+                    print('Xcode signing diagnostic:', line[:1200])
                 for needle, message in (
                     ('No Accounts', 'Xcode reports no usable developer account.'),
                     ('does not have permission', 'Apple key has insufficient provisioning permission.'),
@@ -78,19 +88,26 @@ def run(p12, output, bootstrap):
     print('Reading existing Share distribution profiles.', flush=True)
     profiles = client.records('/v1/bundleIds/' + bundle_id + '/profiles')
     # Prefer a previously generated, still valid profile; never revoke profiles.
+    group_confirmed = False
     for candidate in profiles:
         attrs = candidate['attributes']
-        if attrs.get('profileType') != 'IOS_APP_STORE' or attrs.get('profileState') != 'ACTIVE':
+        if attrs.get('profileState') != 'ACTIVE':
             continue
         if not attrs.get('profileContent'):
             attrs = client.request('/v1/profiles/' + candidate['id'])['data']['attributes']
         try:
             output.write_bytes(base64.b64decode(attrs['profileContent'], validate=True)); output.chmod(0o600)
+            decoded = plistlib.loads(subprocess.check_output(['security', 'cms', '-D', '-i', str(output)], stderr=subprocess.DEVNULL))
+            group_confirmed |= decoded.get('Entitlements', {}).get('com.apple.security.application-groups') == [signing.GROUP]
+            if attrs.get('profileType') != 'IOS_APP_STORE':
+                output.unlink(missing_ok=True); continue
             signing.profile(output, BUNDLE, digest)
             print('Existing Share distribution profile passed entitlement and certificate validation.')
             return
         except (SystemExit, KeyError, ValueError):
             output.unlink(missing_ok=True)
+    if not group_confirmed:
+        raise RuntimeError('No active Share profile contains group.de.mopphie.devntube. Associate this existing App Group with the Share App ID in Apple Developer/Xcode; no additional invalid distribution profile was created')
     created = client.request('/v1/profiles', method='POST', body={'data': {'type': 'profiles', 'attributes': {
         'name': 'DevnTube Share App Store ' + os.environ.get('GITHUB_RUN_ID', 'authorized-setup'), 'profileType': 'IOS_APP_STORE'},
         'relationships': {'bundleId': {'data': {'type': 'bundleIds', 'id': bundle_id}},
