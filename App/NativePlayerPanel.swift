@@ -15,7 +15,7 @@ struct NativePlayerPanel: View {
                 Spacer()
                 Button { playback.expanded.toggle() } label: { Image(systemName: playback.expanded ? "chevron.down" : "chevron.up") }.accessibilityLabel("Playergröße ändern").accessibilityIdentifier("native.expand")
                     #if DEBUG
-                    .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-test-native") ? "time=\(playback.time);playing=\(playback.playing);waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")" : "")
+                    .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-test-native") ? "time=\(playback.time);playing=\(playback.playing);pip=\(playback.pictureInPictureActive);waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")" : "")
                     #endif
                 Button { playback.close() } label: { Image(systemName: "xmark") }.accessibilityLabel("Player schließen").frame(minWidth: 44, minHeight: 44)
             }.padding(.horizontal)
@@ -41,7 +41,7 @@ struct NativePlayerPanel: View {
             }
             HStack {
                 Button { playback.skip(-Double(browser.options.skipSeconds)) } label: { Image(systemName: "gobackward") }.disabled(playback.live).accessibilityLabel("Zurückspulen")
-                Button { playback.toggle() } label: { Image(systemName: playback.playing ? "pause.fill" : "play.fill") }.disabled(playback.error != nil).accessibilityLabel(playback.playing ? "Pause" : "Abspielen")
+                Button { playback.toggle() } label: { Image(systemName: playback.playing ? "pause.fill" : "play.fill") }.disabled(playback.error != nil).accessibilityLabel(playback.playing ? "Pause" : "Abspielen").accessibilityIdentifier("native.toggle")
                 Button { playback.skip(Double(browser.options.skipSeconds)) } label: { Image(systemName: "goforward") }.disabled(playback.live).accessibilityLabel("Vorspulen")
                 Spacer()
                 Button { queue = true } label: { Image(systemName: "music.note.list") }.accessibilityLabel("Queue").accessibilityIdentifier("native.queue")

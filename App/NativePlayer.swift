@@ -17,6 +17,7 @@ final class NativePlayer: ObservableObject {
     @Published private(set) var title = ""
     @Published private(set) var playing = false
     @Published private(set) var waiting = false
+    @Published var pictureInPictureActive = false
     @Published private(set) var time = 0.0
     @Published private(set) var duration: Double?
     @Published private(set) var error: String?
@@ -80,6 +81,7 @@ final class NativePlayer: ObservableObject {
         securityURL?.stopAccessingSecurityScopedResource()
     }
     func handleMediaServicesReset() {
+        pictureInPictureActive = false
         savePosition(); loadingTask?.cancel(); playTask?.cancel(); generation = UUID(); playRequest = UUID()
         let position = time
         releaseItem()
@@ -215,6 +217,7 @@ final class NativePlayer: ObservableObject {
     func previous() { guard let id = mediaID, let i = queueIDs.firstIndex(of: id), i > 0 else { return }; open(queueIDs[i - 1]) }
     func retry() { if let id = mediaID { open(id, seekTo: time) } }
     func close() {
+        pictureInPictureActive = false
         commandRevision &+= 1
         savePosition(); loadingTask?.cancel(); playTask?.cancel(); playRequest = UUID(); generation = UUID(); releaseItem()
         mediaID = nil; title = ""; error = nil; time = 0; duration = nil; playing = false; waiting = false; onState?()
@@ -267,8 +270,12 @@ struct NativePlayerSurface: UIViewControllerRepresentable {
     final class Coordinator: NSObject, AVPlayerViewControllerDelegate {
         weak var playback: NativePlayer?
         init(_ playback: NativePlayer) { self.playback = playback }
+        func playerViewControllerDidStartPictureInPicture(_ playerViewController: AVPlayerViewController) {
+            playback?.pictureInPictureActive = true
+        }
         func playerViewControllerDidStopPictureInPicture(_ playerViewController: AVPlayerViewController) {
             guard let playback else { return }
+            playback.pictureInPictureActive = false
             if !playback.sceneActive && !playback.restoringPiP { playback.pause() }
             playback.restoringPiP = false
         }

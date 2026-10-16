@@ -20,6 +20,7 @@ final class NativePlaybackJourneyUITests: XCTestCase {
     private func requireSystemButton(_ pattern: String, app: XCUIApplication,
                                      file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         let button = systemButton(pattern, app: app)
+        if !button.exists { revealPlayerControls(in: app) }
         let exists = button.waitForExistence(timeout: 5)
         if !exists {
             let hierarchy = XCTAttachment(string: app.debugDescription)
@@ -43,16 +44,24 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         expectation(for: playing, evaluatedWith: nil); waitForExpectations(timeout: 20)
         let before = try XCTUnwrap(status.value as? String)
         func seconds(_ text: String) -> Double { Double(text.components(separatedBy: ";").first?.replacingOccurrences(of: "time=", with: "") ?? "") ?? -1 }
-        let beforeClock = seconds(before), beforeWall = Date()
-        revealPlayerControls(in: app)
+        // AVKit auto-hides controls while playing, including during XCTest's
+        // quiescence wait between lookup and tap. A real Pause keeps them
+        // reachable without changing AVKit or relying on private test APIs.
+        app.buttons["native.toggle"].tap()
+        let paused = NSPredicate { _, _ in (status.value as? String)?.contains("playing=false") == true }
+        expectation(for: paused, evaluatedWith: nil); waitForExpectations(timeout: 5)
         let full = requireSystemButton(".*(Full.?Screen|Vollbild).*", app: app)
         full.tap()
         let done = requireSystemButton("(Done|Fertig|.*Exit Full.?Screen.*|.*Vollbild beenden.*)", app: app)
         done.tap()
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        revealPlayerControls(in: app)
         let pip = requireSystemButton(".*(Picture in Picture|Bild.in.Bild|Start PiP).*", app: app)
         pip.tap()
+        let enteredPiP = NSPredicate { _, _ in (status.value as? String)?.contains("pip=true") == true }
+        expectation(for: enteredPiP, evaluatedWith: nil); waitForExpectations(timeout: 10)
+        app.buttons["native.toggle"].tap()
+        expectation(for: playing, evaluatedWith: nil); waitForExpectations(timeout: 10)
+        let beforeClock = seconds(try XCTUnwrap(status.value as? String)), beforeWall = Date()
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         XCTAssertTrue(springboard.wait(for: .runningForeground, timeout: 5))
