@@ -70,7 +70,8 @@
     const v = media(); lastPrimary = v;
     if (queueManaged && v) { const e = entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); v.loop = false; }
     const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
-    const now = Date.now(); if (!force && signature === lastSignature && now - lastState < 1000) return;
+    const now = Date.now(), interval = background || document.hidden ? 5000 : 1000;
+    if (!force && signature === lastSignature && now - lastState < interval) return;
     lastState = now; lastSignature = signature;
     post("state", {title: document.title, hasMedia: Boolean(v), playing: v ? !v.paused && !v.ended : false,
       anyPlaying: nodes().some(node => !node.paused && !node.ended),
@@ -84,7 +85,7 @@
       mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };
   const seek = seconds => {
-    const v = media();
+    const v = commandMedia();
     if (!v || !Number.isFinite(seconds)) return;
     let target = Math.max(0, v.currentTime + seconds);
     if (Number.isFinite(v.duration)) target = Math.min(target, v.duration);
@@ -126,10 +127,16 @@
       });
     });
   }
+  function commandMedia() {
+    // User/timer commands must see media inserted into a newly opened shadow
+    // root immediately. Periodic discovery remains sparse during playback.
+    discover(document); attach();
+    return media();
+  }
   const choose = event => {
     const path = event.composedPath?.() || [event.target];
     const v = path.find(node => node?.tagName === "VIDEO" || node?.tagName === "AUDIO");
-    if (v) { selected = v; interactionAt = Date.now(); state(); }
+    if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
   };
   document.addEventListener("pointerdown", choose, true);
   function applyOriginal(v) {
@@ -150,10 +157,10 @@
     }
   }
   globalThis.__webkweb = {
-    pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); nodes().forEach(v => v.pause()); state(); },
+    pause(blockAutoplay = false) { stopped = Boolean(blockAutoplay); commandMedia(); nodes().forEach(v => v.pause()); state(); },
     clearStop() { stopped = false; },
-    resume() { stopped = false; const v = media(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
-    toggle() { const v = media(); if (v) v.paused ? this.resume() : this.pause(); },
+    resume() { stopped = false; const v = commandMedia(); if (v) v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); },
+    toggle() { const v = commandMedia(); if (v) v.paused ? this.resume() : this.pause(); },
     seek,
     setOptions(options = {}) {
       autoPiP = Boolean(options.autoPiP); preferOriginal = Boolean(options.preferOriginal); hideShorts = Boolean(options.hideShorts);
@@ -167,19 +174,20 @@
     },
     restart(id) {
       if (stopped) return;
+      commandMedia();
       const v = typeof id === "string" ? nodes().find(node => mediaID(node) === id) : media();
       if (v) { selected = v; v.currentTime = 0; v.play().catch(() => post("notice", {text: "Bitte auf den Webseitenplayer tippen."})); }
     },
-    setRate(value) { const v = media(); if (v && Number.isFinite(value) && value >= 0.25 && value <= 3) { v.playbackRate = value; state(); } },
-    setCaption(id) { const v = media(); if (!v) return; Array.from(v.textTracks || []).forEach((t, index) => { t.mode = index === id ? "showing" : "disabled"; }); state(); },
+    setRate(value) { const v = commandMedia(); if (v && Number.isFinite(value) && value >= 0.25 && value <= 3) { v.playbackRate = value; state(); } },
+    setCaption(id) { const v = commandMedia(); if (!v) return; Array.from(v.textTracks || []).forEach((t, index) => { t.mode = index === id ? "showing" : "disabled"; }); state(); },
     setAudio(id) {
-      const v = media(), list = Array.from(v?.audioTracks || []);
+      const v = commandMedia(), list = Array.from(v?.audioTracks || []);
       if (!list.some((_, index) => index === id)) return;
       list.forEach((t, index) => { t.enabled = index === id; }); state();
     },
-    recover() { const v = media(); if (!v) return; if (stopped) return post("notice", {text: "Wiedergabe ist gestoppt. Tippe auf Play."}); this.resume(); },
+    recover() { const v = commandMedia(); if (!v) return; if (stopped) return post("notice", {text: "Wiedergabe ist gestoppt. Tippe auf Play."}); this.resume(); },
     fullscreen() {
-      const v = media(); if (!v || v.tagName !== "VIDEO") return;
+      const v = commandMedia(); if (!v || v.tagName !== "VIDEO") return;
       try {
         if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
         else if (v.requestFullscreen) v.requestFullscreen().catch(() => post("notice", {text: "Vollbild ist hier nicht verfügbar."}));
@@ -187,19 +195,20 @@
       } catch (_) { post("notice", {text: "Tippe für Vollbild auf den Webseitenplayer."}); }
     },
     autoPiP() {
-      const v = media();
-      if (!autoPiP || stopped || !v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
+      if (!autoPiP || stopped) return;
+      const v = commandMedia();
+      if (!v || v.paused || v.ended || v.tagName !== "VIDEO" || v.webkitPresentationMode === "picture-in-picture") return;
       try { this.pip(); } catch (_) {} // User gesture / background timing remains iOS-dependent.
     },
     pip() {
-      const v = media(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
+      const v = commandMedia(); if (!v || v.tagName !== "VIDEO") return post("notice", {text: "Kein Videoplayer verfügbar."});
       try {
         if (v.webkitSupportsPresentationMode?.("picture-in-picture")) v.webkitSetPresentationMode("picture-in-picture");
         else if (v.requestPictureInPicture) v.requestPictureInPicture().catch(() => post("notice", {text: "Bild-in-Bild ist hier nicht verfügbar."}));
         else post("notice", {text: "Dieser Player unterstützt kein Bild-in-Bild."});
       } catch (_) { post("notice", {text: "Tippe für Bild-in-Bild auf den Webseitenplayer."}); }
     },
-    airplay() { const v = media(); if (v?.webkitShowPlaybackTargetPicker) v.webkitShowPlaybackTargetPicker(); else post("notice", {text: "Nutze AirPlay im Kontrollzentrum."}); },
+    airplay() { const v = commandMedia(); if (v?.webkitShowPlaybackTargetPicker) v.webkitShowPlaybackTargetPicker(); else post("notice", {text: "Nutze AirPlay im Kontrollzentrum."}); },
     state
   };
   const tick = () => {

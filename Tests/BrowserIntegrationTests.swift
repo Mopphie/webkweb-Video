@@ -10,6 +10,32 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertFalse(tab.webView.configuration.websiteDataStore.isPersistent)
         tab.close()
     }
+    func testPrivatePopupRetainsConfiguredWebsiteDataStore() {
+        let configuration = WKWebViewConfiguration()
+        let existingStore = WKWebsiteDataStore.nonPersistent()
+        configuration.websiteDataStore = existingStore
+        let popup = BrowserTab(isPrivate: true, configuration: configuration)
+        defer { popup.close() }
+        XCTAssertTrue(popup.webView.configuration.websiteDataStore === existingStore)
+        XCTAssertNil(popup.webView.customUserAgent)
+    }
+    func testCommittedDocumentReplacesPendingAddressForReloadAndRestore() async throws {
+        let tab = BrowserTab(isPrivate: true)
+        defer { tab.close() }
+        tab.load(URL(string: "https://pending.example/original")!)
+        tab.cancelPendingLoad()
+        let destination = URL(string: "https://committed.example/final")!
+        tab.webView.loadHTMLString("<html><body>committed</body></html>", baseURL: destination)
+        var ready = false
+        for _ in 0..<100 {
+            if !tab.webView.isLoading, tab.address == destination.absoluteString,
+               let text = try? await tab.webView.evaluateJavaScript("document.body.textContent") as? String,
+               text == "committed" { ready = true; break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertTrue(ready, "Committed WebKit document did not load")
+        XCTAssertEqual(tab.sessionAddress, destination.absoluteString)
+    }
     func testRestoredTabsRequireUserActionAndKeepPendingAddresses() throws {
         let defaults = UserDefaults.standard, key = "browserSessionV2"
         let old = defaults.data(forKey: key), oldOptions = defaults.data(forKey: PreferencesStorage.key)

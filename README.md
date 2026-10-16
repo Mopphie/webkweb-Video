@@ -66,7 +66,7 @@ Direkter Standardbuild:
 xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
 ```
 
-Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Im aktuellen Linux-Prüflauf bestanden 40 Node-Tests mit den originalen Seitenskripten sowie Projekt-/Plistprüfungen und Tree-sitter-Syntaxprüfungen von 24 Swift-Dateien. 34 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. Lokaler Bericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py`; ein vorhandenes Swift-Frontend lässt sich mit `--swift-frontend` angeben. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet die Änderungen zu; [RELEASE.md](Docs/RELEASE.md) nennt offene Prüfungen.
+Die Simulatorbezeichnung muss auf dem Mac vorhanden sein. Im aktuellen Linux-Prüflauf bestanden 44 Node-Tests mit den originalen Seitenskripten sowie Projekt-/Plistprüfungen und Tree-sitter-Syntaxprüfungen von 25 Swift-Dateien. 38 XCTest-Definitionen sind für den Mac vorbereitet, hier nicht ausgeführt. Swift-Syntaxprüfung ersetzt keinen Apple-SDK-Build. Lokaler Bericht: `build/reports/portable-check.json` nach `python Scripts/check-portable.py`; ein vorhandenes Swift-Frontend lässt sich mit `--swift-frontend` angeben. [AUDIT-FIXES.md](Docs/AUDIT-FIXES.md) ordnet die Änderungen zu; [RELEASE.md](Docs/RELEASE.md) nennt offene Prüfungen.
 
 ## Grenzen und Datenschutz
 
@@ -75,3 +75,11 @@ WebKit und Webseiten entscheiden über Autoplay, PiP, AirPlay, DRM und Hintergru
 Serverseitig in Streams eingefügte Werbung wird nicht zuverlässig entfernt. Webseiten und iOS entscheiden über Medienfunktionen; die App extrahiert keine Medienlinks zum Speichern oder zur Übergabe an ein Drittanbieter-SDK. Die Lizenzen der verbleibenden Filterquellen sind in der App und im Repository dokumentiert.
 
 [PRIVACY.md](PRIVACY.md) beschreibt die Datenflüsse. Öffentliche [Datenschutzerklärung](https://mopphie.github.io/webkweb-privacy/), [Supportseite](https://mopphie.github.io/webkweb-privacy/support/) und [Impressum](https://mopphie.github.io/webkweb-privacy/impressum/) sind online und in `App/Info.plist` hinterlegt. Eine App-Store-Zulassung wird nicht zugesagt; die rechtlichen Texte müssen mit dem finalen Build abgeglichen werden. [TestFlight-Secrets und offene Signierung](Docs/TESTFLIGHT-SECRETS.md).
+
+## Wiedergabefixes und echte Medienprüfung (16.10.2026)
+
+Explizite Medienbefehle und Pointer-Auswahl erkennen neu eingefügte offene Shadow-Player sofort. Hintergrund-Zeitmeldungen werden gedrosselt; normale Pausemeldungen bleiben sofort sichtbar. Die App verwendet die echte WebKit-Kennung statt einer fest eingebauten Safari-17-Version; Desktop-/Mobilmodus nutzt öffentliche Navigationseinstellungen. Private Popups übernehmen ihre vorhandene Sitzung. Reload/Session verwenden nach Redirects die tatsächlich bestätigte Adresse.
+
+`python Scripts/check-browser.py` prüft originale Playback.js mit echter lokaler Chromium-Dekodierung und selbst erzeugtem Testvideo. Python Playwright, Chromium und ffmpeg müssen installiert sein; keine fremden Accounts/Videos oder Werbesysteme werden automatisiert. 15 Fälle bestanden lokal. Neue native Medientests verwenden `Tests/Fixtures/sample.mp4` in einem sichtbaren WKWebView und prüfen tatsächlichen Fortschritt, Pause/Seek, natürliches Ende und Timerstop. Sie zählen erst nach erfolgreichem Simulatorlauf als bestanden. [Funktionsmatrix und Plattformgrenzen](Docs/FUNCTION-TEST-MATRIX.md).
+
+Der Nutzer hat Actions am 16.10.2026 ausdrücklich freigegeben. `validate.yml` startet auf dem Entwicklungsbranch Debug/XCTest und unsigned Release-Build; kein Signing oder Upload. Der frühere manuelle Dispatchzugriff lieferte403; Push-CI startete erfolgreich. Aktuelle Ergebnisse siehe PR und Actions-Läufe.

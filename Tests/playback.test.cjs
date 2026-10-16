@@ -154,3 +154,25 @@ test('audio demand reports all active elements until every asynchronous pause is
  const main=element(),audio=element('AUDIO'),h=harness([main,audio]);main.pause();assert.equal(h.state().playing,false);assert.equal(h.state().anyPlaying,true);
  audio.pause();assert.equal(h.state().anyPlaying,false);
 });
+
+test('timer pause immediately finds a player added to an existing open shadow root',()=>{
+ const h=harness([]),video=element();
+ h.shadowHosts.push({shadowRoot:{querySelectorAll(selector){return selector==='*'?[]:[video];}}});
+ h.api.pause(true);assert.equal(video.paused,true);
+});
+test('explicit resume and fullscreen find late open-shadow media without waiting for discovery tick',()=>{
+ let fullscreen=0;const h=harness([]),video=element('VIDEO',{paused:true,webkitEnterFullscreen(){fullscreen++;}});
+ h.shadowHosts.push({shadowRoot:{querySelectorAll(selector){return selector==='*'?[]:[video];}}});
+ h.api.resume();assert.equal(video.paused,false);h.api.fullscreen();assert.equal(fullscreen,1);
+});
+test('pointer selection registers newly exposed shadow media before controlling it',()=>{
+ const main=element(),shadow=element('VIDEO',{width:32,height:32}),h=harness([main]);
+ h.documentEvents.pointerdown({composedPath:()=>[shadow]});h.api.seek(10);
+ assert.equal(shadow.currentTime,10);assert.equal(main.currentTime,0);
+});
+test('background timeupdate events retain sparse heartbeat but publish real pauses immediately',()=>{
+ const h=harness();h.api.setBackground(true);const start=h.messages.length;
+ for(let i=0;i<10;i++){h.advance(1000);h.nodes[0].listeners.timeupdate();}
+ assert.equal(h.messages.slice(start).filter(message=>message.kind==='state').length,2);
+ h.nodes[0].pause();assert.equal(h.state().playing,false);
+});

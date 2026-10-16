@@ -81,7 +81,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         let config = configuration ?? WKWebViewConfiguration()
         // Keep WebKit's popup configuration/opener, but not the opener's handler.
         config.userContentController = WKUserContentController()
-        config.websiteDataStore = isPrivate ? .nonPersistent() : .default()
+        if configuration == nil { config.websiteDataStore = isPrivate ? .nonPersistent() : .default() }
+        config.defaultWebpagePreferences.preferredContentMode = PreferencesStorage.load().desktop ? .desktop : .mobile
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = background ? .all : []
         config.allowsPictureInPictureMediaPlayback = true
@@ -110,10 +111,9 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         ]
     }
     func applyAppearance() {
-        let desktop = browser?.options.desktop ?? PreferencesStorage.load().desktop
-        webView.customUserAgent = desktop ?
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15" :
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        // WebKit supplies the real current engine, OS and device identity.
+        // Desktop/mobile preference is applied to each navigation below.
+        webView.customUserAgent = nil
         webView.pageZoom = browser?.options.zoom ?? PreferencesStorage.load().zoom
     }
     func applyPlaybackOptions() {
@@ -153,7 +153,10 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             for frame in frames.values { evaluate(script, frame: frame) }
         } else if let main = frames.values.first(where: { $0.info.isMainFrame }) { evaluate(script, frame: main) }
     }
-    func runMedia(_ script: String) { if let id = activeFrameID, let frame = frames[id] { evaluate(script, frame: frame) } }
+    func runMedia(_ script: String) {
+        if let id = activeFrameID, let frame = frames[id] { evaluate(script, frame: frame) }
+        else { run(script) }
+    }
     private func evaluate(_ script: String, frame: Frame) {
         webView.evaluateJavaScript(script, in: frame.info, in: Self.world) { [weak self] result in
             guard case .failure(let error) = result, (error as? WKError)?.code == .javaScriptInvalidFrameTarget else { return }
@@ -276,6 +279,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         if wiping { if navigation === wipeNavigation { finishBlank() }; return }
         guard view.url?.scheme != "about" else { return }
         title = view.title ?? view.url?.host ?? "Video"; address = view.url?.absoluteString ?? ""
+        lastRequestedURL = view.url
         if browser?.playbackStopped == true { run("globalThis.__webkweb?.pause(true)", allFrames: true) }
         browser?.recordVisit(self)
         if let expected = autoplayNavigation, expected === navigation { committedAutoplay = requestedAutoplay; attemptAutoplay() }
@@ -288,6 +292,11 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     }
     private func report(_ error: Error) { if (error as NSError).code != NSURLErrorCancelled { self.error = error.localizedDescription } }
     func webViewWebContentProcessDidTerminate(_ view: WKWebView) { clearFrames(); if wiping { finishBlank() } else { error = "Die Webseite wurde beendet. Lade sie erneut." } }
+    func webView(_ view: WKWebView, decidePolicyFor action: WKNavigationAction, preferences: WKWebpagePreferences,
+                 decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+        preferences.preferredContentMode = (browser?.options.desktop ?? PreferencesStorage.load().desktop) ? .desktop : .mobile
+        webView(view, decidePolicyFor: action) { decisionHandler($0, preferences) }
+    }
     func webView(_ view: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url, (!(wiping || browser?.wipingData == true) || url.scheme == "about") else { decisionHandler(.cancel); return }
         let scheme = url.scheme?.lowercased() ?? ""
@@ -304,7 +313,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
                 Task { [weak self] in
                     guard let self else { decisionHandler(.cancel); return }
                     await RuleStore.shared.apply(to: view, tabID: self.id, enabled: self.browser?.shouldBlock(url) ?? true)
-                    decisionHandler(self.alive && !self.wiping ? .allow : .cancel)
+                    decisionHandler(self.alive && !self.wiping && self.browser?.wipingData != true ? .allow : .cancel)
                 }
             } else { decisionHandler(.allow) }
         } else {

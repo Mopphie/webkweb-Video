@@ -1,6 +1,12 @@
 # Prüfung vor einem Release
 
-## Tatsächlicher Prüfstand
+## Wiedergabeprüfung ab 16.10.2026
+
+Actions sind seit der ausdrücklichen Nutzerfreigabe am 16.10.2026 für diese Arbeit erlaubt. Der erste [native CI-Basislauf38858732887](https://github.com/Mopphie/webkweb-Video/actions/runs/38858732887) prüft die bereinigte Ausgangsversion. Der folgende Fixcommit ergänzt44 Node-Regressionstests,15 echte lokale Chromium-Medientests und38 vorbereitete native XCTest-Fälle inklusive sichtbarem WKWebView und selbst erzeugtem MP4. Der jeweilige Laufstatus und die `.xcresult`-Artefakte sind maßgeblich; noch laufende oder nur vorbereitete Tests werden nicht als bestanden bezeichnet. Keine Signing-Secrets oder Apple-Uploads im neuen Validierungsworkflow.
+
+[Funktionsmatrix](FUNCTION-TEST-MATRIX.md) mit klar getrennten Ebenen und offenen Geräte-/Providerprüfungen.
+
+## Historischer Prüfstand vor den Wiedergabefixes
 
 Linux (15.10.2026): **40/40 Node-Tests** der verbleibenden originalen Seitenskripte bestanden. **24 Swift-Dateien** wurden mit Tree-sitter nur syntaktisch geprüft; Plist-/Privacy-/Entitlement-Dateien, YAML, JSON, Python und Shell geprüft. Lokale Berichte: `build/reports/portable-check.json` und `build/reports/node-tests.tap` (ignoriert, nicht im PR). **34 vorbereitete XCTest-Definitionen**, Apple-SDK-Typprüfung, Simulator, Geräte, Signierung und Archive bleiben **nicht ausgeführt**. Der native Downloader, SponsorBlock und Google Cast sind vollständig entfernt; keine Release-only-Flags oder internen Ersatzpfade. Details: [NO-DOWNLOAD-VARIANT.md](NO-DOWNLOAD-VARIANT.md), [COMMERCIAL-USE.md](COMMERCIAL-USE.md).
 
