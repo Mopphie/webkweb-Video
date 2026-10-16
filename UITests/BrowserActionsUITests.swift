@@ -8,6 +8,15 @@ final class BrowserActionsUITests: XCTestCase {
         XCTContext.runActivity(named: message) { _ in }
     }
 
+    private func capturePlayerDiagnostic(_ app: XCUIApplication) {
+        let report = app.buttons["browser.actions"].value as? String ?? "Player diagnostic unavailable"
+        print("WEBKWEB_UI_MEDIA_DIAGNOSTIC \(report)")
+        let attachment = XCTAttachment(string: report)
+        attachment.name = "Player state at failed playback assertion"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func launchFixture(audible: Bool = false) throws -> XCUIApplication {
         continueAfterFailure = false
         // A cold CI simulator completed the menu assertions but spent 132s
@@ -22,7 +31,13 @@ final class BrowserActionsUITests: XCTestCase {
         app.launch()
         milestone("App launched; wait for browser actions and decoded playback")
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 15))
+        if audible {
+            milestone("Start unmuted media with an actual user Play gesture")
+            app.buttons["Videostart"].tap()
+        }
+        let running = app.staticTexts["Video läuft"].waitForExistence(timeout: 15)
+        if !running { capturePlayerDiagnostic(app) }
+        XCTAssertTrue(running)
         milestone("Local decoder is playing")
         return app
     }
@@ -89,7 +104,9 @@ final class BrowserActionsUITests: XCTestCase {
         reveal(pause, in: app); pause.tap()
         XCTAssertTrue(app.staticTexts["Video pausiert"].waitForExistence(timeout: 5))
         app.buttons["Videostart"].tap()
-        XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 8))
+        let resumed = app.staticTexts["Video läuft"].waitForExistence(timeout: 8)
+        if !resumed { capturePlayerDiagnostic(app) }
+        XCTAssertTrue(resumed)
         for _ in 0..<3 {
             Thread.sleep(forTimeInterval: 1)
             XCTAssertTrue(app.staticTexts["Video läuft"].exists)

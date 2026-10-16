@@ -422,6 +422,11 @@ private struct BrowserScreen: View {
         }
         .buttonStyle(.plain).accessibilityLabel("Browsermenü").accessibilityIdentifier("browser.actions")
         .accessibilityHint("Öffnet Navigation, Adresse, Tabs und Wiedergabeoptionen")
+        #if DEBUG
+        // UI-test failures can read the same redacted report without reaching
+        // into WebKit or relying on clipboard permissions. Not in Release.
+        .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-test-browser") ? tab.mediaDiagnosticReport() : "")
+        #endif
     }
 
     // A modal list keeps stable hit targets while WebKit publishes progress and

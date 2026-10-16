@@ -516,7 +516,7 @@ final class BrowserModel: ObservableObject {
         let html = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
         <body style="margin:0;background:black;color:white"><div style="position:relative;width:320px;height:180px">
-        <video id="player" controls playsinline \(audible ? "" : "muted") autoplay loop style="width:320px;height:180px"
+        <video id="player" controls playsinline \(audible ? "" : "muted autoplay") loop style="width:320px;height:180px"
         src="data:video/mp4;base64,\(data.base64EncodedString())"></video>
         <button aria-label="Videostart" style="position:absolute;top:40px;left:40px;width:140px;height:64px"
         onclick="document.getElementById('player').play()">Start</button></div>
