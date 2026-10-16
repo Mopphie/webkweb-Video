@@ -17,6 +17,20 @@
   const post = (kind, value = {}) => {
     try { window.webkit.messageHandlers.playback.postMessage({kind, documentID, address: location.href, ...value}); } catch (_) {}
   };
+  // Observe lifecycle and media events without claiming whether a website,
+  // system interruption or user caused them. Never resume on visibility alone.
+  const observed = event => post("mediaevent", {event, stopLatched: stopped});
+  const acknowledgeRequestedPlay = intent => {
+    // This microtask runs at the end of the trusted input's own event turn.
+    // play() changes paused synchronously, but WebKit can dispatch its play
+    // event much later while unmuted audio is being prepared. Accept that
+    // already-requested play now; never call play() or extend the 1.5s window
+    // for a later, unrelated autoplay. A newer Stop invalidates the identity.
+    if (playIntent !== intent || !stopped || intent.media.paused || intent.media.ended) return;
+    stopped = false; playIntent = null;
+    post("userplay", {mediaID: mediaID(intent.media)});
+    state();
+  };
   function discover(root) {
     if (root?.tagName === "VIDEO" || root?.tagName === "AUDIO") knownMedia.add(root);
     root?.querySelectorAll?.("video,audio").forEach(v => knownMedia.add(v));
@@ -87,6 +101,9 @@
       networkState: Number.isInteger(v?.networkState) ? v.networkState : null,
       decodedFrames: Number(v?.getVideoPlaybackQuality?.().totalVideoFrames) || 0,
       sourceKind: v?.currentSrc ? v.currentSrc.split(":", 1)[0] : "none",
+      presentationMode: document.pictureInPictureElement === v && v ? "picture-in-picture" :
+        ["inline", "fullscreen", "picture-in-picture"].includes(v?.webkitPresentationMode) ? v.webkitPresentationMode : "unknown",
+      hidden: Boolean(document.hidden),
       mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };
   const seek = seconds => {
@@ -109,22 +126,24 @@
         if (stopped) {
           // A media `play` event is also trusted for script/autoplay. Only an
           // earlier real input on this player's controls may release the latch.
-          if (!hasPlayIntent(v)) { v.pause(); return; }
+          if (!hasPlayIntent(v)) { observed("stop-rejected"); v.pause(); return; }
           playIntent = null;
           stopped = false;
           post("userplay", {mediaID: mediaID(v)});
         }
         post("started", {mediaID: mediaID(v)});
+        observed("play");
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
         state();
       });
-      v.addEventListener("pause", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("pause", () => { observed("pause"); entry(v).waiting = false; state(); });
+      v.addEventListener("emptied", () => { observed("emptied"); state(); });
       v.addEventListener("loadedmetadata", () => { entry(v); state(); });
-      v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
+      v.addEventListener("waiting", () => { observed("waiting"); entry(v).waiting = true; state(); });
       v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
-      v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("playing", () => { observed("playing"); entry(v).waiting = false; state(); });
       v.addEventListener("canplay", state);
-      v.addEventListener("error", state);
+      v.addEventListener("error", () => { observed("error"); state(); });
       v.addEventListener("ratechange", state);
       v.addEventListener("volumechange", state);
       v.textTracks?.addEventListener?.("change", state);
@@ -177,7 +196,12 @@
       }
     }
     if (v) { knownMedia.add(v); attach(); selected = v; interactionAt = Date.now(); state(); }
-    if (v && event.isTrusted) { playIntent = {media: v, at: Date.now()}; if (!stopped) post("userplay", {mediaID: mediaID(v)}); }
+    if (v && event.isTrusted) {
+      observed("input");
+      const intent = {media: v, at: Date.now()}; playIntent = intent;
+      if (!stopped) post("userplay", {mediaID: mediaID(v)});
+      else queueMicrotask(() => acknowledgeRequestedPlay(intent));
+    }
   };
   document.addEventListener("pointerdown", choose, true);
   document.addEventListener("click", choose, true);
@@ -195,12 +219,20 @@
       // Do not substitute navigator.userActivation: it can remain set for 5s.
       if (!stopped || !Number.isFinite(point.x) || !Number.isFinite(point.y) ||
           point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) return;
-      commandMedia();
+      // Record this real touch before attach() enforces the stop on a player
+      // whose native controls may already have synchronously requested play.
+      discover(document);
       const viewport = globalThis.visualViewport;
       const x = (viewport?.offsetLeft || 0) + point.x * (viewport?.width || innerWidth);
       const y = (viewport?.offsetTop || 0) + point.y * (viewport?.height || innerHeight);
       const v = mediaAtPoint(x, y);
-      if (v) { selected = v; interactionAt = Date.now(); playIntent = {media: v, at: Date.now()}; }
+      let intent = null;
+      if (v) {
+        selected = v; interactionAt = Date.now();
+        intent = {media: v, at: Date.now()}; playIntent = intent;
+      }
+      attach();
+      if (intent) queueMicrotask(() => acknowledgeRequestedPlay(intent));
     },
     seek,
     setBackground(value) { background = Boolean(value); },
@@ -250,6 +282,6 @@
   setInterval(tick, 1000);
   window.addEventListener?.("pagehide", () => post("dispose"));
   window.addEventListener?.("pageshow", event => { if (event.persisted) { lastHeartbeat = 0; lastState = 0; post("ready"); tick(); } });
-  document.addEventListener("visibilitychange", () => { lastHeartbeat = 0; lastState = 0; tick(); });
+  document.addEventListener("visibilitychange", () => { observed(document.hidden ? "hidden" : "visible"); lastHeartbeat = 0; lastState = 0; tick(); });
   document.addEventListener("yt-navigate-finish", tick);
 })();

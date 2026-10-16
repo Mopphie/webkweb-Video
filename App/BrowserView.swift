@@ -74,6 +74,8 @@ struct BrowserView: View {
         .onChange(of: browser.options.shareFavoritesWithSystem) { _, _ in syncFavorites() }
         .onChange(of: browser.options.privateLock) { _, _ in shield.update(phase: scenePhase, browser: browser) }
         .onChange(of: scenePhase) { _, phase in
+            let state = phase == .active ? "active" : phase == .inactive ? "inactive" : "background"
+            browser.tabs.forEach { $0.notePlaybackEvent("scene.\(state)") }
             native.sceneActive = phase == .active
             browser.enforceSleepDeadline()
             shield.update(phase: phase, browser: browser)

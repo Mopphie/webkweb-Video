@@ -127,6 +127,13 @@ sys.exit("Kein verfügbarer iPad-Simulator für native Vollbild-/PiP-/Queue-Reis
 if [[ "$native_recheck" != true && "${CI:-}" == true && "$destination" == *id=* ]]; then
   xcrun simctl shutdown "${destination##*id=}" || true
 fi
+# The first iPad launch in run 38936556842 timed out in XCTest before the
+# application launched; its next launch and full PiP journey passed. Finish
+# the disposable CI device's OS boot before asking XCTest to launch our app.
+if [[ "${CI:-}" == true && "$ipad_destination" == *id=* ]]; then
+  xcrun simctl boot "${ipad_destination##*id=}" || true
+  xcrun simctl bootstatus "${ipad_destination##*id=}" -b
+fi
 echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
 journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests)
 if [[ "$native_recheck" == true ]]; then

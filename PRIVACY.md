@@ -26,7 +26,7 @@ Normale Favoriten werden erst nach Opt-in für Widgets und Siri in die lokale Ap
 
 Die eingehende Teilen-Erweiterung ist entfernt. Ihr früherer lokaler Übergabepuffer wird beim Start gezielt gelöscht; unabhängige Widget-Favoriten bleiben erhalten. Export enthält normale eigene Favoriten/Listen/Notizen und ausgewählte harmlose Browseroptionen, keine Cookies, Credentials, privaten Tabs, Dateiberechtigungen, Sperrkonfiguration oder Wiedergabehistorie. Ziel und Weitergabe des Exports bestimmt der Nutzer.
 
-Der native Systemplayer kann normale Titel, Zeit und Steuerelemente an iOS-Medienanzeigen übergeben. AirPlay nutzt die von iOS gewählten Geräte und deren Regeln; kein lokaler Browserfilter auf dem Empfänger wird zugesichert. Nur ausdrückliches Kopieren einer normalen Playerdiagnose überträgt bis zu 40 RAM-Ereignisse/numerische Zustände in die lokale Zwischenablage, ohne Titel, URLs, Cookies oder Zugangsdaten; localOnly, Ablauf nach fünf Minuten. Private Diagnosen sind deaktiviert, kein automatischer Upload.
+Der native Systemplayer kann normale Titel, Zeit und Steuerelemente an iOS-Medienanzeigen übergeben. AirPlay nutzt die von iOS gewählten Geräte und deren Regeln; kein lokaler Browserfilter auf dem Empfänger wird zugesichert. Nur ausdrückliches Kopieren einer normalen Playerdiagnose überträgt bis zu 40 Status- und 40 Steuerungs-/Audio-/Appzustandsereignisse im RAM sowie numerische Zustände in die lokale Zwischenablage, ohne Titel, URLs, Cookies oder Zugangsdaten; localOnly, Ablauf nach fünf Minuten. Private Diagnosen sind deaktiviert, kein automatischer Upload.
 
 ## Noch vor Veröffentlichung zu erledigen
 

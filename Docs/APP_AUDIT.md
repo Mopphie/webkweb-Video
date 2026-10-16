@@ -46,7 +46,7 @@ Keine Swift-Packages externer Anbieter, Pods, Cast-SDKs, eingebetteten Drittfram
 | Autorisierte Direktquelle | Vom Nutzer bestätigter HTTPS-Medienhost, Systemdecoder folgt nötigen Medienabrufen/Redirects | Kein Herunterladen in eine Medienbibliothek. Bekannte Plattformhosts sowie gängige signierte/tokenhaltige Links werden nicht als dauerhafte Direktquelle angenommen |
 | Dateien-App | Ausgewählte Datei bzw. deren Dateianbieter | Zugriff nur mit Bookmark/aktiver Security Scope. Ein Dateianbieter kann selbst Netzwerk/iCloud nutzen; kein App-CloudKit-Dienst |
 | Hintergrund / PiP / AirPlay | Nur tatsächliche Medienwiedergabe / Systemrouten | Keine stillen Audio-Loops, Tasks als Keep-alive, Filterupdates oder Segment-APIs. Gerätezustände noch ungetestet |
-| Diagnose | Ausschließlich ausdrückliches lokales Kopieren normaler numerischer Playerzustände | 40 RAM-Ereignisse, Clipboard localOnly/5 Minuten; keine URL/Titel/Cookies; private Diagnose vollständig aus |
+| Diagnose | Ausschließlich ausdrückliches lokales Kopieren normaler numerischer Playerzustände | Bis zu 40 Status- und 40 Steuerungs-/Audio-/Lebenszyklusereignisse im RAM, Clipboard localOnly/5 Minuten; keine URL/Titel/Cookies; private Diagnose vollständig aus |
 | Widget / Siri / Sharing | Lokale App Group, OS-Funktionen nach ausdrücklicher Auswahl | Keine privaten Sessions; Freigabe normaler Favoriten standardmäßig aus. Share-Inbox nur bestätigte Links und begrenzte Haltbarkeit |
 | Export | Vom Nutzer gewähltes Ziel | Keine Cookies, Credentials, privaten Tabs, Dateiberechtigungen, Locks, Cloud-Identität, Diagnose oder Wiedergabehistorie |
 
