@@ -76,30 +76,26 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         app.buttons["native.toggle"].tap()
         let paused = NSPredicate { _, _ in (status.value as? String)?.contains("playing=false") == true }
         expectation(for: paused, evaluatedWith: nil); waitForExpectations(timeout: 5)
-        // On a fresh portrait simulator, PiP starts in the upper trailing corner.
-        // This is an actual touch on the floating system video, not the inert
-        // placeholder in AVPlayerViewController's inline surface.
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.1)).tap()
-        let roots = [XCUIApplication(bundleIdentifier: "com.apple.PIPUIService"),
-                     XCUIApplication(bundleIdentifier: "com.apple.springboard"), app]
-        let predicate = NSPredicate(format: "label MATCHES[c] %@ OR identifier CONTAINS[c] %@",
-            ".*(Return.*(App|Full.?Screen)|Back to App|Restore|Zur.*App|App.*zurück|Vollbild).*", "PIPRestore")
-        var restore: XCUIElement?
-        for root in roots where root.state != .notRunning {
-            let button = root.buttons.matching(predicate).firstMatch
-            if button.exists && button.isHittable { restore = button; break }
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        // Actual labels observed in run 38925655317. Controls arrive after the
+        // overlay animation; an immediate exists/isHittable query races it.
+        let restore = springboard.buttons.matching(NSPredicate(format: "label IN %@",
+            ["Restore fullscreen", "Vollbild wiederherstellen"])).firstMatch
+        if !restore.waitForExistence(timeout: 1) {
+            let window = springboard.windows.matching(NSPredicate(format: "label IN %@",
+                ["Picture in Picture", "Bild in Bild"])).firstMatch
+            XCTAssertTrue(window.waitForExistence(timeout: 5))
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
         }
-        if let restore { restore.tap() }
-        else {
-            for root in roots where root.state != .notRunning {
-                let report = root.debugDescription
-                print("NATIVE_PIP_SYSTEM_CONTROLS \(report)")
-                let attachment = XCTAttachment(string: report)
-                attachment.name = "Synthetic PiP system controls"; attachment.lifetime = .keepAlways; add(attachment)
-            }
-            XCTFail("Actual system PiP return control must be reachable; no placeholder fallback")
-            return
+        let visible = restore.waitForExistence(timeout: 5)
+        if !visible {
+            let report = springboard.debugDescription
+            print("NATIVE_PIP_SYSTEM_CONTROLS \(report)")
+            let attachment = XCTAttachment(string: report)
+            attachment.name = "Synthetic PiP system controls"; attachment.lifetime = .keepAlways; add(attachment)
         }
+        XCTAssertTrue(visible, "Actual system PiP return control must be reachable")
+        restore.tap()
         let restored = NSPredicate { _, _ in (status.value as? String)?.contains("pip=false") == true }
         expectation(for: restored, evaluatedWith: nil); waitForExpectations(timeout: 10)
         if (status.value as? String)?.contains("playing=false") == true { app.buttons["native.toggle"].tap() }
