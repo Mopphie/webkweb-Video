@@ -1,3 +1,5 @@
+> Nachtrag: Die Aussagen dieses Audits zu 0 CI-Läufen, nicht ausgeführten iOS-Tests und fehlender Apple-Registrierung sind die Baseline vor dem später ausdrücklich autorisierten TestFlight-Auftrag. Aktuelle Ausführungsnachweise und Apple-Änderungen: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
+
 # App-Audit — 16.10.2026
 
 Gegenstand ist der vorhandene Quellstand von **DevnTube** (internes Projekt/Schema **WebKWeb**), nicht die auf dem iPhone installierte Version. Der gemeldete Stopp beim Appwechsel gehört zum Prüfauftrag. Aktuelle Ergebnisse und Grenzen stehen in [TEST_REPORT.md](TEST_REPORT.md), alle 31 Featureentscheidungen in [FEATURE_MATRIX.md](FEATURE_MATRIX.md).

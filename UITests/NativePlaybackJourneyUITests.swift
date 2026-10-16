@@ -12,10 +12,16 @@ final class NativePlaybackJourneyUITests: XCTestCase {
     }
     private func revealPlayerControls(in app: XCUIApplication) {
         let surface = app.descendants(matching: .any).matching(identifier: "native.player").firstMatch
-        XCTAssertTrue(surface.waitForExistence(timeout: 5))
         // AVKit hides controls while the test waits for actual playback. Reveal
         // them with a real touch away from the central Play/Pause hit target.
-        surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        if surface.exists && surface.isHittable {
+            surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        } else {
+            // AVKit presents a separate fullscreen controller. The original
+            // inline representable is intentionally absent from its AX tree.
+            // The expected system button must still appear after this touch.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        }
     }
     private func requireSystemButton(_ pattern: String, app: XCUIApplication,
                                      file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {

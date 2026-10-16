@@ -1,3 +1,5 @@
+> TestFlight-Nachtrag: Dieser Stand wurde vor den später autorisierten CI-Läufen verfasst. Aktuelle native/UI-Testergebnisse, tatsächliche Apple-Einrichtung und verbleibende Uploadblocker: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md). Die CI-Suite ist kein Nachweis sämtlicher dienst-, geräte- oder länderabhängiger Funktionen.
+
 # App-Review-Notizen — lokaler Entwurf, keine Einreichung
 
 16.10.2026. Dieser neue Quellstand wurde **nicht** signiert/hochgeladen oder im App Store Connect geändert. Frühere TestFlight-Builds sind historische Vorgänger und kein Nachweis dieses Standes. [Aktuelle Blocker](RELEASE_BLOCKERS.md).

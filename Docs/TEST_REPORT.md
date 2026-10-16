@@ -1,4 +1,6 @@
-# Testbericht — aktueller lokaler Stand, 16.10.2026
+# Testbericht — 16.10.2026
+
+**Nachtrag zum autorisierten TestFlight-Auftrag:** Der aktuelle Ausführungsstand steht in [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md). Die folgende Baseline wurde vor diesem Auftrag erhoben; ihre Aussagen „nicht ausgeführt“ beziehen sich auf diesen früheren Zeitpunkt. Inzwischen hat GitHub Actions unter Xcode 26.6 App, Widget und ShareExtension gebaut und 67 native Tests und alle drei Browser-UI-Tests bestanden. Die UI-Pflichtreise hat noch keinen erfolgreichen Nachweis.
 
 **Kein iOS-Build, Simulator-/Gerätelauf, signiertes Archiv oder Upload dieses neuen Standes ausgeführt.** Historische TestFlight-Build-5-/49-Simulatortest-Ergebnisse gelten nicht für diese Änderungen. Aktuelle Quellen und Testdaten: `Evidence/file-inventory.json`. Rohberichte liegen ausschließlich lokal unter ignoriertem `build/reports`.
 
@@ -25,7 +27,7 @@ Portable-Check meldet „Swift syntax NOT_RUN“, wenn lokal kein `swift-fronten
 - Eine kleine echte Swift-Typprüfung eines isolierten Sprachbeispiels fand einen MainActor-Zugriff auf einen `@Published`-Getter im Deinitializer. NativePlayer verwendet für die Observerbereinigung nun eine direkte gespeicherte Referenz auf denselben Player; das ersetzt weiterhin keine Apple-SDK-Typprüfung.
 - Whitespaceprüfung fand eine Leerraumzeile und zwei zusätzliche EOF-Leerzeilen; behoben.
 
-## Implementierte native Tests — NICHT AUSGEFÜHRT
+## Baseline vor dem TestFlight-Auftrag — damaliger nativer Teststand
 
 **65 Unit-/WK-/AV-/Persistenztestdefinitionen** im iOS-Testtarget, davon 31 reine Foundationfälle auch unter Linux ausgeführt; **0/65 unter iOS ausgeführt**. Dazu **4 XCUITest-Fälle**, ebenfalls nicht ausgeführt.
 
