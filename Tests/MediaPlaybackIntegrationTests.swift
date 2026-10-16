@@ -1,6 +1,7 @@
 import XCTest
 import UIKit
 import WebKit
+import AVFoundation
 @testable import WebKWeb
 
 /// Decodes the generated H.264/AAC fixture in a visible, real WKWebView.
@@ -125,7 +126,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         } catch { return "\(native); JavaScript error=\(error)" }
     }
 
-    private func loadFixture(in session: Session) async throws {
+    private func loadFixture(in session: Session, audible: Bool = false) async throws {
         activeSession = session
         let bundle = Bundle(for: MediaPlaybackIntegrationTests.self)
         let url = try XCTUnwrap(bundle.url(forResource: "sample", withExtension: "mp4"))
@@ -133,7 +134,7 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         XCTAssertGreaterThan(data.count, 0)
         let html = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-        <body style="margin:0;background:black"><video id="player" playsinline muted preload="auto"
+        <body style="margin:0;background:black"><video id="player" playsinline \(audible ? "" : "muted") preload="auto"
         style="width:320px;height:180px" src="data:video/mp4;base64,\(data.base64EncodedString())"></video></body></html>
         """
         let tab = session.browser.current
@@ -222,6 +223,68 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         browser.play()
         try await waitFor("restored real video starts after explicit native Play") { tab.playing && tab.playbackTime > 0.2 }
         XCTAssertGreaterThan(try XCTUnwrap(tab.duration), 3)
+    }
+
+    func testAudibleVideoContinuesWithoutPermanentStopOnAudioNotification() async throws {
+        let session = Session(); defer { session.close() }
+        try await loadFixture(in: session, audible: true)
+        let browser = session.browser, tab = browser.current
+        browser.play()
+        try await waitFor("unmuted H264/AAC actually advances") { tab.playing && tab.playbackTime > 0.3 }
+        let muted = try await evaluate("document.getElementById('player').muted", in: tab) as? Bool
+        XCTAssertEqual(muted, false)
+        // Notification injection tests the app's response; it does not pretend
+        // to create an actual phone call or hardware audio interruption.
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
+        try await Task.sleep(for: .milliseconds(150))
+        XCTAssertFalse(browser.playbackStopped, "A temporary audio notification must not install the timer/autoplay stop latch")
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.ended.rawValue,
+                       AVAudioSessionInterruptionOptionKey: UInt(0)])
+        try await waitFor("unmuted playback remains advancing beyond the short startup window") {
+            tab.playing && tab.playbackTime > 2.0 && !browser.playbackStopped
+        }
+    }
+
+    func testAudioInterruptionDoesNotOverrideExplicitUserStop() async throws {
+        let session = Session(); defer { session.close() }
+        try await loadFixture(in: session, audible: true)
+        let browser = session.browser, tab = browser.current
+        browser.play()
+        try await waitFor("audible video starts before interruption") { tab.playing && tab.playbackTime > 0.2 }
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
+        try await Task.sleep(for: .milliseconds(100))
+        browser.pauseAll()
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.ended.rawValue,
+                       AVAudioSessionInterruptionOptionKey: AVAudioSession.InterruptionOptions.shouldResume.rawValue])
+        try await waitFor("user pause remains acknowledged after shouldResume") { !tab.playing && browser.playbackStopped }
+        try await Task.sleep(for: .milliseconds(350))
+        XCTAssertTrue(browser.playbackStopped)
+        XCTAssertFalse(tab.playing)
+    }
+
+    func testAudioInterruptionCannotResumePastExpiredSleepDeadline() async throws {
+        let session = Session(); defer { session.close() }
+        try await loadFixture(in: session, audible: true)
+        let browser = session.browser, tab = browser.current
+        browser.play()
+        try await waitFor("audible video starts before deadline interruption") { tab.playing && tab.playbackTime > 0.2 }
+        browser.sleep(seconds: 1)
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.began.rawValue])
+        try await Task.sleep(for: .milliseconds(1200))
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey: AVAudioSession.InterruptionType.ended.rawValue,
+                       AVAudioSessionInterruptionOptionKey: AVAudioSession.InterruptionOptions.shouldResume.rawValue])
+        try await waitFor("expired sleep timer stays stopped despite shouldResume") {
+            browser.playbackStopped && !browser.sleepPlan.isActive && !tab.playing
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertTrue(browser.playbackStopped)
+        XCTAssertFalse(tab.playing)
     }
 
     func testWatchExitRestoresSameRealDocumentWithoutRecreatingWebView() async throws {

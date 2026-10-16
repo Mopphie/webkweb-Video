@@ -10,6 +10,21 @@ final class BrowserIntegrationTests: XCTestCase {
         XCTAssertFalse(tab.webView.configuration.websiteDataStore.isPersistent)
         tab.close()
     }
+    func testPlayerDiagnosticsExcludePrivatePagesCredentialsQueriesAndTitles() throws {
+        for privateMode in [false, true] {
+            let tab = BrowserTab(isPrivate: privateMode); defer { tab.close() }
+            tab.address = "https://alice:secret@example.com/watch?v=private-token#fragment"
+            tab.title = "Confidential page title"
+            for _ in 0..<60 { tab.notePlaybackEvent("native.play") }
+            let report = tab.mediaDiagnosticReport()
+            for value in ["alice", "secret", "private-token", "fragment", "Confidential page title", "https://"] {
+                XCTAssertFalse(report.contains(value))
+            }
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(report.utf8)) as? [String: Any])
+            XCTAssertEqual(json["site"] as? String, privateMode ? "private" : "example.com")
+            XCTAssertEqual((json["events"] as? [[String: String]])?.count, 40)
+        }
+    }
     func testPrivatePopupRetainsConfiguredWebsiteDataStore() {
         let configuration = WKWebViewConfiguration()
         let existingStore = WKWebsiteDataStore.nonPersistent()

@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import WidgetKit
 import WebKit
+import UIKit
 
 private enum BrowserSheet: String, Identifiable {
     case library, history, tabs, sleep, settings, airplay, queue, player, address
@@ -64,7 +65,7 @@ struct BrowserView: View {
                 switch command {
                 case .open(let address): browser.open(address)
                 case .sleep(let minutes): browser.sleep(minutes: minutes)
-                case .pause: browser.pauseAll(blockAutoplay: true)
+                case .pause: browser.pauseAll(blockAutoplay: true, reason: .shortcut)
                 }
             }
         }
@@ -472,6 +473,11 @@ private struct BrowserScreen: View {
                         }.frame(minHeight: 44)
                     }
                     if let url = URL(string: tab.address) { ShareLink(item: url).frame(minHeight: 44) }
+                    action("Playerdiagnose kopieren", symbol: "doc.on.doc", enabled: tab.hasMedia) {
+                        UIPasteboard.general.setItems([["public.utf8-plain-text": tab.mediaDiagnosticReport()]],
+                            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(300)])
+                        browser.notice = "Playerdiagnose kopiert. Sie enthält keine Videoadressen, Seitentitel oder Cookies."
+                    }
                 }
             }.accessibilityIdentifier("browser.actions.panel")
                 .navigationTitle("Browser").navigationBarTitleDisplayMode(.inline)

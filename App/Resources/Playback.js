@@ -71,10 +71,12 @@
   const mediaID = v => { const e = entry(v); return e ? `${documentID}:${e.id}:${e.cycle}` : ""; };
   const tracks = (list, audio = false) => Array.from(list || []).slice(0, 100).map((track, id) => ({id,
     title: track.label || track.language || `Spur ${id + 1}`, selected: audio ? Boolean(track.enabled) : track.mode === "showing"}));
+  const buffering = v => Boolean(v && !v.paused && !v.ended && entry(v)?.waiting &&
+    (typeof v.readyState !== "number" || v.readyState < 3));
   const state = (force = true) => {
     const v = media(); lastPrimary = v;
     if (queueManaged && v) { const e = entry(v); if (e && e.originalLoop == null) e.originalLoop = Boolean(v.loop); v.loop = false; }
-    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", entry(v)?.waiting, v?.error?.code, v?.playbackRate].join(":");
+    const signature = [v?.currentSrc, v?.paused, v?.ended, v ? mediaID(v) : "", buffering(v), v?.readyState, v?.networkState, v?.error?.code, v?.playbackRate].join(":");
     const now = Date.now(), interval = background || document.hidden ? 5000 : 1000;
     if (!force && signature === lastSignature && now - lastState < interval) return;
     lastState = now; lastSignature = signature;
@@ -86,7 +88,11 @@
       interactionAt,
       captions: tracks(v?.textTracks), audioTracks: tracks(v?.audioTracks, true),
       rate: v?.playbackRate || 1, width: v?.videoWidth || 0, height: v?.videoHeight || 0,
-      muted: Boolean(v?.muted), waiting: Boolean(entry(v)?.waiting),
+      muted: Boolean(v?.muted), waiting: buffering(v),
+      paused: v ? Boolean(v.paused) : true, ended: Boolean(v?.ended), stopLatched: stopped,
+      readyState: Number.isInteger(v?.readyState) ? v.readyState : null,
+      networkState: Number.isInteger(v?.networkState) ? v.networkState : null,
+      sourceKind: v?.currentSrc ? v.currentSrc.split(":", 1)[0] : "none",
       mediaError: v?.error ? `Medienfehler ${v.error.code}` : ""});
   };
   const seek = seconds => {
@@ -117,11 +123,12 @@
         const e = entry(v); if (e.ended) { e.cycle++; e.ended = false; }
         state();
       });
-      v.addEventListener("pause", state);
+      v.addEventListener("pause", () => { entry(v).waiting = false; state(); });
       v.addEventListener("loadedmetadata", () => { entry(v); applyOriginal(v); state(); });
       v.addEventListener("waiting", () => { entry(v).waiting = true; state(); });
       v.addEventListener("stalled", () => { entry(v).waiting = true; state(); });
       v.addEventListener("playing", () => { entry(v).waiting = false; state(); });
+      v.addEventListener("canplay", state);
       v.addEventListener("error", state);
       v.addEventListener("ratechange", state);
       v.addEventListener("volumechange", state);

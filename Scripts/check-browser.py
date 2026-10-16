@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REPORT = ROOT / 'build' / 'reports'
 MEDIA = ROOT / 'build' / 'browser-fixtures' / 'media.mp4'
+STREAM = MEDIA.with_name('stream.mp4')
 
 
 def prepare_media():
@@ -29,6 +30,11 @@ def prepare_media():
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
     if result.returncode:
         raise RuntimeError('Test video generation failed: ' + result.stderr[:1500])
+    result = subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-i', str(MEDIA),
+                             '-c', 'copy', '-movflags', '+empty_moov+default_base_moof+frag_keyframe',
+                             '-frag_duration', '1000000', str(STREAM)], capture_output=True, text=True, timeout=20)
+    if result.returncode:
+        raise RuntimeError('Fragmented test video generation failed: ' + result.stderr[:1500])
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -40,6 +46,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             content_type = 'text/html; charset=utf-8'
         elif path == '/media.mp4':
             data = MEDIA.read_bytes(); content_type = 'video/mp4'
+        elif path == '/stream.mp4':
+            data = STREAM.read_bytes(); content_type = 'video/mp4'
         else:
             self.send_error(404); return
         # Chrome's real media pipeline uses byte ranges for seeks/metadata.
@@ -263,6 +271,67 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
             await p.wait_for_function('__messages.some(m=>m.kind==="notice")')
             assert await p.eval_on_selector('video', 'v=>v.paused')
 
+        async def buffered_network_stall(p):
+            await p.click('#play')
+            await p.wait_for_function('document.querySelector("video").readyState >= 3 && document.querySelector("video").currentTime > 0.2')
+            before = await p.eval_on_selector('video', 'v => v.currentTime')
+            # Inject the network notification while the real decoder has data.
+            await p.eval_on_selector('video', "v => v.dispatchEvent(new Event('stalled'))")
+            s = await p.evaluate('__messages.filter(m => m.kind === "state").at(-1)')
+            assert not s['waiting'], s
+            await p.wait_for_function('(t) => document.querySelector("video").currentTime > t + 0.2', arg=before)
+
+        async def segmented_stream_pause_recovery(p):
+            await p.evaluate('''async () => {
+                const bytes = new Uint8Array(await (await fetch('/stream.mp4')).arrayBuffer());
+                const boxes = []; let offset = 0;
+                while (offset + 8 <= bytes.length) {
+                    const length = new DataView(bytes.buffer).getUint32(offset);
+                    if (length < 8 || offset + length > bytes.length) throw new Error('Invalid generated MP4');
+                    const type = String.fromCharCode(...bytes.slice(offset+4, offset+8));
+                    boxes.push({offset,length,type}); offset += length;
+                }
+                const moofs = boxes.filter(b => b.type === 'moof');
+                if (moofs.length < 2) throw new Error('Expected multiple local stream fragments');
+                const avcc = bytes.findIndex((_, i) => bytes[i] === 97 && bytes[i+1] === 118 && bytes[i+2] === 99 && bytes[i+3] === 67);
+                if (avcc < 0 || bytes[avcc+4] !== 1) throw new Error('Missing AVC configuration');
+                const codec = [...bytes.slice(avcc+5,avcc+8)].map(n=>n.toString(16).padStart(2,'0')).join('');
+                const mime = `video/mp4; codecs="avc1.${codec}, mp4a.40.2"`;
+                if (!MediaSource.isTypeSupported(mime)) throw new Error('Generated stream codec unsupported');
+                const v = document.querySelector('video'); v.loop = false; v.muted = false;
+                const ms = window.streamSource = new MediaSource(); v.src = URL.createObjectURL(ms);
+                await new Promise(resolve => ms.addEventListener('sourceopen', resolve, {once:true}));
+                ms.duration = 8;
+                const sb = window.streamBuffer = ms.addSourceBuffer(mime);
+                await new Promise((resolve,reject) => {
+                    sb.addEventListener('updateend',resolve,{once:true});sb.addEventListener('error',reject,{once:true});
+                    sb.appendBuffer(bytes.slice(0,moofs[1].offset));
+                });
+                window.streamRemainder = bytes.slice(moofs[1].offset);
+            }''')
+            await p.click('#play')
+            await p.wait_for_function('document.querySelector("video").currentTime > 0.2')
+            await p.wait_for_function('''() => {
+                const v = document.querySelector('video');
+                return !v.paused && !v.ended && v.readyState < 3 &&
+                    __messages.filter(m=>m.kind==='state').at(-1)?.waiting;
+            }''', timeout=6000)
+            await p.evaluate('__webkweb.pause()')
+            s = await p.evaluate('__messages.filter(m => m.kind === "state").at(-1)')
+            assert not s['waiting'] and not s['playing'], s
+            await p.evaluate('''async () => {
+                await new Promise((resolve,reject) => {
+                    streamBuffer.addEventListener('updateend',resolve,{once:true});
+                    streamBuffer.addEventListener('error',reject,{once:true});
+                    streamBuffer.appendBuffer(streamRemainder);
+                });
+                streamSource.endOfStream();
+            }''')
+            await p.click('#play')
+            await p.wait_for_function('document.querySelector("video").currentTime > 2.5 && !document.querySelector("video").paused')
+            s = await p.evaluate('__messages.filter(m => m.kind === "state").at(-1)')
+            assert not s['waiting'] and s['playing'] and not s['muted'], s
+
         async def fullscreen(p):
             await p.click('#play'); await p.click('#fullscreen')
             await p.wait_for_function('document.fullscreenElement || __messages.some(m=>m.kind==="notice")')
@@ -285,6 +354,8 @@ document.addEventListener('DOMContentLoaded', () => { BRIDGE }, {once:true});'''
                   ('audio-queue-not-video-count','audio',audio), ('media-error-recovery','video',media_error),
                   ('fullscreen-or-fallback','video',fullscreen), ('pip-or-fallback','video',pip),
                   ('airplay-unavailable-fallback','video',airplay_fallback)]
+        checks += [('buffered-network-stall','video',buffered_network_stall),
+                   ('segmented-stream-pause-recovery','video',segmented_stream_pause_recovery)]
         for name, mode, check in checks: await case(name, mode, check)
         version = browser.version
         await browser.close()

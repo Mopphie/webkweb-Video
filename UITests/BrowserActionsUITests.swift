@@ -8,13 +8,14 @@ final class BrowserActionsUITests: XCTestCase {
         XCTContext.runActivity(named: message) { _ in }
     }
 
-    private func launchFixture() throws -> XCUIApplication {
+    private func launchFixture(audible: Bool = false) throws -> XCUIApplication {
         continueAfterFailure = false
         executionTimeAllowance = 120
         let app = XCUIApplication()
         let url = try XCTUnwrap(Bundle(for: BrowserActionsUITests.self).url(forResource: "sample", withExtension: "mp4"))
         app.launchArguments = ["--ui-test-browser"]
         app.launchEnvironment["WEBKWEB_UI_TEST_MEDIA"] = try Data(contentsOf: url).base64EncodedString()
+        app.launchEnvironment["WEBKWEB_UI_TEST_AUDIBLE"] = audible ? "1" : "0"
         milestone("Launch local real-video fixture")
         app.launch()
         milestone("App launched; wait for browser actions and decoded playback")
@@ -71,5 +72,26 @@ final class BrowserActionsUITests: XCTestCase {
         milestone("First real host touch resumed decoder playback")
         XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable)
         XCTAssertTrue(app.buttons["browser.watch.home"].isHittable)
+    }
+
+    func testAudibleVideoKeepsAdvancingWithRealWebsiteAndNativePlayControls() throws {
+        let app = try launchFixture(audible: true)
+        XCTAssertTrue(app.staticTexts["Ton aktiv"].exists)
+        milestone("Unmuted fixture keeps decoding beyond startup")
+        for _ in 0..<3 {
+            Thread.sleep(forTimeInterval: 1)
+            XCTAssertTrue(app.staticTexts["Video läuft"].exists)
+        }
+        app.buttons["browser.actions"].tap()
+        let pause = app.buttons["Alles pausieren"]
+        reveal(pause, in: app); pause.tap()
+        XCTAssertTrue(app.staticTexts["Video pausiert"].waitForExistence(timeout: 5))
+        app.buttons["Videostart"].tap()
+        XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 8))
+        for _ in 0..<3 {
+            Thread.sleep(forTimeInterval: 1)
+            XCTAssertTrue(app.staticTexts["Video läuft"].exists)
+        }
+        milestone("Unmuted player remains advancing after first real website Play")
     }
 }

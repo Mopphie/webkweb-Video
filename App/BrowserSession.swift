@@ -19,6 +19,8 @@ struct BrowserDialog: Identifiable {
     let reply: (String?) -> Void
 }
 
+enum PlaybackPauseReason: String { case user, remotePause, remoteStop, sleepTimer, routeChange, dataWipe, shortcut }
+
 @MainActor
 final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDelegate, WKUIDelegate {
     static let world = WKContentWorld.world(name: "WebKWebPlayback")
@@ -61,6 +63,8 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
         var captions: [MediaTrack] = [], audioTracks: [MediaTrack] = []
         var rate = 1.0, resolution = "", waiting = false, muted = false, error = ""
         var queueManaged = false
+        var diagnostics: [String: Any] = [:]
+        var diagnosticSignature = ""
         init(id: String, info: WKFrameInfo, url: URL?) { self.id = id; self.info = info; self.url = url }
     }
     private var frames: [String: Frame] = [:]
@@ -75,8 +79,29 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
     private var requestedAutoplay = false, committedAutoplay = false
     private var autoplayNavigation: WKNavigation?
     private var backgroundOpening: Bool
+    private var playbackEvents: [[String: String]] = []
     var sessionAddress: String { lastRequestedURL?.absoluteString ?? address }
     var presentsWatchImmersively: Bool { watchPresentation.isImmersive(at: URL(string: address)) }
+
+    func notePlaybackEvent(_ event: String) {
+        playbackEvents.append(["at": ISO8601DateFormatter().string(from: Date()), "event": String(event.prefix(120))])
+        if playbackEvents.count > 40 { playbackEvents.removeFirst(playbackEvents.count - 40) }
+    }
+    func mediaDiagnosticReport() -> String {
+        let value: [String: Any] = [
+            "app_version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+            "app_build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
+            "site": isPrivate ? "private" : (URL(string: address)?.host ?? ""),
+            "native": ["playing": playing, "waiting": waiting, "has_media": hasMedia,
+                       "time": playbackTime, "stop_latched": browser?.playbackStopped ?? false,
+                       "restore_suspended": backgroundOpening,
+                       "filter_enabled": browser?.shouldBlock(URL(string: address)) ?? false] as [String: Any],
+            "web": activeFrameID.flatMap { frames[$0]?.diagnostics } ?? [:],
+            "events": playbackEvents
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]) else { return "Diagnose nicht verfügbar" }
+        return String(decoding: data, as: UTF8.self)
+    }
 
     init(id: UUID = UUID(), isPrivate: Bool = false, configuration: WKWebViewConfiguration? = nil, background: Bool = false) {
         self.id = id; self.isPrivate = isPrivate; backgroundOpening = background
@@ -265,6 +290,13 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             guard let mediaID = body["mediaID"] as? String, mediaID.hasPrefix(documentID + ":") else { return }
             browser?.didStartFromWebsite(in: id)
         case "state":
+            let keys = ["paused", "ended", "stopLatched", "readyState", "networkState", "waiting", "muted"]
+            frame.diagnostics = body.filter { keys.contains($0.key) && $0.value is NSNumber }
+            if let source = body["sourceKind"] as? String, ["http", "https", "blob", "data", "none"].contains(source) {
+                frame.diagnostics["source_kind"] = source
+            }
+            let signature = keys.map { "\($0)=\(frame.diagnostics[$0] ?? "?")" }.joined(separator: " ")
+            if signature != frame.diagnosticSignature { frame.diagnosticSignature = signature; notePlaybackEvent("web " + signature) }
             frame.url = url; frame.hasMedia = body["hasMedia"] as? Bool ?? false
             frame.playing = body["playing"] as? Bool ?? false
             frame.anyPlaying = body["anyPlaying"] as? Bool ?? frame.playing
@@ -479,16 +511,17 @@ final class BrowserModel: ObservableObject {
         // Only the explicit Debug UI-test launch uses the test runner's own
         // generated H.264/AAC signal. Release contains no fixture launch path.
         let encoded = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_MEDIA"] ?? ""
+        let audible = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_AUDIBLE"] == "1"
         guard let data = Data(base64Encoded: encoded), !data.isEmpty else { return }
         let html = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
         <body style="margin:0;background:black;color:white"><div style="position:relative;width:320px;height:180px">
-        <video id="player" controls playsinline muted autoplay loop style="width:320px;height:180px"
+        <video id="player" controls playsinline \(audible ? "" : "muted") autoplay loop style="width:320px;height:180px"
         src="data:video/mp4;base64,\(data.base64EncodedString())"></video>
         <button aria-label="Videostart" style="position:absolute;top:40px;left:40px;width:140px;height:64px"
         onclick="document.getElementById('player').play()">Start</button></div>
-        <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p>
-        <script>let n=0;setInterval(()=>{document.title='Fixture '+(++n);const s=document.getElementById('state'),next=document.getElementById('player').paused?'Video pausiert':'Video läuft';if(s.textContent!==next)s.textContent=next;},1000);</script>
+        <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p><p>\(audible ? "Ton aktiv" : "Stumm")</p>
+        <script>let n=0,lastTime=0;setInterval(()=>{document.title='Fixture '+(++n);const s=document.getElementById('state'),v=document.getElementById('player'),progress=Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;if(s.textContent!==next)s.textContent=next;},1000);</script>
         </body></html>
         """
         current.webView.loadHTMLString(html, baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))
@@ -532,6 +565,7 @@ final class BrowserModel: ObservableObject {
         persistSession()
     }
     func play() {
+        playbackTab.notePlaybackEvent("native.play")
         commandRevision += 1; clearPlaybackStop()
         playbackTab.prepareForPlayback()
         if playbackTab.hasMedia { AudioController.shared.activateForPlayback() }
@@ -545,7 +579,8 @@ final class BrowserModel: ObservableObject {
         guard seconds.isFinite else { return }
         playbackTab.runMedia("globalThis.__webkweb?.seek(\(max(-120, min(120, seconds))))")
     }
-    func pauseAll(blockAutoplay: Bool = true) {
+    func pauseAll(blockAutoplay: Bool = true, reason: PlaybackPauseReason = .user) {
+        tabs.forEach { $0.notePlaybackEvent("native.pause.\(reason.rawValue) latch=\(blockAutoplay)") }
         commandRevision += 1; playbackStopped = blockAutoplay
         tabs.forEach { $0.cancelAutoplay(); $0.run("globalThis.__webkweb?.pause(\(blockAutoplay ? "true" : "false"))", allFrames: true) }
         publishNowPlaying()
@@ -628,7 +663,7 @@ final class BrowserModel: ObservableObject {
     }
     private func finishSleep() {
         timer?.invalidate(); timer = nil; sleepPlan.cancel(); persistSleep()
-        pauseAll(blockAutoplay: true); notice = "Sleep-Timer: Wiedergabe pausiert."
+        pauseAll(blockAutoplay: true, reason: .sleepTimer); notice = "Sleep-Timer: Wiedergabe pausiert."
     }
     private func startTimer() {
         let value = Timer(timeInterval: 1, repeats: true) { [weak self] _ in Task { @MainActor in self?.enforceSleepDeadline() } }
@@ -654,7 +689,7 @@ final class BrowserModel: ObservableObject {
         if let sanitized = parts?.url?.absoluteString { onVisit?(tab.title, sanitized) }
     }
     func wipeWebsiteData() async {
-        guard !wipingData else { return }; wipingData = true; pauseAll(blockAutoplay: true)
+        guard !wipingData else { return }; wipingData = true; pauseAll(blockAutoplay: true, reason: .dataWipe)
         queueTabID = nil
         let snapshot = tabs
         for tab in snapshot { tab.cancelPendingLoad() }

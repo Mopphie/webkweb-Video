@@ -177,6 +177,15 @@ test('waiting recovery respects timer latch and preserves mute',()=>{
  h.api.pause(true);h.api.recover();assert.equal(v.paused,true);h.api.clearStop();h.api.recover();assert.equal(v.paused,false);assert.equal(v.muted,true);
  v.listeners.playing();assert.equal(h.state().waiting,false);
 });
+test('paused or ended players never retain a stale buffering indicator',()=>{
+ const v=element('VIDEO',{readyState:2}),h=harness([v]);v.listeners.waiting();assert.equal(h.state().waiting,true);
+ v.pause();assert.equal(h.state().waiting,false);
+ v.play();v.listeners.waiting();v.end();assert.equal(h.state().waiting,false);
+});
+test('stalled network event does not mark an already buffered playing video as loading',()=>{
+ const v=element('VIDEO',{readyState:4}),h=harness([v]);v.listeners.stalled();
+ assert.equal(h.state().waiting,false);assert.equal(h.state().playing,true);
+});
 test('foreground ticks avoid whole-DOM queries until sparse discovery',()=>{
  const h=harness(),before=h.queries();for(let i=0;i<10;i++)h.tick();assert.equal(h.queries(),before);
  h.advance(15000);h.tick();assert.ok(h.queries()>before);
