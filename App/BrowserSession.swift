@@ -94,6 +94,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             "site": isPrivate ? "private" : (URL(string: address)?.host ?? ""),
             "native": ["playing": playing, "waiting": waiting, "has_media": hasMedia,
                        "time": playbackTime, "stop_latched": browser?.playbackStopped ?? false,
+                       "duration": duration ?? 0,
                        "restore_suspended": backgroundOpening,
                        "filter_enabled": browser?.shouldBlock(URL(string: address)) ?? false] as [String: Any],
             "web": activeFrameID.flatMap { frames[$0]?.diagnostics } ?? [:],

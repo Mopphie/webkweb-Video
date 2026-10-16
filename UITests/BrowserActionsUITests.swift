@@ -17,25 +17,30 @@ final class BrowserActionsUITests: XCTestCase {
         add(attachment)
     }
 
-    private func requireSustainedDecodedPlayback(_ app: XCUIApplication) throws {
-        func snapshot() throws -> (frames: Double, valid: Bool) {
+    private func requireSustainedPlayback(_ app: XCUIApplication) throws {
+        func snapshot() throws -> (time: Double, duration: Double, valid: Bool) {
             let text = try XCTUnwrap(app.buttons["browser.actions"].value as? String)
             let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
             let native = try XCTUnwrap(report["native"] as? [String: Any])
             let web = try XCTUnwrap(report["web"] as? [String: Any])
-            let frames = try XCTUnwrap(web["decodedFrames"] as? NSNumber).doubleValue
-            return (frames, native["playing"] as? Bool == true && native["waiting"] as? Bool == false && native["stop_latched"] as? Bool == false)
+            let time = try XCTUnwrap(native["time"] as? NSNumber).doubleValue
+            let duration = try XCTUnwrap(native["duration"] as? NSNumber).doubleValue
+            return (time, duration, native["playing"] as? Bool == true && native["waiting"] as? Bool == false && native["stop_latched"] as? Bool == false && web["paused"] as? Bool == false)
         }
-        var previous = try snapshot().frames
+        var previous = try snapshot().time
         for _ in 0..<3 {
             // Leave room for the one-second bridge heartbeat and AX delivery.
-            // Each sample still requires fresh, real decoder progress.
+            // WebKit's simulator may report zero playback-quality frames even
+            // while media time advances. Require actual clock progress instead.
             Thread.sleep(forTimeInterval: 2)
             let next = try snapshot()
-            if !next.valid || next.frames <= previous { capturePlayerDiagnostic(app) }
+            var progress = next.time - previous
+            if progress < 0 && next.duration > 0 { progress += next.duration }
+            if !next.valid || progress <= 0.1 { capturePlayerDiagnostic(app) }
             XCTAssertTrue(next.valid)
-            XCTAssertGreaterThan(next.frames, previous)
-            previous = next.frames
+            XCTAssertGreaterThan(next.duration, 59)
+            XCTAssertGreaterThan(progress, 0.1)
+            previous = next.time
         }
     }
 
@@ -118,7 +123,7 @@ final class BrowserActionsUITests: XCTestCase {
         let app = try launchFixture(audible: true)
         XCTAssertTrue(app.staticTexts["Ton aktiv"].exists)
         milestone("Unmuted fixture keeps decoding beyond startup")
-        try requireSustainedDecodedPlayback(app)
+        try requireSustainedPlayback(app)
         app.buttons["browser.actions"].tap()
         let pause = app.buttons["Alles pausieren"]
         reveal(pause, in: app); pause.tap()
@@ -127,7 +132,7 @@ final class BrowserActionsUITests: XCTestCase {
         let resumed = app.staticTexts["Video läuft"].waitForExistence(timeout: 8)
         if !resumed { capturePlayerDiagnostic(app) }
         XCTAssertTrue(resumed)
-        try requireSustainedDecodedPlayback(app)
+        try requireSustainedPlayback(app)
         milestone("Unmuted player remains advancing after first real website Play")
     }
 }
