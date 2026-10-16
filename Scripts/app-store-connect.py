@@ -25,9 +25,13 @@ BUNDLE_ID = 'de.mopphie.devntube'
 
 
 class APIError(RuntimeError):
-    def __init__(self, status):
+    def __init__(self, status, endpoint='', method=''):
         self.status = status
-        super().__init__(f'App Store Connect HTTP {status}; response body and credentials withheld')
+        endpoint = urllib.parse.urlsplit(endpoint).path
+        self.endpoint = endpoint if re.fullmatch(r'/v1/[A-Za-z0-9/_-]{1,200}', endpoint) else ''
+        self.method = method if method in ('GET', 'POST', 'PATCH', 'DELETE') else ''
+        route = f' {self.method} {self.endpoint}' if self.endpoint else ''
+        super().__init__(f'App Store Connect{route} HTTP {status}; response body and credentials withheld')
 
 
 def b64url(data):
@@ -98,7 +102,7 @@ class Client:
                 if error.code in (429, 500, 502, 503, 504) and attempt < 3:
                     time.sleep(2 ** attempt)
                     continue
-                raise APIError(error.code) from None
+                raise APIError(error.code, parsed.path, method) from None
             except urllib.error.URLError:
                 if attempt < 3:
                     time.sleep(2 ** attempt)

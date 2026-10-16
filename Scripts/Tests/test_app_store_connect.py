@@ -22,6 +22,13 @@ def build(number, state='VALID', identifier=None):
 
 
 class ConnectTests(unittest.TestCase):
+    def test_api_error_records_only_route_and_method_without_query_or_body(self):
+        error = asc.APIError(422, '/v1/betaGroups?token=secret&filter[builds]=id', 'GET')
+        self.assertEqual(error.endpoint, '/v1/betaGroups')
+        self.assertIn('GET /v1/betaGroups HTTP 422', str(error))
+        for value in ['token', 'secret', 'filter[builds]']:
+            self.assertNotIn(value, str(error))
+
     def test_next_build_counts_invalid_uploads_and_keeps_valid_group_source(self):
         client = Mock()
         client.request.return_value = {'data': {'attributes': {'bundleId': asc.BUNDLE_ID}}}
