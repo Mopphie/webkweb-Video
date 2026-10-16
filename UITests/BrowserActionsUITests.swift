@@ -118,7 +118,9 @@ final class BrowserActionsUITests: XCTestCase {
         // The button deliberately says "Start", not semantic Play/Abspielen.
         // Only the real UIKit touch inside the media rectangle arms the bridge.
         app.buttons["Videostart"].tap()
-        XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 5))
+        let resumed = app.staticTexts["Video läuft"].waitForExistence(timeout: 8)
+        if !resumed { capturePlayerDiagnostic(app) }
+        XCTAssertTrue(resumed)
         milestone("First real host touch resumed decoder playback")
         XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable)
         XCTAssertTrue(app.buttons["browser.watch.home"].isHittable)

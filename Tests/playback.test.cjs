@@ -73,6 +73,24 @@ test('isolated host touch only arms media at its rectangle and never starts play
  h.api.noteHostTouch({x:0.1,y:0.1});assert.equal(v.paused,true);v.play();assert.equal(v.paused,false);
  assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
 });
+test('trusted overlay input arms its video before a delayed UIKit observation',()=>{
+ const v=element(),h=harness([v]),button={tagName:'BUTTON',textContent:'Start'};h.api.pause(true);
+ h.documentEvents.click({type:'click',isTrusted:true,clientX:110,clientY:72,composedPath:()=>[button]});
+ assert.equal(v.paused,true);v.play();assert.equal(v.paused,false);
+ // The later isolated host observation must not pause or restart playback.
+ h.api.noteHostTouch({x:0.11,y:0.072});assert.equal(v.paused,false);
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,1);
+});
+test('synthetic, off-video and keyboard coordinates cannot authorize an overlay play',()=>{
+ const v=element(),h=harness([v]),button={tagName:'BUTTON',textContent:'Start'};h.api.pause(true);
+ for(const input of [{type:'click',isTrusted:false,clientX:100,clientY:100},
+  {type:'click',isTrusted:true,clientX:950,clientY:950},
+  {type:'keydown',key:'Enter',isTrusted:true,clientX:100,clientY:100}]){
+  const event={...input,composedPath:()=>[button]};
+  h.documentEvents[input.type](event);v.play();assert.equal(v.paused,true);
+ }
+ assert.equal(h.messages.filter(m=>m.kind==='userplay').length,0);
+});
 test('invalid or stale host touches do not release timer stop',()=>{
  const v=element(),h=harness([v]);h.api.pause(true);
  for(const point of [{x:-1,y:0},{x:NaN,y:0},{x:0,y:Infinity},{x:2,y:0}]){h.api.noteHostTouch(point);v.play();assert.equal(v.paused,true);}

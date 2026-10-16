@@ -146,9 +146,23 @@
     discover(document); attach();
     return media();
   }
+  const mediaAtPoint = (x, y) => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return nodes().filter(node => {
+      const r = node.getBoundingClientRect?.();
+      return r && r.right > r.left && r.bottom > r.top && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }).sort((a, b) => area(a) - area(b))[0] || null;
+  };
   const choose = event => {
     const path = event.composedPath?.() || [event.target];
     let v = path.find(node => node?.tagName === "VIDEO" || node?.tagName === "AUDIO");
+    if (!v && stopped && event.isTrusted && event.type !== "keydown") {
+      // An actual website input can hit an overlay above the video. Arm the
+      // same geometric intent synchronously, before that overlay calls play().
+      // The UIKit observer's cross-process evaluation may otherwise arrive
+      // after the play event and incorrectly reject the first real tap.
+      v = mediaAtPoint(event.clientX, event.clientY);
+    }
     if (!v && stopped && event.isTrusted) {
       const button = path.find(node => node?.tagName === "BUTTON" || node?.getAttribute?.("role") === "button" ||
         (node?.tagName === "INPUT" && ["button", "submit"].includes(node.type)));
@@ -185,10 +199,7 @@
       const viewport = globalThis.visualViewport;
       const x = (viewport?.offsetLeft || 0) + point.x * (viewport?.width || innerWidth);
       const y = (viewport?.offsetTop || 0) + point.y * (viewport?.height || innerHeight);
-      const v = nodes().filter(node => {
-        const r = node.getBoundingClientRect?.();
-        return r && r.right > r.left && r.bottom > r.top && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-      }).sort((a, b) => area(a) - area(b))[0];
+      const v = mediaAtPoint(x, y);
       if (v) { selected = v; interactionAt = Date.now(); playIntent = {media: v, at: Date.now()}; }
     },
     seek,

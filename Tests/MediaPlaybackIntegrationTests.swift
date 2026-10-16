@@ -294,7 +294,9 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         activeSession = session
         let tab = session.browser.current, view = tab.webView
         tab.webView.loadHTMLString("<html><head><title>Original title</title></head><body><ytm-mobile-topbar-renderer>Website navigation</ytm-mobile-topbar-renderer><p id='content'>Original content</p></body></html>", baseURL: URL(string: "https://m.youtube.com/watch?v=abcdefghijk"))
-        try await waitFor("genuine watch route is presented") {
+        // This fixture also starts a fresh WebContent process. Keep its startup
+        // budget separate from the subsequent navigation regression assertions.
+        try await waitFor("genuine watch route is presented", timeout: 45) {
             let unchanged = try await self.evaluate("!document.documentElement.hasAttribute('data-webkweb-watch') && document.querySelector('ytm-mobile-topbar-renderer').textContent === 'Website navigation'", in: tab) as? Bool == true
             return tab.presentsWatchImmersively && unchanged
         }
