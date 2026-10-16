@@ -1,8 +1,10 @@
 # Testbericht — 16.10.2026
 
-**Nachtrag zum autorisierten TestFlight-Auftrag:** Der aktuelle Ausführungsstand steht in [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md). Die folgende Baseline wurde vor diesem Auftrag erhoben; ihre Aussagen „nicht ausgeführt“ beziehen sich auf diesen früheren Zeitpunkt. Inzwischen hat GitHub Actions unter Xcode 26.6 App, Widget und ShareExtension gebaut und 67 native Tests und alle drei Browser-UI-Tests bestanden. Die UI-Pflichtreise hat noch keinen erfolgreichen Nachweis.
+**Aktueller TestFlight-Auftrag:** Teilen-Erweiterung entfernt; signiertes App-/Widget-Release **0.1.0 (6)** erfolgreich archiviert/exportiert/geprüft/hochgeladen und von Apple mit **VALID / IN_BETA_TESTING** bestätigt. Run [38919948219](https://github.com/Mopphie/webkweb-Video/actions/runs/38919948219): **67/67 native, 3/3 Browser-UI ohne Wiederholung und unabhängige iPad Vollbild/Queue/Suche bestanden**. Bei technisch geprüfter Releasegleichheit wiederverwendet. Run [38932003655](https://github.com/Mopphie/webkweb-Video/actions/runs/38932003655): **vollständige native Vollbild/PiP/echter Appwechsel/Systemrückkehr/Queue/nächstes Video/Suche bestanden**, kein Skip/Retry, eigener endlicher 600-s-Film. Kein aktueller Plattform-/physischer Gerätetest. Chronologie, konkrete Fehlversuche, SHA-/Tree-Zuordnung und Abschluss A–J: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
 
-**Kein iOS-Build, Simulator-/Gerätelauf, signiertes Archiv oder Upload dieses neuen Standes ausgeführt.** Historische TestFlight-Build-5-/49-Simulatortest-Ergebnisse gelten nicht für diese Änderungen. Aktuelle Quellen und Testdaten: `Evidence/file-inventory.json`. Rohberichte liegen ausschließlich lokal unter ignoriertem `build/reports`.
+Aktuelle lokale Prüfungen nach Share-Entfernung und Tipp-Fix: **31/31 Foundation**, **55/55 Node**, **14/14 Python-Helfermocks**, **19/19 echte Chromium-Mediendecoderfälle** (nur eigene Loopback-Testmedien). Neuer Overlay-Tipp-Fall scheitert mit dem alten und besteht mit dem korrigierten JS. Keine YouTube-/AirPlay-/physischen Gerätetests daraus ableiten.
+
+**Die folgenden Tabellen und „nicht ausgeführt“-Angaben sind die historische lokale Audit-Baseline vor den späteren CI-Aufträgen.** Damals waren kein iOS-Build/Simulatorlauf/signiertes Archiv/Upload dieses neuen Standes ausgeführt. Historische Build-5-/49-Simulatortests sind kein Nachweis späterer Änderungen. `Evidence/file-inventory.json` dokumentiert die damalige Inventarisierung; aktuelle CI-Nachweise siehe oben. Lokale Rohberichte bleiben unter ignoriertem `build/reports`.
 
 ## Tatsächlich ausgeführt
 
@@ -60,7 +62,7 @@ Alle folgenden Fälle **NICHT AUSGEFÜHRT**; Erwartung ist reproduzierbar defini
 | iPhone / iPad / Rotation / kleine Fenster / große Schrift | Player/Queue/Tabs und sichtbare Rückwege bedienbar; VoiceOver-/Keyboard-/Kontrast-/Reduce-Transparency-/Reduce-Motion-Abnahme ohne Videofarbänderung |
 | Aktuelles YouTube / Twitch / TikTok / Rumble | Echte Website unter realem Account/Region testen. Lokaler HTML-Player und Safari-Build-4-Beobachtung sind kein Beleg des aktuellen Dienstbetriebs |
 
-## Externe Aktionen / Kosten
+## Historische lokale Audit-Baseline: Externe Aktionen / Kosten
 
 0 neue GitHub-Actions-Läufe/CI-Minuten, keine Cloud-Macs, keine Remote-Pushes/PRs, keine Apple-Konto-/Produkt-/Vertragsänderungen, kein TestFlight-/Storeupload, keine bezahlten API-/Lizenz-/Abo-Buchungen. Nur lesender Git-Fetch, öffentliche Primärquellen/Webrecherche, öffentlicher Swift-Toolchain-Download und lokale Tests/Commits. Nachträgliche CI-Minutenfreigabe wurde nicht für einen alten, den lokalen Code nicht prüfenden Uploadworkflow missbraucht.
 

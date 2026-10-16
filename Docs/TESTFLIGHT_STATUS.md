@@ -1,8 +1,42 @@
-> Neuer Nutzerauftrag: Teilen-Erweiterung entfernen und TestFlight hochladen. Target, eingehende Inbox, Provisionierungshelfer und Share-Profilanforderungen sind entfernt; Signier- und IPA-Prüfung erwarten App + Widget. Früherer Share-Signierblocker gilt für diesen neuen Stand nicht mehr. Neuer Lauf und Ergebnis werden unten ergänzt; bisherige Runs bleiben historische Nachweise.
+> Aktuell: DevnTube 0.1.0 (6) ist hochgeladen und von Apple als VALID / IN_BETA_TESTING bestätigt. Teilen-Erweiterung entfernt; Release-IPA enthält App + Widget. Der abschließende Nachweis steht unten, ältere Zwischenstände sind historisch.
 
 # TestFlight-Auftrag — Ausführungsstand 16.10.2026
 
-Stand: 13:23 UTC. **Noch kein neuer TestFlight-Upload.**
+
+## Aktuelles Endergebnis — 16.10.2026, 16:40 UTC
+
+**DevnTube 0.1.0 (6) ist für interne TestFlight-Tests aktiv.** Apple meldet `processing_state=VALID`, `internal_state=IN_BETA_TESTING`, Build-ID `04af9e86-bc98-4dd5-87f9-15f0a73736a5`. [Erfolgreicher vollständiger Uploadlauf](https://github.com/Mopphie/webkweb-Video/actions/runs/38932003655). Keine App-Store-Einreichung und keine umfassende Rechts-/Gerätefreigabe.
+
+- Release-IPA mit genau App `de.mopphie.devntube` und Widget `.favorites`, passenden Versionen/Buildnummern und vorhandenen getrennten Distributionsprofilen geprüft. Archiv und Export erfolgreich; Upload um 16:38:05 UTC ohne Fehler, Apple-Verarbeitung um 16:40:25 UTC bestätigt.
+- **67/67 native Tests, 3/3 Browser-UI ohne Wiederholung und die unabhängige iPad-Vollbild-/Queue-/Suchreise** sind in Run 38919948219 bestanden. Diese Nachweise wurden bei technisch geprüfter Releasegleichheit wiederverwendet, nicht als im letzten Lauf erneut ausgeführt ausgegeben.
+- **Vollständige native Pflichtreise in Run 38932003655 bestanden** (227,675 s, kein Skip/Retry): eigenes Video → Vollbild → zurück → tatsächlicher System-PiP-Start → iOS-Einstellungen im Vordergrund → App zurück → echte System-PiP-Rückkehr → Queue → tatsächlich spielendes nächstes Video → Suche. AVKit-Startcallback 0→1, Medienzeit 2,500247834→10,500244001 s, gleiche Medien-ID beim Appwechsel, tatsächliche Filmdateidauer 600 s. Die DEBUG-Testvorbereitung und Testmedien werden nicht im Release ausgeliefert.
+- Lokaler Zusatznachweis: Foundation 31/31, Node 55/55, Python-Helfermocks 14/14, echter Chromium-Decoder 19/19. Der Overlay-Tipp-Regressionstest scheiterte mit altem und bestand mit korrigiertem JS. Kein YouTube-/AirPlay-/physischer Gerätetest daraus.
+
+## Abschluss A–J
+
+A. **Behobene Fehler:** Share-Profilblocker durch vollständige Entfernung des eingehenden Targets beseitigt; veraltete Inbox wird unabhängig vom früheren Migrationsstand gezielt gelöscht. Erster echter Wiedergabetipp nach Pause wird synchron aus vertrauenswürdiger DOM-Eingabe erkannt. Nutzerfavoriten, Zustimmung, Notizen, Dateien, Widget, Siri und ausgehendes Teilen bleiben erhalten.
+
+B. **Vervollständigt:** Signier-/IPA-Prüfung genau für zwei Targets; echte native Vollbild-/PiP-/Appwechsel-/Queue-/Suchnachweise. Keine neue Plattform-Premium-/Werbeumgehung oder App-Preisentscheidung.
+
+C. **Entfernt:** Share-Target, Einbettung, vier Extensiondateien, Inbox-Empfang, Provisionierungshelfer/-Workflows und Share-Profilpflicht. Grund: ausdrücklicher Nutzerauftrag. Bereits vorher begründet ausgeschlossene Filter/SponsorBlock/Plattformdownloads/Cast bleiben ausgeschlossen; eigene normale Dateifunktionen bleiben.
+
+D. **Rechte:** Keine neue Drittanbieterkomponente, Datenlizenz oder Testmedienquelle. Eigene synthetische Medien und öffentliche Apple-Frameworks nach ihren Bedingungen; diese sind nicht gemeinfrei. Bestehendes Lizenzregister bleibt maßgeblich, keine pauschale weltweite kommerzielle Rechtsfreigabe.
+
+E. **Offen:** Betreiberkontakt/öffentliche Rechtstexte, formale Rechtekette/Marke/Vertriebsländer sowie reale Website-/Geräteeigenschaften laut R03–R07. Die frühere Warnung zur Gruppenabfrage beweist keine fehlenden Schlüsselrechte: Der Helfer benutzte einen nicht dokumentierten GET unter builds. Lokal für künftige Läufe auf den [dokumentierten betaGroups-Leseweg mit filter[builds]](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-betagroups) korrigiert (abgerufen 16.10.2026), 14/14 Mocks bestanden; nicht erneut gegen Apple ausgeführt. Build 6 ist unabhängig davon ausdrücklich IN_BETA_TESTING. Gruppennamen/Mitglieder wurden nicht abgefragt oder veröffentlicht; keine neuen Tester/Groups eingerichtet.
+
+F. **Ausgeführt:** Die oben genannten lokalen und echten Xcode-26.6-/iOS-26.5-Simulatorprüfungen; tatsächlicher signierter Releasebau/Export, IPA-Prüfung, Upload und Apple-Verarbeitung. Fehlversuche 1–10 sind oben dokumentiert und nicht als bestanden ausgegeben. Schwache Testannahmen (Kaltstart, ausgeblendete Systemcontrols, lokalisiertes Diagnoseformat, unzureichende Cliplänge) wurden konkret berichtigt.
+
+G. **Nicht ausgeführt:** Neue echte YouTube-/Twitch-/TikTok-/Rumble-Wiedergabe, physisches iPhone/iPad, AirPlay-Empfänger, Bluetooth/Kopfhörer/Telefonunterbrechung, Gerätesperre, reale Netzübergänge, OS-Preview-/Widgets-/VoiceOver-/Rotation-/große-Schrift- und tatsächliche Build-4-Datenmigration. Der eigene Simulatorfilm ist kein Plattformvideo-Beleg.
+
+H. **Dateien/Commits:** Lokaler Branch `local/testflight-upload-20261016`, Remote `codex/testflight-2026-10-16`, Hauptbranch unberührt. Wesentliche lokale Commits `e264a24` (Entfernung/Signierung/Migration), `5afb833` (echter Wiedergabetipp), `3064a05` (Testphasen/Regression), `1acd68c`/`ec90725` (verbatim-/Baselineprüfung), `3aef1d0`/`d99d5e1`/`94f86ef`/`9a528da` (Systemcontrols), `5899d41`/`8a9b502` (endliche eigene Fixture). Hochgeladener Stand: Remote `fea0083064ed3e0e3008da85490d911e56621694`, lokaler `8a9b502`, identischer Tree `e76d2c0d7eda0eda8f49a6722de3039265ab907b`. Abschließende Dokumentation/Helferkorrektur ändert keine Appdatei des hochgeladenen Builds und wird mit [skip ci] committed.
+
+I. **Externe Aktionen/Kosten:** In diesem Folgeauftrag genau **11 gestartete macOS-Actions-Läufe**, IDs in den Abschnitten 1–11; davon letzter erfolgreich mit **einem** neuen TestFlight-Upload. Autorisierte Branch-Updates, keine PR/Force-Pushes und keine Main-Änderung. Keine zusätzliche Apple-Registrierung/-Löschung, Vertrags-/Preis-/Produkt-/Cloudänderung, Tester-Einladung, neuer SDK/Backend/bezogener kostenpflichtiger Dienst. CI-Minuten wurden genutzt; abgerechnete Minuten/Geldbetrag nicht aus Billing abgerufen. Frühere elf Läufe des vorherigen Auftrags bleiben separat historisch erfasst. Abschließender Bericht/Helferfix löst keinen weiteren Lauf aus.
+
+J. **Freigabe:** Der angeforderte interne TestFlight-Build ist technisch hochgeladen, verarbeitet und aktiv. Für einen öffentlichen App-Store-Release fehlen weiterhin die konkreten R03–R07-Nachweise/Angaben; keine Zusage über App-Review-Zulassung oder vollständige Legalität.
+
+## Historischer Zwischenstand vor der Share-Entfernung — 13:23 UTC
+
+**Zu diesem damaligen Zeitpunkt war noch kein neuer TestFlight-Upload erfolgt.**
 Dieser Bericht ergänzt das frühere lokale Audit. Die ausdrücklichen späteren Freigaben erlauben für diesen Auftrag CI, den separaten Releasebranch und die notwendige Apple-Einrichtung der Teilen-Erweiterung. Keine App-Store-Einreichung oder Preis-/Vertragsänderung.
 
 ## Nachgewiesen
@@ -133,3 +167,7 @@ Die Releasegleichheitsprüfung umfasst nun die drei ausschließlich unter `#if D
 [38931514206](https://github.com/Mopphie/webkweb-Video/actions/runs/38931514206), Remote `bf0f390d29deb97e4394a19882a17e1369ca0767`, lokal `5899d41`, Tree `91699be8834879b8ac70fb6a89d99c96b0a89046`: Signierprüfung, 55 Node- und 14 Python-Helferfälle bestanden. Apple-SDK-Typprüfung findet ein fehlendes `await` beim asynchronen `AVMutableComposition.insertTimeRange` der neuen DEBUG-Fixture-Vorbereitung. Korrigiert; kein Player-/Gerätetest, Archiv oder Upload dieses Versuchs. Bekannter Eltern-Tree für erneute begrenzte DEBUG-Prüfung ergänzt.
 
 Öffentliche AVFoundation-Export-API anhand [Apple `export(to:as:isolation:)`](https://developer.apple.com/documentation/avfoundation/avassetexportsession/export(to:as:isolation:)) am 16.10.2026 erneut abgerufen; neuerer asynchroner Export mit öffentlichem Fallback für iOS 17, ausschließlich im DEBUG-Testaufbau. Kein Beleg eines bereits erfolgreich ausgeführten Exports allein durch Dokumentations-/Syntaxprüfung.
+
+### Elfter Lauf — erfolgreich bis TestFlight
+
+[38932003655](https://github.com/Mopphie/webkweb-Video/actions/runs/38932003655), Remote `fea0083064ed3e0e3008da85490d911e56621694`, lokal `8a9b502`, gleicher Tree `e76d2c0d7eda0eda8f49a6722de3039265ab907b`: Testvorbereitung erzeugt echte endliche 600-s-Dateien; vollständige native PiP-/Appwechsel-/Systemrückkehr-/Queue-/Suchreise **bestanden**, ohne Skip/Retry. Releasearchiv, Export und geprüfte Zwei-Target-IPA **bestanden**. Upload **erfolgreich**, Apple-Verarbeitung **VALID**, interner Beta-Status **IN_BETA_TESTING**. Details, Grenzen, konkrete Uhrzeiten und Abschluss A–J stehen am Dokumentanfang. Der anschließende reine Berichts-/CI-Helferfix ändert diese Appdateien nicht und startet keinen weiteren Build.

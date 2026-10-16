@@ -191,7 +191,7 @@ jobs:
             --build-number "$BUILD_NUMBER" --previous-build-id "$PREVIOUS_BUILD_ID"
           {
             echo "TestFlight build $BUILD_NUMBER: ${{ steps.archive.outputs.marketing_version }}"
-            echo "Apple processing and internal availability verified."
+            echo "Apple processing and reported internal build state verified; see exact state below."
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Record TestFlight verification details
         if: steps.intent.outputs.upload == 'true' && steps.verified.outcome == 'success'

@@ -1,4 +1,4 @@
-> Nachtrag: Die Aussagen dieses Audits zu 0 CI-Läufen, nicht ausgeführten iOS-Tests und fehlender Apple-Registrierung sind die Baseline vor dem später ausdrücklich autorisierten TestFlight-Auftrag. Aktuelle Ausführungsnachweise und Apple-Änderungen: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
+> Aktueller Nachtrag: Teilen-Erweiterung entfernt, DevnTube 0.1.0 (6) signiert hochgeladen und VALID / IN_BETA_TESTING. Vollständige native PiP-/Appwechsel-/Queue-Reise im Simulator bestanden. Die frühere lokale Inventar-/0-CI-Baseline bleibt historisch; konkrete neue Nachweise, Kostenaktionen und offene öffentliche Releaseblocker: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md).
 
 # App-Audit — 16.10.2026
 

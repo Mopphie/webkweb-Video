@@ -185,20 +185,22 @@ def inherit_internal_groups(client, build_id, previous_id):
     if not previous_id:
         return 'No previous valid build: no existing group membership was changed'
     try:
-        previous = client.records('/v1/builds/' + previous_id + '/betaGroups', {'limit': 200})
+        # Apple's documented read route is the betaGroups collection filtered by
+        # builds. The build's betaGroups relationship supports mutation, not GET.
+        previous = client.records('/v1/betaGroups', {'filter[builds]': previous_id, 'limit': 200})
         internal = [group for group in previous if group.get('attributes', {}).get('isInternalGroup') is True]
-        current = {group['id'] for group in client.records('/v1/builds/' + build_id + '/betaGroups', {'limit': 200})}
+        current = {group['id'] for group in client.records('/v1/betaGroups', {'filter[builds]': build_id, 'limit': 200})}
         for group in internal:
             if group['id'] not in current:
                 client.request('/v1/betaGroups/' + group['id'] + '/relationships/builds', method='POST',
                                body={'data': [{'type': 'builds', 'id': build_id}]})
-        verified = {group['id'] for group in client.records('/v1/builds/' + build_id + '/betaGroups', {'limit': 200})}
+        verified = {group['id'] for group in client.records('/v1/betaGroups', {'filter[builds]': build_id, 'limit': 200})}
         if any(group['id'] not in verified for group in internal):
             raise RuntimeError('Existing internal beta-group membership could not be verified')
         return f'Existing internal groups inherited and verified: {len(internal)}; no testers invited or groups created'
     except APIError as error:
         if error.status == 403:
-            return 'WARNING: API key cannot manage/read beta groups; existing tester availability needs manual confirmation'
+            return 'WARNING: Beta-group membership could not be verified (HTTP 403); internal build state is checked separately'
         raise
 
 

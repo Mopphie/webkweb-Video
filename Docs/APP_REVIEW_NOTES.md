@@ -2,7 +2,7 @@
 
 # App-Review-Notizen — lokaler Entwurf, keine Einreichung
 
-16.10.2026. Dieser neue Quellstand wurde **nicht** signiert/hochgeladen oder im App Store Connect geändert. Frühere TestFlight-Builds sind historische Vorgänger und kein Nachweis dieses Standes. [Aktuelle Blocker](RELEASE_BLOCKERS.md).
+16.10.2026. **Interner TestFlight-Build 0.1.0 (6) ist signiert/hochgeladen und von Apple als VALID / IN_BETA_TESTING bestätigt.** Diese Notizen bleiben ein Entwurf für eine spätere App-Store-Prüfung; keine App-Store-Einreichung erfolgt. Der Upload ist keine umfassende rechtliche oder Gerätefreigabe. [Aktuelle Blocker](RELEASE_BLOCKERS.md).
 
 ## Tatsächlicher App-Nutzen
 

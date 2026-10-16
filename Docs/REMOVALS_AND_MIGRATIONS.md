@@ -1,6 +1,6 @@
 # Bereinigungen und Migrationen
 
-16.10.2026. Vorherige unabhängige Nutzerdateien, Favoriten und eigene Notizen werden erhalten. Kein Git-Reset, History-Rewrite, Remote-Push oder produktiver Kontoeingriff. [Rechtebegründungen](LICENSE_REGISTER.md), [Featurereste/Blocker](FEATURE_MATRIX.md).
+16.10.2026. Vorherige unabhängige Nutzerdateien, Favoriten und eigene Notizen werden erhalten. Kein Git-Reset oder History-Rewrite. Der spätere ausdrückliche Nutzerauftrag autorisiert Releasebranch/CI und den inzwischen erfolgreichen internen TestFlight-Upload 0.1.0 (6); keine App-Store-Einreichung. [Ausführungsnachweis](TESTFLIGHT_STATUS.md), [Rechtebegründungen](LICENSE_REGISTER.md), [Featurereste/Blocker](FEATURE_MATRIX.md).
 
 | Änderung | Vollständiger Umfang | Daten-/Upgradebehandlung | Nachweis |
 |---|---|---|---|
@@ -18,7 +18,7 @@
 
 `ComplianceMigration` betrifft nur benannte Integrationsdaten und eigene WK-Regel-IDs. Es ist keine pauschale Löschung des App-Support-/Documents-Verzeichnisses. Website-Cookies/Cache bleiben ein separater bewusster Löschvorgang; „Website-Daten löschen“ schließt aktive Seiten vor dem Entfernen und meldet einen Abbruch statt einen unechten Erfolg. Kein sicheres physisches Löschen alter OS-Backups, Datenbank-WAL-Seiten oder Websiteprotokolle zugesichert.
 
-Lokale Entwicklungshistorie und Sicherung der vorgefundenen Quellen bleiben erhalten. Die neue App wurde weder hochgeladen noch auf dem Gerät ersetzt; ein auf dem iPhone verbleibender alter Build enthält daher weiterhin dessen alten Funktionsstand.
+Lokale Entwicklungshistorie und Sicherung der vorgefundenen Quellen bleiben erhalten. Build 0.1.0 (6) ist inzwischen VALID / IN_BETA_TESTING; die Installation auf einem physischen Nutzergerät wurde hier nicht geprüft. Solange dort ein älterer Build installiert bleibt, gilt dessen alter Funktionsstand.
 
 ## Nutzerauftrag: Teilen-Erweiterung vor TestFlight entfernen
 

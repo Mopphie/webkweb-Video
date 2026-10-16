@@ -104,6 +104,10 @@ class ConnectTests(unittest.TestCase):
         external = {'id': 'external', 'attributes': {'isInternalGroup': False}}
         client = Mock(); client.records.side_effect = [[internal, external], [], [internal]]
         self.assertIn('verified: 1', asc.inherit_internal_groups(client, 'new', 'old'))
+        self.assertEqual([(args.args[0], args.args[1]) for args in client.records.call_args_list], [
+            ('/v1/betaGroups', {'filter[builds]': 'old', 'limit': 200}),
+            ('/v1/betaGroups', {'filter[builds]': 'new', 'limit': 200}),
+            ('/v1/betaGroups', {'filter[builds]': 'new', 'limit': 200})])
         client.request.assert_called_once_with('/v1/betaGroups/internal/relationships/builds', method='POST',
                                                body={'data': [{'type': 'builds', 'id': 'new'}]})
 
