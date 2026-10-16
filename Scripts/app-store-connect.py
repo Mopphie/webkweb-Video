@@ -227,6 +227,21 @@ def wait_for_internal_availability(client, build_id, timeout, sleep=time.sleep):
     raise RuntimeError('Build is VALID but internal TestFlight availability was not confirmed before deadline')
 
 
+def verify_build(client, app_id, number, timeout, previous_id=''):
+    build = wait_for_valid(client, app_id, number, timeout)
+    available = wait_for_internal_availability(client, build['id'], min(timeout, 600))
+    if available == 'IN_BETA_TESTING':
+        # Apple has already activated internal testing, for example through an
+        # existing automatic group. Do not let an unnecessary membership query
+        # hide that verified state or change existing distribution settings.
+        groups = 'Apple reports active internal testing; no group membership was read or changed'
+    else:
+        groups = inherit_internal_groups(client, build['id'], previous_id)
+        available = wait_for_internal_availability(client, build['id'], min(timeout, 600))
+    return {'build_id': build['id'], 'build_number': number,
+            'processing_state': 'VALID', 'internal_state': available, 'groups': groups}
+
+
 def emit(values):
     target = os.environ.get('GITHUB_OUTPUT')
     if target:
@@ -255,11 +270,7 @@ def main():
     client = Client()
     if args.command == 'next-build':
         emit(next_build(client, args.app_id, args.minimum)); return
-    build = wait_for_valid(client, args.app_id, args.build_number, args.timeout)
-    groups = inherit_internal_groups(client, build['id'], args.previous_build_id)
-    available = wait_for_internal_availability(client, build['id'], min(args.timeout, 600))
-    emit({'build_id': build['id'], 'build_number': args.build_number,
-          'processing_state': 'VALID', 'internal_state': available, 'groups': groups})
+    emit(verify_build(client, args.app_id, args.build_number, args.timeout, args.previous_build_id))
 
 
 if __name__ == '__main__':
