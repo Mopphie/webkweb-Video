@@ -6,6 +6,26 @@ final class NativePlaybackJourneyUITests: XCTestCase {
     private func systemButton(_ pattern: String, app: XCUIApplication) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label MATCHES[c] %@", pattern)).firstMatch
     }
+    private func revealPlayerControls(in app: XCUIApplication) {
+        let surface = app.descendants(matching: .any).matching(identifier: "native.player").firstMatch
+        XCTAssertTrue(surface.waitForExistence(timeout: 5))
+        // AVKit hides controls while the test waits for actual playback. Reveal
+        // them with a real touch away from the central Play/Pause hit target.
+        surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+    }
+    private func requireSystemButton(_ pattern: String, app: XCUIApplication,
+                                     file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let button = systemButton(pattern, app: app)
+        let exists = button.waitForExistence(timeout: 5)
+        if !exists {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "System player controls"; hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+            print("NATIVE_PLAYER_ACCESSIBILITY \(app.debugDescription)")
+        }
+        XCTAssertTrue(exists, "Required system player control: \(pattern)", file: file, line: line)
+        return button
+    }
     func testVideoFullscreenBackPiPOtherAppQueueNextAndSearch() throws {
         continueAfterFailure = false; executionTimeAllowance = 180
         let app = XCUIApplication()
@@ -20,13 +40,14 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         let before = try XCTUnwrap(status.value as? String)
         func seconds(_ text: String) -> Double { Double(text.components(separatedBy: ";").first?.replacingOccurrences(of: "time=", with: "") ?? "") ?? -1 }
         let beforeClock = seconds(before), beforeWall = Date()
-        let full = systemButton(".*(Enter Full.?Screen|Vollbild).*", app: app)
-        XCTAssertTrue(full.waitForExistence(timeout: 5)); full.tap()
-        let done = systemButton("(Done|Fertig|Exit Full.?Screen|Vollbild beenden)", app: app)
-        XCTAssertTrue(done.waitForExistence(timeout: 5)); done.tap()
+        revealPlayerControls(in: app)
+        let full = requireSystemButton(".*(Full.?Screen|Vollbild).*", app: app)
+        full.tap()
+        let done = requireSystemButton("(Done|Fertig|.*Exit Full.?Screen.*|.*Vollbild beenden.*)", app: app)
+        done.tap()
         XCTAssertTrue(status.waitForExistence(timeout: 5))
-        let pip = systemButton(".*(Picture in Picture|Bild.in.Bild|Start PiP).*", app: app)
-        XCTAssertTrue(pip.waitForExistence(timeout: 5), "This mandatory journey needs real PiP support; no fallback pass")
+        revealPlayerControls(in: app)
+        let pip = requireSystemButton(".*(Picture in Picture|Bild.in.Bild|Start PiP).*", app: app)
         pip.tap()
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")

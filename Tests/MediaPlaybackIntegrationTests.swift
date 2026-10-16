@@ -139,7 +139,9 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         """
         let tab = session.browser.current
         tab.webView.loadHTMLString(html, baseURL: nil)
-        try await waitFor("original bridge and native frame registration") {
+        // A cold WebContent launch took over 15 seconds on the hosted simulator.
+        // Keep the real bridge/media assertions, with a separate startup budget.
+        try await waitFor("original bridge and native frame registration", timeout: 45) {
             let ready = try await self.evaluate(
                 "Boolean(globalThis.__webkweb) && Boolean(document.getElementById('player'))", in: tab) as? Bool == true
             return ready && tab.hasMedia && tab.activeMediaKind == "video" && !tab.activeMediaID.isEmpty
