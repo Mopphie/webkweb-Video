@@ -22,6 +22,13 @@ def build(number, state='VALID', identifier=None):
 
 
 class ConnectTests(unittest.TestCase):
+    def test_api_error_records_only_route_and_method_without_query_or_body(self):
+        error = asc.APIError(422, '/v1/betaGroups?token=secret&filter[builds]=id', 'GET')
+        self.assertEqual(error.endpoint, '/v1/betaGroups')
+        self.assertIn('GET /v1/betaGroups HTTP 422', str(error))
+        for value in ['token', 'secret', 'filter[builds]']:
+            self.assertNotIn(value, str(error))
+
     def test_next_build_counts_invalid_uploads_and_keeps_valid_group_source(self):
         client = Mock()
         client.request.return_value = {'data': {'attributes': {'bundleId': asc.BUNDLE_ID}}}
@@ -121,6 +128,24 @@ class ConnectTests(unittest.TestCase):
         self.assertEqual(asc.wait_for_internal_availability(client, 'new', 1, sleep=lambda _: None), 'IN_BETA_TESTING')
         client.request.side_effect = [{'data': {'attributes': {'internalBuildState': 'MISSING_EXPORT_COMPLIANCE'}}}]
         with self.assertRaises(RuntimeError): asc.wait_for_internal_availability(client, 'new', 1, sleep=lambda _: None)
+
+    def test_active_apple_beta_does_not_need_group_queries_or_distribution_changes(self):
+        client = Mock()
+        client.records.return_value = [build('7')]
+        client.request.return_value = {'data': {'attributes': {'internalBuildState': 'IN_BETA_TESTING'}}}
+        result = asc.verify_build(client, asc.APP_ID, 7, 1, previous_id='old')
+        self.assertEqual(result['internal_state'], 'IN_BETA_TESTING')
+        client.records.assert_called_once_with('/v1/builds', {'filter[app]': asc.APP_ID, 'limit': 200, 'sort': '-uploadedDate', 'filter[version]': '7'})
+        client.request.assert_called_once_with('/v1/builds/build-7/buildBetaDetail')
+        self.assertIn('no group membership was read or changed', result['groups'])
+
+    def test_ready_beta_does_not_become_active_when_group_assignment_lookup_fails(self):
+        client = Mock()
+        client.records.side_effect = [[build('7')], asc.APIError(422, '/v1/betaGroups', 'GET')]
+        client.request.return_value = {'data': {'attributes': {'internalBuildState': 'READY_FOR_BETA_TESTING'}}}
+        with self.assertRaises(asc.APIError):
+            asc.verify_build(client, asc.APP_ID, 7, 1, previous_id='old')
+        self.assertTrue(all(call.kwargs.get('method', 'GET') == 'GET' for call in client.request.call_args_list))
 
     def test_upload_guard_allows_only_exact_push_branch_or_confirmed_dispatch(self):
         workflow = (SCRIPTS.parent / '.github/workflows/testflight.yml').read_text()

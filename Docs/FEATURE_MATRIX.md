@@ -1,5 +1,7 @@
 > TestFlight-Nachtrag: Dieser Stand wurde vor den später autorisierten CI-Läufen verfasst. Aktuelle native/UI-Testergebnisse, tatsächliche Apple-Einrichtung und verbleibende Uploadblocker: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md). Die CI-Suite ist kein Nachweis sämtlicher dienst-, geräte- oder länderabhängiger Funktionen.
 
+Aktuelle interne Beta: **0.1.0 (7), VALID / IN_BETA_TESTING**. Ergänzende F03/F04/F06-Start-/Tab-/Privacy-Regressionen und F07-Nativ-PiP-Nachweise: [Folgeprüfung](PLAYBACK_BUILD6_FOLLOWUP.md). Kein bestätigter YouTube-Hintergrundfix und keine Erweiterung der kommerziellen Dienstrechte aus diesen Tests. Alle folgenden Quellen-/Featuregrenzen bleiben erhalten.
+
 # Featurematrix F01–F31
 
 Stand 16.10.2026. **U** = eigene Dateien/autorisierte Direktquellen, **W** = normale Websites, **P** = YouTube/Twitch/TikTok/Rumble einschließlich bekannter Frames. „Implementiert“ ist ausdrücklich **kein** erfolgreicher iOS-Build. Rechte-/Dienstbewertung im [Register](LICENSE_REGISTER.md), genaue Quellenfähigkeiten in [PROVIDER_CAPABILITIES.md](PROVIDER_CAPABILITIES.md).

@@ -1,5 +1,7 @@
 > TestFlight-Nachtrag: Dieser Stand wurde vor den später autorisierten CI-Läufen verfasst. Aktuelle native/UI-Testergebnisse, tatsächliche Apple-Einrichtung und verbleibende Uploadblocker: [TESTFLIGHT_STATUS.md](TESTFLIGHT_STATUS.md). Die CI-Suite ist kein Nachweis sämtlicher dienst-, geräte- oder länderabhängiger Funktionen.
 
+Interne Beta **0.1.0 (7)** ist aktiv; keine App-Store-Einreichung vorgenommen. [Aktuelle Nachweise/Grenzen](PLAYBACK_BUILD6_FOLLOWUP.md): zwei Start-/Tabfehler korrigiert, normale Websiteplayer unverändert, keine erzwungenen YouTube-Funktionen. Eigene native PiP-/Appwechsel-Reise getestet; realer YouTube-Hintergrundfall in Build 7 weiterhin zu prüfen.
+
 # App-Review-Notizen — lokaler Entwurf, keine Einreichung
 
 16.10.2026. **Interner TestFlight-Build 0.1.0 (6) ist signiert/hochgeladen und von Apple als VALID / IN_BETA_TESTING bestätigt.** Diese Notizen bleiben ein Entwurf für eine spätere App-Store-Prüfung; keine App-Store-Einreichung erfolgt. Der Upload ist keine umfassende rechtliche oder Gerätefreigabe. [Aktuelle Blocker](RELEASE_BLOCKERS.md).
