@@ -73,7 +73,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install XcodeGen and run Node/XCTest preflight
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           set -euo pipefail
           brew install xcodegen

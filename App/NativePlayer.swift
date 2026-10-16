@@ -57,6 +57,7 @@ final class NativePlayer: ObservableObject {
     private var naturalEndHandled = false
     private var loadingAsset: AVURLAsset?
     var isOpen: Bool { mediaID != nil }
+    var pictureInPictureSupported: Bool { AVPictureInPictureController.isPictureInPictureSupported() }
     var live: Bool { isOpen && duration == nil }
     var canNext: Bool { guard let id = mediaID, let i = queueIDs.firstIndex(of: id) else { return false }; return i + 1 < queueIDs.count }
     var canPrevious: Bool { guard let id = mediaID, let i = queueIDs.firstIndex(of: id) else { return false }; return i > 0 }

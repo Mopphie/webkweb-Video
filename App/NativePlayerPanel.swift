@@ -15,7 +15,7 @@ struct NativePlayerPanel: View {
                 Spacer()
                 Button { playback.expanded.toggle() } label: { Image(systemName: playback.expanded ? "chevron.down" : "chevron.up") }.accessibilityLabel("Playergröße ändern").accessibilityIdentifier("native.expand")
                     #if DEBUG
-                    .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-test-native") ? "time=\(playback.time);playing=\(playback.playing);pip=\(playback.pictureInPictureActive);waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")" : "")
+                    .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-test-native") ? "time=\(playback.time);playing=\(playback.playing);pip=\(playback.pictureInPictureActive);pip_supported=\(playback.pictureInPictureSupported);waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")" : "")
                     #endif
                 Button { playback.close() } label: { Image(systemName: "xmark") }.accessibilityLabel("Player schließen").frame(minWidth: 44, minHeight: 44)
             }.padding(.horizontal)

@@ -37,7 +37,7 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         XCTAssertTrue(exists, "Required system player control: \(pattern)", file: file, line: line)
         return button
     }
-    func testVideoFullscreenBackPiPOtherAppQueueNextAndSearch() throws {
+    private func launchNativeFixture() throws -> XCUIApplication {
         continueAfterFailure = false; executionTimeAllowance = 180
         let app = XCUIApplication()
         let clip = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "audible", withExtension: "mp4"))
@@ -48,8 +48,13 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         XCTAssertTrue(status.waitForExistence(timeout: 20))
         let playing = NSPredicate { _, _ in (status.value as? String)?.contains("playing=true") == true }
         expectation(for: playing, evaluatedWith: nil); waitForExpectations(timeout: 20)
-        let before = try XCTUnwrap(status.value as? String)
-        func seconds(_ text: String) -> Double { Double(text.components(separatedBy: ";").first?.replacingOccurrences(of: "time=", with: "") ?? "") ?? -1 }
+        return app
+    }
+    private func waitUntilPlaying(_ status: XCUIElement) {
+        let playing = NSPredicate { _, _ in (status.value as? String)?.contains("playing=true") == true }
+        expectation(for: playing, evaluatedWith: nil); waitForExpectations(timeout: 20)
+    }
+    private func fullscreenAndReturn(_ app: XCUIApplication, status: XCUIElement) {
         // AVKit auto-hides controls while playing, including during XCTest's
         // quiescence wait between lookup and tap. A real Pause keeps them
         // reachable without changing AVKit or relying on private test APIs.
@@ -61,12 +66,47 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         let done = requireSystemButton("(Done|Fertig|Close|Schließen|.*Exit Full.?Screen.*|.*Vollbild beenden.*)", app: app)
         done.tap()
         XCTAssertTrue(status.waitForExistence(timeout: 5))
+    }
+    private func seconds(_ text: String) -> Double {
+        Double(text.components(separatedBy: ";").first?.replacingOccurrences(of: "time=", with: "") ?? "") ?? -1
+    }
+    private func queueNextAndSearch(_ app: XCUIApplication, status: XCUIElement, identity: String?) throws {
+        app.buttons["native.queue"].tap()
+        let next = app.buttons["native.queue.next"]; XCTAssertTrue(next.waitForExistence(timeout: 5)); next.tap()
+        app.buttons["Fertig"].firstMatch.tap()
+        XCTAssertTrue(status.waitForExistence(timeout: 10))
+        let changed = NSPredicate { _, _ in
+            guard let text = status.value as? String else { return false }
+            return text.components(separatedBy: ";media=").last != identity && text.contains("playing=true") && self.seconds(text) > 0.5
+        }
+        expectation(for: changed, evaluatedWith: nil); waitForExpectations(timeout: 10)
+        let search = app.textFields["Suchen oder Adresse"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("Eigene Testsuche")
+        XCTAssertTrue(app.buttons["native.queue"].isHittable)
+    }
+    func testNativeFullscreenBackQueueNextAndSearch() throws {
+        let app = try launchNativeFixture(), status = app.buttons["native.expand"]
+        let identity = (status.value as? String)?.components(separatedBy: ";media=").last
+        fullscreenAndReturn(app, status: status)
+        app.buttons["native.toggle"].tap(); waitUntilPlaying(status)
+        try queueNextAndSearch(app, status: status, identity: identity)
+    }
+    func testVideoFullscreenBackPiPOtherAppQueueNextAndSearch() throws {
+        let app = try launchNativeFixture(), status = app.buttons["native.expand"]
+        let before = try XCTUnwrap(status.value as? String)
+        let capability = try XCTUnwrap(before.components(separatedBy: ";").first(where: { $0.hasPrefix("pip_supported=") }))
+        print("NATIVE_SYSTEM_CAPABILITY \(capability)")
+        // Only the public framework's explicit unsupported result permits a
+        // skip. Missing buttons, failed PiP callbacks or stalled clocks on a
+        // supported device continue to fail; no simulated PiP success.
+        try XCTSkipIf(capability == "pip_supported=false", "System-PiP wird von dieser Laufzeit nicht unterstützt. Pflichtreise NICHT AUSGEFÜHRT; auf unterstütztem Gerät erforderlich.")
+        fullscreenAndReturn(app, status: status)
+        app.buttons["native.toggle"].tap(); waitUntilPlaying(status)
         let pip = requireSystemButton(".*(Picture in Picture|Bild.in.Bild|Start PiP).*", app: app)
-        pip.tap()
+        let target = pip.frame
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: target.midX, dy: target.midY)).tap()
         let enteredPiP = NSPredicate { _, _ in (status.value as? String)?.contains("pip=true") == true }
         expectation(for: enteredPiP, evaluatedWith: nil); waitForExpectations(timeout: 10)
-        app.buttons["native.toggle"].tap()
-        expectation(for: playing, evaluatedWith: nil); waitForExpectations(timeout: 10)
         let beforeClock = seconds(try XCTUnwrap(status.value as? String)), beforeWall = Date()
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -80,14 +120,6 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         XCTAssertLessThanOrEqual(progress, Date().timeIntervalSince(beforeWall) + 2, "Unexpected seek or wrong clock")
         let identity = before.components(separatedBy: ";media=").last
         XCTAssertEqual(after.components(separatedBy: ";media=").last, identity)
-        app.buttons["native.queue"].tap()
-        let next = app.buttons["native.queue.next"]; XCTAssertTrue(next.waitForExistence(timeout: 5)); next.tap()
-        app.buttons["Fertig"].firstMatch.tap()
-        XCTAssertTrue(status.waitForExistence(timeout: 10))
-        let changed = NSPredicate { _, _ in (status.value as? String)?.components(separatedBy: ";media=").last != identity }
-        expectation(for: changed, evaluatedWith: nil); waitForExpectations(timeout: 10)
-        let search = app.textFields["Suchen oder Adresse"]
-        XCTAssertTrue(search.waitForExistence(timeout: 5)); search.tap(); search.typeText("Eigene Testsuche")
-        XCTAssertTrue(app.buttons["native.queue"].isHittable)
+        try queueNextAndSearch(app, status: status, identity: identity)
     }
 }

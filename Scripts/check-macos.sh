@@ -47,5 +47,27 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
   -maximum-test-execution-time-allowance 180 \
+  -skip-testing:WebKWebUITests/NativePlaybackJourneyUITests \
+  CODE_SIGNING_ALLOWED=NO test
+ipad_destination="$(xcrun simctl list devices available --json | python3 -c '
+import json, sys
+devices = json.load(sys.stdin)["devices"]
+for runtime in sorted(devices, reverse=True):
+    if "iOS" not in runtime:
+        continue
+    for device in devices[runtime]:
+        if device.get("isAvailable") and device["name"].startswith("iPad"):
+            print("platform=iOS Simulator,id=" + device["udid"])
+            sys.exit(0)
+sys.exit("Kein verfügbarer iPad-Simulator für native Vollbild-/PiP-/Queue-Reise.")
+')"
+echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
+xcodebuild "${project_args[@]}" -scheme WebKWeb \
+  -destination "$ipad_destination" -derivedDataPath build/DerivedData \
+  -resultBundlePath "build/iPad-Tests-$(date +%s).xcresult" \
+  -test-timeouts-enabled YES -parallel-testing-enabled NO \
+  -default-test-execution-time-allowance 120 \
+  -maximum-test-execution-time-allowance 180 \
+  -only-testing:WebKWebUITests/NativePlaybackJourneyUITests \
   CODE_SIGNING_ALLOWED=NO test
 echo "Lokaler Simulator-Build und Tests erfolgreich. Gerätetests bleiben erforderlich."

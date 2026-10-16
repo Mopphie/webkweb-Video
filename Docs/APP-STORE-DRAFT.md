@@ -16,7 +16,7 @@ Browser und eigene Videomediathek
 - Eigene Dateien und ausdrücklich berechtigt nutzbare Direktmedien im Systemplayer; Miniplayer, Wiedergabepositionen, Queue und eigene Zeitmarken.
 - Untertitel, Kapitel, Geschwindigkeit, Wiederholung, System-PiP und AirPlay, soweit Medium, System und deine Nutzungsrechte es erlauben.
 - Sleep-Timer, lokale Sicherungen und optionale Geräteauthentifizierung.
-- Bewusst freigegebene normale Favoriten als Widget-/Siri-Schnellzugriff sowie explizites Übernehmen geteilter Links.
+- Bewusst freigegebene normale Favoriten als Widget-/Siri-Schnellzugriff.
 
 Websitefunktionen hängen vom jeweiligen Dienst, Account, Standort und Betriebssystem ab. Die App schaltet keine Premiumfunktionen frei und bietet keine Plattform-Werbeblockierung, Stream-Extraktion oder Plattformdownloads. Websites und eigene Medien können eigene Nutzungsbedingungen haben. Es gibt kein verpflichtendes eigenes Konto, keinen eigenen Analytics-/Werbedienst und kein neu eingeführtes Nutzerabo. iCloud-Abgleich und App-In-App-Käufe sind nicht eingerichtet.
 
