@@ -1,8 +1,12 @@
 import XCTest
 
-/// Own generated media only. MUST run on a PiP-capable iPhone/iPad; not yet run.
+/// Own generated media only. Requires actual AVKit fullscreen and system PiP.
 @MainActor
 final class NativePlaybackJourneyUITests: XCTestCase {
+    override func tearDownWithError() throws {
+        XCUIApplication().terminate()
+        try super.tearDownWithError()
+    }
     private func systemButton(_ pattern: String, app: XCUIApplication) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "label MATCHES[c] %@", pattern)).firstMatch
     }

@@ -35,7 +35,7 @@ final class NativePlayer: ObservableObject {
     @Published private(set) var audioOptions: [NativeMediaOption] = []
     @Published private(set) var captionID = -1
     @Published private(set) var audioID = -1
-    var beforePlay: (@MainActor () async -> Void)?
+    var beforePlay: (@MainActor () async throws -> Void)?
     var didActivateAudio: (() -> Void)?
     var onState: (() -> Void)?
     var onEnded: ((UUID, Bool) -> Bool)? // true means the sleep timer stopped playback
@@ -183,7 +183,12 @@ final class NativePlayer: ObservableObject {
         let revision = generation
         playTask = Task { [weak self] in
             guard let self else { return }
-            await self.beforePlay?()
+            do { try await self.beforePlay?() }
+            catch {
+                guard !Task.isCancelled, self.generation == revision, self.playRequest == request else { return }
+                self.error = "Website-Wiedergabe konnte nicht sicher pausiert werden. Browser-Tab schließen und erneut versuchen."
+                self.updateState(); return
+            }
             guard !Task.isCancelled, self.generation == revision, self.playRequest == request, self.isOpen, self.error == nil else { return }
             do {
                 try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)

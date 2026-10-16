@@ -3,6 +3,12 @@ import XCTest
 /// Uses the generated local decoder signal, never a claimed provider fixture.
 @MainActor
 final class BrowserActionsUITests: XCTestCase {
+    override func tearDownWithError() throws {
+        // Retire the fixture and its WebContent processes before the next
+        // independent launch, rather than during that test's launch deadline.
+        XCUIApplication().terminate()
+        try super.tearDownWithError()
+    }
     private func milestone(_ message: String) {
         print("WEBKWEB_UI_PROGRESS \(Date().timeIntervalSince1970): \(message)")
         XCTContext.runActivity(named: message) { _ in }

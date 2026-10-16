@@ -22,6 +22,17 @@ struct BrowserDialog: Identifiable {
 enum PlaybackPauseReason: String { case user, remotePause, remoteStop, sleepTimer, routeChange, dataWipe, shortcut }
 
 @MainActor
+private final class WebPlaybackPause {
+    var continuation: CheckedContinuation<Void, Error>?
+    var timeout: Task<Void, Never>?
+    func finish(_ result: Result<Void, Error>) {
+        guard let continuation else { return }
+        self.continuation = nil; timeout?.cancel(); timeout = nil
+        continuation.resume(with: result)
+    }
+}
+
+@MainActor
 final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDelegate, WKUIDelegate {
     static let world = WKContentWorld.world(name: "WebKWebPlayback")
     let id: UUID
@@ -241,6 +252,23 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable, WKNavigationDe
             Task { @MainActor in
                 self?.run("if(globalThis.navigator?.mediaSession) globalThis.navigator.mediaSession.metadata = null", allFrames: true)
                 AudioController.shared.clearPrivateMetadata()
+            }
+        }
+    }
+    func pauseBeforeNativePlayback() async throws {
+        // An untouched Home tab has never had a document or media. Asking its
+        // unstarted WebContent process for an acknowledgement can stall AVPlayer.
+        guard lastRequestedURL != nil || webView.url != nil || !address.isEmpty ||
+                loading || hasMedia || !frames.isEmpty || wiping else { return }
+        run("globalThis.__webkweb?.pause(true)", allFrames: true)
+        try await withCheckedThrowingContinuation { continuation in
+            let request = WebPlaybackPause(); request.continuation = continuation
+            request.timeout = Task { @MainActor in
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                request.finish(.failure(URLError(.timedOut)))
+            }
+            webView.pauseAllMediaPlayback {
+                Task { @MainActor in request.finish(.success(())) }
             }
         }
     }
@@ -544,9 +572,7 @@ final class BrowserModel: ObservableObject {
             self.playbackStopped = false
             // Await WebKit's actual pause acknowledgement before starting AVPlayer.
             for tab in self.tabs {
-                await withCheckedContinuation { (reply: CheckedContinuation<Void, Never>) in
-                    tab.webView.pauseAllMediaPlayback(completionHandler: { reply.resume() })
-                }
+                try await tab.pauseBeforeNativePlayback()
             }
         }
         nativePlayer.onState = { [weak self] in self?.enforceSleepDeadline(); self?.publishNowPlaying() }

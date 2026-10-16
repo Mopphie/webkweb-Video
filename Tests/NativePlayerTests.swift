@@ -4,6 +4,29 @@ import AVFoundation
 
 @MainActor
 final class NativePlayerTests: XCTestCase {
+    func testPristineHomeDoesNotWaitForUnstartedWebContent() async throws {
+        let tab = BrowserTab(); defer { tab.close() }
+        XCTAssertNil(tab.webView.url)
+        try await tab.pauseBeforeNativePlayback()
+        XCTAssertNil(tab.webView.url)
+    }
+    func testFailedWebsitePausePreventsNativeAudioAndExplicitRetryRecovers() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let clip = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "audible", withExtension: "mp4"))
+        let library = LibraryStore(file: root.appendingPathComponent("library.json"))
+        let id = try library.addFile(clip), playback = NativePlayer(); playback.library = library
+        playback.beforePlay = { throw URLError(.timedOut) }
+        playback.open(id)
+        defer { playback.close(); try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
+        for _ in 0..<200 { if playback.error != nil { break }; try await Task.sleep(for: .milliseconds(100)) }
+        XCTAssertNotNil(playback.error); XCTAssertFalse(playback.playing)
+        XCTAssertEqual(playback.player.rate, 0); XCTAssertEqual(playback.player.currentTime().seconds, 0, accuracy: 0.1)
+        playback.beforePlay = nil; playback.retry()
+        for _ in 0..<200 { if playback.time > 0.5 && playback.playing { break }; try await Task.sleep(for: .milliseconds(100)) }
+        XCTAssertNil(playback.error); XCTAssertTrue(playback.playing); XCTAssertGreaterThan(playback.time, 0.5)
+    }
     func testMissingFileStopsQueueAndKeepsSamePlayerInstance() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)

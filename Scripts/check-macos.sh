@@ -44,6 +44,7 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES \
+  -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
   -maximum-test-execution-time-allowance 180 \
   CODE_SIGNING_ALLOWED=NO test

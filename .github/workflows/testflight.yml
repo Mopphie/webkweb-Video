@@ -116,9 +116,11 @@ jobs:
           APPLE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
           APPLE_WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_WIDGET_PROVISIONING_PROFILE_BASE64 }}
           APPLE_SHARE_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_SHARE_PROVISIONING_PROFILE_BASE64 }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: |
           set -euo pipefail
-          for name in APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE_BASE64 APPLE_WIDGET_PROVISIONING_PROFILE_BASE64 APPLE_SHARE_PROVISIONING_PROFILE_BASE64; do
+          for name in APPLE_CERTIFICATE_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROVISIONING_PROFILE_BASE64 APPLE_WIDGET_PROVISIONING_PROFILE_BASE64; do
             if [[ -z "${!name:-}" ]]; then echo "::error::Missing $name"; exit 1; fi
           done
           umask 077
@@ -126,7 +128,14 @@ jobs:
           printf '%s' "$APPLE_CERTIFICATE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/distribution.p12"
           printf '%s' "$APPLE_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/app.mobileprovision"
           printf '%s' "$APPLE_WIDGET_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/widget.mobileprovision"
-          printf '%s' "$APPLE_SHARE_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/share.mobileprovision"
+          if [[ -n "$APPLE_SHARE_PROVISIONING_PROFILE_BASE64" ]]; then
+            printf '%s' "$APPLE_SHARE_PROVISIONING_PROFILE_BASE64" | base64 -D > "$RUNNER_TEMP/devntube-signing/share.mobileprovision"
+          else
+            export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+            python3 Scripts/provision-share.py \
+              --p12 "$RUNNER_TEMP/devntube-signing/distribution.p12" \
+              --output "$RUNNER_TEMP/devntube-signing/share.mobileprovision"
+          fi
           python3 Scripts/ci-signing.py \
             "$RUNNER_TEMP/devntube-signing/app.mobileprovision" \
             "$RUNNER_TEMP/devntube-signing/widget.mobileprovision" \
