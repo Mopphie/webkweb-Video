@@ -33,32 +33,34 @@ native_recheck="$(python3 - <<'PY'
 import subprocess
 def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
 def release(source):
-    lines=[]; debug=False
+    lines=[]; debug=False; include=True
     for line in source.splitlines():
         directive=line.strip()
         if directive=='#if DEBUG':
             if debug: raise ValueError('Nested conditional')
-            debug=True; continue
+            debug=True; include=False; continue
         if debug:
-            if directive=='#endif': debug=False
-            elif directive.startswith(('#if','#else','#elseif')): raise ValueError('Ambiguous conditional')
-        else: lines.append(line)
+            if directive=='#endif': debug=False; include=True; continue
+            if directive=='#else': include=True; continue
+            if directive.startswith(('#if','#elseif')): raise ValueError('Ambiguous conditional')
+        if include: lines.append(line)
     if debug: raise ValueError('Unterminated conditional')
     return '\n'.join(lines)
 try:
     parent=git('rev-parse','HEAD^')
-    allowed={'App/NativePlayerPanel.swift','UITests/NativePlaybackJourneyUITests.swift',
+    allowed={'App/NativePlayerPanel.swift','App/NativePlayer.swift','App/BrowserSession.swift','UITests/NativePlaybackJourneyUITests.swift',
              'Scripts/check-macos.sh','.github/workflows/testflight.yml','Docs/TESTFLIGHT_STATUS.md'}
     changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
-    panel='App/NativePlayerPanel.swift'
+    app_files={path for path in changes if path.startswith('App/')}
     valid=(git('status','--porcelain') == ''
            and git('rev-parse',parent+'^{tree}') in {
                'f2287ef80b6f4e8373eeba2f04176cbcf9cd04c5',
                'e59a1302b9bc5246f076cc270c9a1535b46e1d62',
                '2c48454322ec1711f909901b1424bede2ca0b858',
-               'aaabdfed0f096549597bb837fd983655cfb4ae3f'}
+               'aaabdfed0f096549597bb837fd983655cfb4ae3f',
+               '1d84c673f324e1c44cd716f3824464f0334c04a9'}
            and bool(changes) and changes <= allowed
-           and release(git('show',parent+':'+panel)) == release(git('show','HEAD:'+panel)))
+           and all(release(git('show',parent+':'+path)) == release(git('show','HEAD:'+path)) for path in app_files))
     print('true' if valid else 'false')
 except (subprocess.CalledProcessError,ValueError): print('false')
 PY
@@ -134,7 +136,7 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -resultBundlePath "build/iPad-Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
-  -maximum-test-execution-time-allowance 300 \
+  -maximum-test-execution-time-allowance 600 \
   "${journey_scope[@]}" \
   CODE_SIGNING_ALLOWED=NO test
 echo "Simulator-Prüfung erfolgreich (gezielte Wiederholung: $native_recheck). Vorherige Nachweise ggf. wiederverwendet; Gerätetests bleiben erforderlich."

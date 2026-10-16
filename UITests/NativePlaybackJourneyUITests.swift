@@ -38,16 +38,20 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         return button
     }
     private func launchNativeFixture() throws -> XCUIApplication {
-        continueAfterFailure = false; executionTimeAllowance = 300
+        continueAfterFailure = false; executionTimeAllowance = 600
         let app = XCUIApplication()
         let clip = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "audible", withExtension: "mp4"))
         app.launchArguments = ["--ui-test-native"]
         app.launchEnvironment["WEBKWEB_UI_TEST_MEDIA"] = try Data(contentsOf: clip).base64EncodedString()
         app.launch()
         let status = app.buttons["native.expand"]
-        XCTAssertTrue(status.waitForExistence(timeout: 20))
+        XCTAssertTrue(status.waitForExistence(timeout: 90))
         let playing = NSPredicate { _, _ in (status.value as? String)?.contains("playing=true") == true }
         expectation(for: playing, evaluatedWith: nil); waitForExpectations(timeout: 20)
+        let report = try XCTUnwrap(status.value as? String)
+        let field = try XCTUnwrap(report.components(separatedBy: ";").first(where: { $0.hasPrefix("duration=") }))
+        let duration = try XCTUnwrap(Double(field.dropFirst("duration=".count)))
+        XCTAssertGreaterThan(duration, 500, "Finite own test film must outlast the full UI journey")
         return app
     }
     private func waitUntilPlaying(_ status: XCUIElement) {

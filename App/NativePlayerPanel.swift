@@ -13,7 +13,7 @@ struct NativePlayerPanel: View {
         guard ProcessInfo.processInfo.arguments.contains("--ui-test-native") else { return "" }
         // Machine-readable test values must not use SwiftUI's localized numeric
         // interpolation (notably grouping of the epoch timestamp after PiP).
-        return "time=\(String(playback.time));playing=\(playback.playing);pip=\(playback.pictureInPictureActive);pip_supported=\(playback.pictureInPictureSupported);pip_starts=\(String(playback.pictureInPictureStartCount));pip_started_at=\(String(playback.lastPictureInPictureStart?.timeIntervalSince1970 ?? 0));waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")"
+        return "time=\(String(playback.time));playing=\(playback.playing);pip=\(playback.pictureInPictureActive);pip_supported=\(playback.pictureInPictureSupported);pip_starts=\(String(playback.pictureInPictureStartCount));pip_started_at=\(String(playback.lastPictureInPictureStart?.timeIntervalSince1970 ?? 0));duration=\(String(playback.duration ?? 0));waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")"
     }
     #endif
     var body: some View {

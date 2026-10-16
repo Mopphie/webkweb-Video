@@ -591,13 +591,16 @@ final class BrowserModel: ObservableObject {
     private func loadNativeUITestFixture() {
         let value = ProcessInfo.processInfo.environment["WEBKWEB_UI_TEST_MEDIA"] ?? ""
         guard let data = Data(base64Encoded: value), data.count < 1_000_000 else { return }
-        do {
-            let first = FileManager.default.temporaryDirectory.appendingPathComponent("Own-UI-First.mp4")
-            let second = FileManager.default.temporaryDirectory.appendingPathComponent("Own-UI-Second.mp4")
-            try data.write(to: first); try data.write(to: second)
-            let a = try library.addFile(first), b = try library.addFile(second)
-            nativePlayer.playPlaylist([a, b])
-        } catch { notice = "Lokale Testfixture konnte nicht geöffnet werden." }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let first = FileManager.default.temporaryDirectory.appendingPathComponent("Own-UI-First.mp4")
+                let second = FileManager.default.temporaryDirectory.appendingPathComponent("Own-UI-Second.mp4")
+                try await NativePlayer.prepareLongUITestMedia(data, first: first, second: second)
+                let a = try library.addFile(first), b = try library.addFile(second)
+                nativePlayer.playPlaylist([a, b])
+            } catch { notice = "Lokale Testfixture konnte nicht geöffnet werden." }
+        }
     }
     private func loadUITestFixture() {
         // Only the explicit Debug UI-test launch uses the test runner's own

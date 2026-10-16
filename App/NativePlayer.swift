@@ -8,6 +8,41 @@ struct NativeChapter: Identifiable { let id: Int; let title: String; let seconds
 
 @MainActor
 final class NativePlayer: ObservableObject {
+    #if DEBUG
+    /// Test setup only: remux our own supplied clip into one finite ten-minute
+    /// file. Playback still uses the normal library/file/player path. Nothing
+    /// loops during playback and no test media/export path ships in Release.
+    static func prepareLongUITestMedia(_ data: Data, first: URL, second: URL) async throws {
+        let files = FileManager.default
+        let input = files.temporaryDirectory.appendingPathComponent("Own-UI-Input.mp4")
+        try data.write(to: input, options: .atomic)
+        defer { try? files.removeItem(at: input) }
+        for output in [first, second] where files.fileExists(atPath: output.path) { try files.removeItem(at: output) }
+        let asset = AVURLAsset(url: input)
+        let duration = try await asset.load(.duration)
+        guard duration.isNumeric, duration.seconds > 0 else { throw URLError(.cannotDecodeContentData) }
+        let composition = AVMutableComposition()
+        for index in 0..<10 {
+            try composition.insertTimeRange(CMTimeRange(start: .zero, duration: duration), of: asset,
+                                            at: CMTimeMultiply(duration, multiplier: Int32(index)))
+        }
+        guard let export = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
+            throw URLError(.cannotCreateFile)
+        }
+        if #available(iOS 18, *) {
+            try await export.export(to: first, as: .mp4)
+        } else {
+            try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
+                export.outputURL = first; export.outputFileType = .mp4
+                export.exportAsynchronously {
+                    if export.status == .completed { done.resume() }
+                    else { done.resume(throwing: export.error ?? URLError(.cannotCreateFile)) }
+                }
+            }
+        }
+        try files.copyItem(at: first, to: second)
+    }
+    #endif
     @Published private(set) var player = AVPlayer()
     let sessionID = UUID()
     private(set) var commandRevision = 0
