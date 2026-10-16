@@ -8,6 +8,14 @@ struct NativePlayerPanel: View {
     @State private var queue = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSize
+    #if DEBUG
+    private var testDiagnostic: String {
+        guard ProcessInfo.processInfo.arguments.contains("--ui-test-native") else { return "" }
+        // Machine-readable test values must not use SwiftUI's localized numeric
+        // interpolation (notably grouping of the epoch timestamp after PiP).
+        return "time=\(String(playback.time));playing=\(playback.playing);pip=\(playback.pictureInPictureActive);pip_supported=\(playback.pictureInPictureSupported);pip_starts=\(String(playback.pictureInPictureStartCount));pip_started_at=\(String(playback.lastPictureInPictureStart?.timeIntervalSince1970 ?? 0));waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")"
+    }
+    #endif
     var body: some View {
         VStack(spacing: 8) {
             HStack {
@@ -15,7 +23,7 @@ struct NativePlayerPanel: View {
                 Spacer()
                 Button { playback.expanded.toggle() } label: { Image(systemName: playback.expanded ? "chevron.down" : "chevron.up") }.accessibilityLabel("Playergröße ändern").accessibilityIdentifier("native.expand")
                     #if DEBUG
-                    .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--ui-test-native") ? "time=\(playback.time);playing=\(playback.playing);pip=\(playback.pictureInPictureActive);pip_supported=\(playback.pictureInPictureSupported);pip_starts=\(playback.pictureInPictureStartCount);pip_started_at=\(playback.lastPictureInPictureStart?.timeIntervalSince1970 ?? 0);waiting=\(playback.waiting);error=\(playback.error ?? "none");media=\(playback.mediaID?.uuidString ?? "none")" : "")
+                    .accessibilityValue(Text(verbatim: testDiagnostic))
                     #endif
                 Button { playback.close() } label: { Image(systemName: "xmark") }.accessibilityLabel("Player schließen").frame(minWidth: 44, minHeight: 44)
             }.padding(.horizontal)

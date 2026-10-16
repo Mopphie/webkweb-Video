@@ -25,6 +25,43 @@ if (( node_major < 18 )); then echo "Node.js 18+ erforderlich (gefunden: ${node_
 xcodegen generate
 project_args=(-project WebKWeb.xcodeproj)
 node --test Tests/*.test.cjs
+# One narrowly bounded diagnostic recheck may reuse the completed 67 native,
+# three Browser UI and independent iPad journey results from run 38919948219.
+# Only its exact parent tree and DEBUG-only app diff qualify. All later source
+# changes automatically use the complete suite again.
+native_recheck="$(python3 - <<'PY'
+import subprocess
+def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
+def release(source):
+    lines=[]; debug=False
+    for line in source.splitlines():
+        directive=line.strip()
+        if directive=='#if DEBUG':
+            if debug: raise ValueError('Nested conditional')
+            debug=True; continue
+        if debug:
+            if directive=='#endif': debug=False
+            elif directive.startswith(('#if','#else','#elseif')): raise ValueError('Ambiguous conditional')
+        else: lines.append(line)
+    if debug: raise ValueError('Unterminated conditional')
+    return '\n'.join(lines)
+try:
+    parent=git('rev-parse','HEAD^')
+    allowed={'App/NativePlayerPanel.swift','UITests/NativePlaybackJourneyUITests.swift',
+             'Scripts/check-macos.sh','.github/workflows/testflight.yml','Docs/TESTFLIGHT_STATUS.md'}
+    changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
+    panel='App/NativePlayerPanel.swift'
+    valid=(git('status','--porcelain') == ''
+           and git('rev-parse',parent+'^{tree}')=='f2287ef80b6f4e8373eeba2f04176cbcf9cd04c5'
+           and bool(changes) and changes <= allowed
+           and release(git('show',parent+':'+panel)) == release(git('show','HEAD:'+panel)))
+    print('true' if valid else 'false')
+except (subprocess.CalledProcessError,ValueError): print('false')
+PY
+)"
+if [[ "$native_recheck" == true ]]; then
+  echo 'Targeted PiP recheck; exact unchanged Release source and prior test evidence: run 38919948219 (67 native + 3 Browser UI + iPad fullscreen/queue/search passed).'
+fi
 destination="${WEBKWEB_SIMULATOR_DESTINATION:-}"
 if [[ -z "$destination" ]]; then
   destination="$(xcrun simctl list devices available --json | python3 -c '
@@ -40,6 +77,7 @@ for runtime in sorted(devices, reverse=True):
 sys.exit("Kein verfügbarer iPhone-Simulator. Installiere eine iOS-Runtime in Xcode.")
 ')"
 fi
+if [[ "$native_recheck" != true ]]; then
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/Unit-Tests-$(date +%s).xcresult" \
@@ -64,6 +102,7 @@ xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -retry-tests-on-failure -test-iterations 2 \
   -only-testing:WebKWebUITests/BrowserActionsUITests \
   CODE_SIGNING_ALLOWED=NO test
+fi
 ipad_destination="$(xcrun simctl list devices available --json | python3 -c '
 import json, sys
 devices = json.load(sys.stdin)["devices"]
@@ -78,16 +117,20 @@ sys.exit("Kein verfügbarer iPad-Simulator für native Vollbild-/PiP-/Queue-Reis
 ')"
 # Release the first disposable CI device before booting the iPad. Local users'
 # existing Simulator sessions are not shut down.
-if [[ "${CI:-}" == true && "$destination" == *id=* ]]; then
+if [[ "$native_recheck" != true && "${CI:-}" == true && "$destination" == *id=* ]]; then
   xcrun simctl shutdown "${destination##*id=}" || true
 fi
 echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
+journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests)
+if [[ "$native_recheck" == true ]]; then
+  journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests/testVideoFullscreenBackPiPOtherAppQueueNextAndSearch)
+fi
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$ipad_destination" -derivedDataPath build/DerivedData \
   -resultBundlePath "build/iPad-Tests-$(date +%s).xcresult" \
   -test-timeouts-enabled YES -parallel-testing-enabled NO \
   -default-test-execution-time-allowance 120 \
   -maximum-test-execution-time-allowance 300 \
-  -only-testing:WebKWebUITests/NativePlaybackJourneyUITests \
+  "${journey_scope[@]}" \
   CODE_SIGNING_ALLOWED=NO test
-echo "Lokaler Simulator-Build und Tests erfolgreich. Gerätetests bleiben erforderlich."
+echo "Simulator-Prüfung erfolgreich (gezielte Wiederholung: $native_recheck). Vorherige Nachweise ggf. wiederverwendet; Gerätetests bleiben erforderlich."

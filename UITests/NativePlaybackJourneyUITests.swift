@@ -92,6 +92,11 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         try queueNextAndSearch(app, status: status, identity: identity)
     }
     func testVideoFullscreenBackPiPOtherAppQueueNextAndSearch() throws {
+        // Warm the independent Settings process before starting the finite own
+        // clip; its first CI launch took 32 seconds in run 38919948219.
+        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        otherApp.activate()
+        XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 20))
         let app = try launchNativeFixture(), status = app.buttons["native.expand"]
         let before = try XCTUnwrap(status.value as? String)
         let capability = try XCTUnwrap(before.components(separatedBy: ";").first(where: { $0.hasPrefix("pip_supported=") }))
@@ -104,15 +109,15 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         app.buttons["native.toggle"].tap(); waitUntilPlaying(status)
         func field(_ text: String, _ key: String) throws -> Double {
             let value = try XCTUnwrap(text.components(separatedBy: ";").first(where: { $0.hasPrefix(key + "=") }))
-            return try XCTUnwrap(Double(value.dropFirst(key.count + 1)))
+            return try XCTUnwrap(Double(value.dropFirst(key.count + 1)), "Invalid diagnostic field: \(value)")
         }
         let ready = try XCTUnwrap(status.value as? String)
+        print("NATIVE_PIP_BEFORE \(ready)")
         let startsBefore = try field(ready, "pip_starts")
         let beforeClock = seconds(ready), beforeWall = Date()
         // Exercise the supported automatic inline PiP behavior that users get
         // when leaving the app. AVKit's own delegate is the sole event source.
         XCUIDevice.shared.press(.home)
-        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         otherApp.activate()
         XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 10))
         Thread.sleep(forTimeInterval: 3)
@@ -120,6 +125,7 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         app.activate()
         XCTAssertTrue(status.waitForExistence(timeout: 10))
         let returned = try XCTUnwrap(status.value as? String)
+        print("NATIVE_PIP_RETURNED \(returned)")
         XCTAssertGreaterThan(try field(returned, "pip_starts"), startsBefore, "Actual AVKit PiP start callback required")
         let startedAt = try field(returned, "pip_started_at")
         XCTAssertGreaterThanOrEqual(startedAt, beforeWall.timeIntervalSince1970)
