@@ -48,14 +48,6 @@ def run(p12, output, bootstrap):
     else:
         bundle = bundles[0]
     bundle_id = bundle['id']
-    print('Reading registered Share capabilities.', flush=True)
-    capabilities = client.records('/v1/bundleIds/' + bundle_id + '/bundleIdCapabilities', {'limit': 50})
-    if not any(c['attributes'].get('capabilityType') == 'APP_GROUPS' for c in capabilities):
-        if not bootstrap:
-            raise RuntimeError('Share App Groups capability is missing; run authorized setup')
-        # The public API can reject provisioning of App Groups. Let Xcode,
-        # which also associates the existing group, configure this capability.
-        print('Xcode must enable and associate the existing App Group.', flush=True)
     if bootstrap:
         # Xcode is the supported route to associate the already existing App
         # Group. This relationship is not exposed in the public ASC REST API.
@@ -83,7 +75,8 @@ def run(p12, output, bootstrap):
                     ('401', 'Apple authentication was rejected.'),
                     ('403', 'Apple provisioning access was rejected.')):
                     if needle.lower() in text.lower(): print(message)
-    profiles = client.records('/v1/bundleIds/' + bundle_id + '/profiles', {'limit': 200})
+    print('Reading existing Share distribution profiles.', flush=True)
+    profiles = client.records('/v1/bundleIds/' + bundle_id + '/profiles')
     # Prefer a previously generated, still valid profile; never revoke profiles.
     for candidate in profiles:
         attrs = candidate['attributes']
