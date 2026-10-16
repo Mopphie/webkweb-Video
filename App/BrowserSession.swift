@@ -658,10 +658,13 @@ final class BrowserModel: ObservableObject {
         onclick="document.getElementById('player').play()">Start</button>
         <button id="fullscreen-exit" aria-label="Website-Vollbild verlassen" style="display:none;position:absolute;top:0;left:0"
         onclick="document.exitFullscreen()">Zurück</button></div>
-        <button aria-label="Website-Vollbild" onclick="document.getElementById('container').requestFullscreen()">Vollbild</button>
+        <button aria-label="Website-Vollbild" onclick="document.getElementById('container').requestFullscreen().catch(error=>{document.getElementById('fullscreen-capability').textContent='Element-Vollbild Fehler: '+error.name;})">Vollbild</button>
+        <button aria-label="Website-Systemplayer" onclick="document.getElementById('player').webkitEnterFullscreen()">Systemplayer</button>
         <p id="state" role="status">Video pausiert</p><p>Lokale UI-Testfixture</p><p>\(audible ? "Ton aktiv" : "Stumm")</p>
+        <p id="fullscreen-capability"></p>
         <script>let lastTime=0,lastFrames=0;document.title='Lokale Medienfixture';setInterval(()=>{const s=document.getElementById('state'),v=document.getElementById('player'),frames=v.getVideoPlaybackQuality?.().totalVideoFrames||0,progress=frames>lastFrames||Math.abs(v.currentTime-lastTime)>0.05,next=v.paused?'Video pausiert':progress?'Video läuft':'Video puffert';lastTime=v.currentTime;lastFrames=frames;if(s.textContent!==next)s.textContent=next;},1000);</script>
         <script>document.addEventListener('fullscreenchange',()=>{document.getElementById('fullscreen-exit').style.display=document.fullscreenElement?'block':'none';});</script>
+        <script>document.getElementById('fullscreen-capability').textContent=document.fullscreenEnabled&&typeof document.getElementById('container').requestFullscreen==='function'?'Element-Vollbild unterstützt':'Element-Vollbild nicht unterstützt';</script>
         <div style="height:1400px">Testkommentare</div>
         <script>\(scrolled ? "window.scrollTo(0,160);" : "")</script>
         </body></html>

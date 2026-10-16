@@ -123,7 +123,7 @@ final class BrowserActionsUITests: XCTestCase {
     }
 
     func testDownSwipeOnScrolledVideoRestoresBrowserAndKeepsPlayback() throws {
-        let app = try launchFixture(scrolled: true)
+        let app = try launchFixture(audible: true, scrolled: true)
         let identity = try mediaIdentity(app)
         let web = app.webViews.firstMatch
         let start = app.buttons["Videostart"]
@@ -144,7 +144,7 @@ final class BrowserActionsUITests: XCTestCase {
     }
 
     func testVisibleReturnButtonKeepsSameWebsiteAndPlayback() throws {
-        let app = try launchFixture()
+        let app = try launchFixture(audible: true)
         let identity = try mediaIdentity(app)
         app.buttons["browser.watch.exit"].tap()
         XCTAssertTrue(app.textFields["Suchen oder Adresse"].waitForExistence(timeout: 5))
@@ -155,7 +155,8 @@ final class BrowserActionsUITests: XCTestCase {
     }
 
     func testCommentsKeepScrollingAndNativeHeaderCanRestoreBrowser() throws {
-        let app = try launchFixture()
+        let app = try launchFixture(audible: true)
+        let identity = try mediaIdentity(app)
         let web = app.webViews.firstMatch
         let start = web.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.75))
         start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 85)))
@@ -165,21 +166,23 @@ final class BrowserActionsUITests: XCTestCase {
             .coordinate(withNormalizedOffset: CGVector(dx: 3.5, dy: 0.5))
         header.press(forDuration: 0.05, thenDragTo: header.withOffset(CGVector(dx: 0, dy: 95)))
         XCTAssertTrue(app.textFields["Suchen oder Adresse"].waitForExistence(timeout: 8))
+        XCTAssertEqual(try mediaIdentity(app), identity)
         try requireSustainedPlayback(app)
     }
 
-    func testWebsiteCanEnterAndExitItsOwnElementFullscreen() throws {
-        let app = try launchFixture()
-        app.buttons["Website-Vollbild"].tap()
-        // This button is hidden until a real fullscreenchange event reports
-        // document.fullscreenElement; ordinary inline playback cannot pass.
-        let exit = app.buttons["Website-Vollbild verlassen"]
+    func testWebsiteSystemFullscreenReturnsToSameVideoAndBrowser() throws {
+        let app = try launchFixture(audible: true)
+        let identity = try mediaIdentity(app)
+        app.buttons["Website-Systemplayer"].tap()
+        // Native WebKit video fullscreen, including on an iPhone whose HTML
+        // Element Fullscreen API may be unavailable. Actual system control.
+        let exit = app.buttons["Close Button"]
         XCTAssertTrue(exit.waitForExistence(timeout: 8))
         XCTAssertTrue(exit.isHittable)
         exit.tap()
-        XCTAssertTrue(exit.waitForNonExistence(timeout: 8))
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable)
+        XCTAssertEqual(try mediaIdentity(app), identity)
         try requireSustainedPlayback(app)
     }
 

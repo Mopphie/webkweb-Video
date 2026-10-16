@@ -151,6 +151,8 @@ echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
 journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests)
 if [[ "$native_recheck" == true ]]; then
   journey_scope=(-only-testing:WebKWebUITests/NativePlaybackJourneyUITests/testVideoFullscreenBackPiPOtherAppQueueNextAndSearch)
+else
+  journey_scope+=(-only-testing:WebKWebUITests/BrowserWebPlaybackJourneyUITests)
 fi
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$ipad_destination" -derivedDataPath build/DerivedData \

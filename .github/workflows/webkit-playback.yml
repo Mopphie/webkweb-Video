@@ -1,0 +1,31 @@
+name: Website player system PiP verification
+on:
+  push:
+    branches: [codex/webkit-playback-2026-10-16]
+    paths-ignore: ['Docs/**', '*.md']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: webkit-playback-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  webkit:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Actual WKWebView video system PiP and other app
+        run: bash Scripts/check-webkit-playback.sh
+      - name: Preserve test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkit-player-test-results
+          path: build/*.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

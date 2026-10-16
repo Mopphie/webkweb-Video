@@ -310,7 +310,7 @@
     "status": "READ",
     "displayed_version": "January 5, 2022; DE/EEA English courtesy translation",
     "sections_reviewed": [
-      "Permissions and Restrictions 1\u20133, 9\u201310",
+      "Permissions and Restrictions 1–3, 9–10",
       "License to Other Users",
       "Reservation"
     ],
@@ -467,5 +467,32 @@
         "name": "watchOS"
       }
     ]
+  },
+  {
+    "id": "apple-element-fullscreen-20261016",
+    "url": "https://developer.apple.com/documentation/webkit/wkpreferences/iselementfullscreenenabled.md",
+    "retrieved_at_utc": "2026-10-16T20:53:37.125322+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/webkit/wkpreferences/iselementfullscreenenabled.md",
+    "sha256": "34a18a12924e532f8bf6d9d0de8340849e78cf1c5185519222f373e837b50f1a",
+    "bytes": 1313
+  },
+  {
+    "id": "apple-html-pip-20261016",
+    "url": "https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback.md",
+    "retrieved_at_utc": "2026-10-16T20:53:37.308550+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/webkit/wkwebviewconfiguration/allowspictureinpicturemediaplayback.md",
+    "sha256": "e2c8fe6db87cf3ac22849199f9c7534a99db4f8cf47850d0af4f5ac45849fbb4",
+    "bytes": 1102
+  },
+  {
+    "id": "apple-isolated-async-js-callback-20261016",
+    "url": "https://developer.apple.com/documentation/webkit/wkwebview/callasyncjavascript(_:arguments:in:in:completionhandler:).md",
+    "retrieved_at_utc": "2026-10-16T21:00:55.178932+00:00",
+    "status": 200,
+    "final_url": "https://developer.apple.com/documentation/webkit/wkwebview/callasyncjavascript(_:arguments:in:in:completionhandler:).md",
+    "sha256": "4ebe40a0a62127e63479a9869d2016d0d4379624a64091d55448692b082bfe6c",
+    "bytes": 4943
   }
 ]

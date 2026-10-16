@@ -4,6 +4,8 @@ Prüfdatum **16.10.2026 UTC**. Baseline `40b09287a40e7d51a3f82e07812ef9309814b99
 
 Vier getrennte Ebenen: **A** Software/Assets/Daten, **B** Dienstbedingungen, **C** Apple-Plattform/Vertrieb, **D** weitere Nutzungs-/Länderfragen. Die App ist ein kommerziell vertreibbares Softwarevorhaben; daraus folgt weder ein Nutzungsrecht an beliebigen Videos noch eine kommerzielle Vorführlizenz. „Lizenzgebührenfrei“ bedeutet keine zusätzlichen Komponenten-/Datenlizenzgebühren, nicht Freiheit von Bedingungen oder Apple-Kosten.
 
+Ergänzung im Stand `bbe2d49` / `1d286df`: `App/BrowserSession.swift` aktiviert die öffentliche `WKPreferences.isElementFullscreenEnabled` (iOS 15.4+, Deployment Target weiterhin 17). `App/WebView.swift` verwendet öffentliches WebKit und eigenes, ausschließlich lesendes JavaScript zur Videogeometrie in der bereits vorhandenen isolierten Welt. **KORRIGIEREN / BEHALTEN**: reguläre Website-Vollbildanforderung und Appnavigation, keine besondere YouTube-Medienfreigabe, keine neue Komponenten-/Datenlizenzgebühr oder Abhängigkeit. Aktuelle Primärquellen, tatsächliche Abrufzeit/Hash und getrennte PiP-/Hintergrundgrenzen: [Folgebericht](YOUTUBE_WATCH_RETURN.md), [Abrufregister](Evidence/source-retrievals.json). Der zusätzliche WebKit-System-PiP-Test enthält ausschließlich eigene Testmedien und Debug-Fixture-Code; keine automatische Anbieter-PiP-Erzwingung im Release.
+
 ## A — Bestandteile und konkrete Entscheidungen
 
 | Bestandteil / genaue Version | Verwendung und Pfade | Herkunft / Primärquelle | Rechte, Kosten und Pflichten | Entscheidung / fehlender Nachweis |
