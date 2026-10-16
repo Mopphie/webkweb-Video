@@ -31,6 +31,12 @@ final class BrowserActionsUITests: XCTestCase {
         XCTAssertFalse(id.isEmpty)
         return id
     }
+    private func mediaTime(_ app: XCUIApplication) throws -> Double {
+        let text = try XCTUnwrap(app.buttons["browser.actions"].value as? String)
+        let report = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any])
+        let native = try XCTUnwrap(report["native"] as? [String: Any])
+        return try XCTUnwrap(native["time"] as? NSNumber).doubleValue
+    }
 
     private func requireSustainedPlayback(_ app: XCUIApplication) throws {
         func snapshot() throws -> (time: Double, duration: Double, valid: Bool) {
@@ -173,6 +179,8 @@ final class BrowserActionsUITests: XCTestCase {
     func testWebsiteSystemFullscreenReturnsToSameVideoAndBrowser() throws {
         let app = try launchFixture(audible: true)
         let identity = try mediaIdentity(app)
+        try requireSustainedPlayback(app)
+        let before = try mediaTime(app), wall = Date()
         app.buttons["Website-Systemplayer"].tap()
         // Native WebKit video fullscreen, including on an iPhone whose HTML
         // Element Fullscreen API may be unavailable. Actual system control.
@@ -180,7 +188,7 @@ final class BrowserActionsUITests: XCTestCase {
             "identifier == 'Close Button' OR label MATCHES[c] '(Done|Fertig|Close|Schließen|.*Exit Full.?Screen.*|.*Vollbild beenden.*)'"
         )).firstMatch
         if !exit.exists || !exit.isHittable {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap()
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
         }
         let visible = exit.waitForExistence(timeout: 8)
         if !visible {
@@ -193,6 +201,16 @@ final class BrowserActionsUITests: XCTestCase {
         XCTAssertTrue(app.buttons["browser.actions"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["browser.watch.exit"].isHittable)
         XCTAssertEqual(try mediaIdentity(app), identity)
+        var progress = try mediaTime(app) - before
+        if progress < -0.25 { progress += 60 }
+        XCTAssertGreaterThanOrEqual(progress, -0.25)
+        XCTAssertLessThanOrEqual(progress, Date().timeIntervalSince(wall) + 3,
+                                 "Closing fullscreen must preserve the position, not restart at zero")
+        // The system Close button intentionally pauses WebKit video. Preserve
+        // that user choice, then exercise an explicit original website Play.
+        // Do not add an automatic resume to production just to satisfy a test.
+        app.buttons["Videostart"].tap()
+        XCTAssertTrue(app.staticTexts["Video läuft"].waitForExistence(timeout: 10))
         try requireSustainedPlayback(app)
     }
 

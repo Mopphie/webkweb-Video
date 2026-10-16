@@ -661,8 +661,8 @@ final class BrowserModel: ObservableObject {
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
         <body style="margin:0;background:black;color:white"><header style="height:\(scrolled ? 260 : 0)px"></header>
         <div id="container" style="position:relative;width:320px;height:180px">
-        <video id="player" controls playsinline \(audible ? "" : "muted autoplay") loop style="width:320px;height:180px"
-        src="data:video/mp4;base64,\(data.base64EncodedString())"></video>
+        <video id="player" controls playsinline \(audible ? "" : "muted autoplay") loop preload="auto" style="width:320px;height:180px"></video>
+        <script>document.getElementById('player').src=URL.createObjectURL(new Blob([Uint8Array.from(atob('\(data.base64EncodedString())'),c=>c.charCodeAt(0))],{type:'video/mp4'}));</script>
         <button aria-label="Videostart" style="position:absolute;top:40px;left:40px;width:140px;height:64px"
         onclick="document.getElementById('player').play()">Start</button>
         <button id="fullscreen-exit" aria-label="Website-Vollbild verlassen" style="display:none;position:absolute;top:0;left:0"

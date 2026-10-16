@@ -136,7 +136,9 @@ final class MediaPlaybackIntegrationTests: XCTestCase {
         let html = """
         <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
         <body style="margin:0;background:black"><video id="player" playsinline \(audible ? "" : "muted") preload="auto"
-        style="width:320px;height:180px" src="data:video/mp4;base64,\(data.base64EncodedString())"></video></body></html>
+        style="width:320px;height:180px"></video>
+        <script>document.getElementById('player').src=URL.createObjectURL(new Blob([Uint8Array.from(atob('\(data.base64EncodedString())'),c=>c.charCodeAt(0))],{type:'video/mp4'}));</script>
+        </body></html>
         """
         let tab = requestedTab ?? session.browser.current
         activeTab = tab

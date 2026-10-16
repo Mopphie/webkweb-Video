@@ -154,8 +154,13 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         // Exercise the supported automatic inline PiP behavior that users get
         // when leaving the app. AVKit's own delegate is the sole event source.
         XCUIDevice.shared.press(.home)
+        // Let the actual system PiP window finish entering before launching
+        // the other app; the transition can otherwise win the activation race.
+        let pipWindow = XCUIApplication(bundleIdentifier: "com.apple.springboard").windows.matching(NSPredicate(format:
+            "label == 'Picture in Picture' OR label == 'Bild in Bild' OR label == 'Bild im Bild'")).firstMatch
+        XCTAssertTrue(pipWindow.waitForExistence(timeout: 8))
         otherApp.activate()
-        XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 10))
+        XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 20))
         Thread.sleep(forTimeInterval: 3)
         let returningAt = Date()
         app.activate()

@@ -71,22 +71,41 @@ PY
 )"
 browser_checks_failed=false
 unit_checks_failed=false
-# Exact-source harness recheck: the previous run completed 73 native cases and
-# failed only the second background-WebView fixture startup. No App/Shared/
-# Widgets/production JS change may reuse those results.
+# Exact-source harness rechecks. The Blob-fixture revision reruns all eight
+# affected media cases and all UI; only the other 66 native cases are reused.
+# Any production-code change returns to the complete native suite.
 website_recheck="$(python3 - <<'PY'
 import subprocess
 def git(*args): return subprocess.check_output(['git',*args],text=True).strip()
+def release(text):
+    lines=[]; debug=False; include=True
+    for line in text.splitlines():
+        directive=line.strip()
+        if directive=='#if DEBUG':
+            if debug: raise ValueError('Nested conditional')
+            debug=True; include=False; continue
+        if debug:
+            if directive=='#endif': debug=False; include=True; continue
+            if directive=='#else': include=True; continue
+            if directive.startswith(('#if','#elseif')): raise ValueError('Ambiguous conditional')
+        if include: lines.append(line)
+    if debug: raise ValueError('Unterminated conditional')
+    return '\n'.join(lines)
 try:
     parent=git('rev-parse','HEAD^')
     allowed={'Tests/MediaPlaybackIntegrationTests.swift','Scripts/check-macos.sh',
-             'Docs/YOUTUBE_WATCH_RETURN.md','Docs/FEATURE_MATRIX.md'}
+             'Docs/YOUTUBE_WATCH_RETURN.md','Docs/FEATURE_MATRIX.md',
+             'App/BrowserSession.swift','UITests/BrowserActionsUITests.swift',
+             'UITests/BrowserWebPlaybackJourneyUITests.swift','UITests/NativePlaybackJourneyUITests.swift'}
     changes=set(git('diff','--name-only',parent,'HEAD').splitlines())
+    app_files={path for path in changes if path.startswith('App/')}
+    tree=git('rev-parse',parent+'^{tree}')
     valid=(git('status','--porcelain')=='' and
-           git('rev-parse',parent+'^{tree}')=='8dc2b48b76f73135faed30f685e8b060acaee0eb' and
-           bool(changes) and changes <= allowed)
-    print('true' if valid else 'false')
-except subprocess.CalledProcessError: print('false')
+           tree in {'8dc2b48b76f73135faed30f685e8b060acaee0eb','06281a11fa41be866b9e0f1749082b21dc60805f'} and
+           bool(changes) and changes <= allowed and
+           all(release(git('show',parent+':'+path))==release(git('show','HEAD:'+path)) for path in app_files))
+    print(('media' if tree=='06281a11fa41be866b9e0f1749082b21dc60805f' else 'single') if valid else 'false')
+except (subprocess.CalledProcessError,ValueError): print('false')
 PY
 )"
 if [[ "$native_recheck" == true ]]; then
@@ -114,9 +133,12 @@ sys.exit("Kein verfügbarer iPhone-Simulator. Installiere eine iOS-Runtime in Xc
 fi
 if [[ "$native_recheck" != true ]]; then
 unit_scope=(-only-testing:WebKWebTests)
-if [[ "$website_recheck" == true ]]; then
+if [[ "$website_recheck" == single ]]; then
   unit_scope=(-only-testing:WebKWebTests/MediaPlaybackIntegrationTests/testRealAutoplayInOtherTabCannotInterruptTheResumedPlayer)
   echo 'Exact unchanged production source: run 38969843875 completed 73 native cases; retry only the failed background-WebView fixture. All browser/iPad journeys still run.'
+elif [[ "$website_recheck" == media ]]; then
+  unit_scope=(-only-testing:WebKWebTests/MediaPlaybackIntegrationTests)
+  echo 'Exact unchanged Release source: run 38969843875 completed the other 66 native cases. Rerun all eight affected media cases with distinct Blob fixtures and all browser/iPad journeys.'
 fi
 if ! xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$destination" -derivedDataPath build/DerivedData \

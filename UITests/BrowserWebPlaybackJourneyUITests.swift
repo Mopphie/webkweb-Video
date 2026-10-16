@@ -34,7 +34,7 @@ final class BrowserWebPlaybackJourneyUITests: XCTestCase {
         // Actual identifiers/labels from run 38965491481: PIP Button is labeled
         // "Video minimieren" in German, rather than containing "Bild in Bild".
         let button = app.buttons.matching(NSPredicate(format: "identifier == %@ OR label MATCHES[c] %@", identifier, pattern)).firstMatch
-        if !button.exists || !button.isHittable { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).tap() }
+        if !button.exists || !button.isHittable { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap() }
         if !button.waitForExistence(timeout: 8) {
             let details = app.debugDescription
             print("WEBKIT_PLAYER_CONTROLS \(details)")
