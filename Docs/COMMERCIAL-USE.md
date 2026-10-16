@@ -33,4 +33,4 @@ Es gibt keine Review-exklusive Freischaltung und keine versteckte alternative Va
 * Ausschließlich eigene oder passend lizenzierte Demo-Videos, Vorschaubilder und echte App-Screenshots für Werbung/Store verwenden. Die vom Nutzer bereitgestellten YouTube-Referenzen sind keine kommerziell freigegebenen Marketingmedien und gehören nicht ins App-Bundle.
 * Die externe öffentliche Datenschutzwebsite an die entfernten Funktionen anpassen, bevor dieser Build verteilt wird; diese Änderung bearbeitet ausschließlich das App-Repository.
 
-Der Nutzer hat GitHub Actions am 16.10.2026 ausdrücklich jederzeit für Builds und Tests freigegeben. Der neue Validierungsworkflow startet auf dem Entwicklungsbranch; der TestFlight-Workflow bleibt manuell. Diese Testfreigabe enthält keine App-Store-Veröffentlichung.
+Der Nutzer hat GitHub Actions am 16.10.2026 ausdrücklich jederzeit für Builds und Tests freigegeben. Der neue Validierungsworkflow startet auf dem Entwicklungsbranch; der TestFlight-Workflow unterstützt manuellen Dispatch und den gesondert beauftragten TestFlight-Release-Branch. Diese Testfreigabe enthält keine App-Store-Veröffentlichung.

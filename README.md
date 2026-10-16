@@ -51,7 +51,7 @@ Der Parameter muss eine echte `iCloud.*`-ID sein. Das Skript setzt Plist/Entitle
 
 ## Lokal prüfen
 
-Der TestFlight-Workflow bleibt manuell. **Seit 16.10.2026 sind GitHub Actions für Builds und Tests ausdrücklich jederzeit freigegeben.** Der Validierungsworkflow prüft den Entwicklungsbranch ohne Signing oder Upload.
+Der TestFlight-Workflow unterstützt manuellen Dispatch und den ausdrücklich beauftragten Release-Branch `codex/testflight-2026-10-16`; normale Entwicklungs-/Main-Pushes laden nichts zu Apple hoch. **Seit 16.10.2026 sind GitHub Actions für Builds und Tests ausdrücklich jederzeit freigegeben.** Der Validierungsworkflow prüft den Entwicklungsbranch ohne Signing oder Upload.
 
 ```bash
 node --test Tests/*.test.cjs
