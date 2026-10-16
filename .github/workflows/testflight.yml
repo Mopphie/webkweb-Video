@@ -72,23 +72,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Install XcodeGen and run Node/XCTest preflight
-        timeout-minutes: 30
-        run: |
-          set -euo pipefail
-          brew install xcodegen
-          python3 -m unittest discover -s Scripts/Tests -v
-          ./Scripts/check-macos.sh
-      - name: Build-only unsigned Release simulator build
-        if: steps.intent.outputs.mode == 'build-only'
-        run: |
-          set -euo pipefail
-          xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb \
-            -configuration Release -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO build
-          echo 'Unsigned Release simulator build passed; no archive, signing, or upload.' >> "$GITHUB_STEP_SUMMARY"
       - name: Select next App Store Connect build number
         if: steps.intent.outputs.upload == 'true'
         id: asc
@@ -139,6 +122,23 @@ jobs:
           security list-keychains -d user -s "$keychain" "$HOME/Library/Keychains/login.keychain-db"
           security import "$RUNNER_TEMP/devntube-signing/distribution.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$APPLE_CERTIFICATE_PASSWORD" "$keychain" >/dev/null
+      - name: Install XcodeGen and run Node/XCTest preflight
+        timeout-minutes: 30
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          python3 -m unittest discover -s Scripts/Tests -v
+          ./Scripts/check-macos.sh
+      - name: Build-only unsigned Release simulator build
+        if: steps.intent.outputs.mode == 'build-only'
+        run: |
+          set -euo pipefail
+          xcodebuild -project WebKWeb.xcodeproj -scheme WebKWeb \
+            -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build
+          echo 'Unsigned Release simulator build passed; no archive, signing, or upload.' >> "$GITHUB_STEP_SUMMARY"
       - name: Archive and export signed IPA
         id: archive
         if: steps.intent.outputs.upload == 'true'

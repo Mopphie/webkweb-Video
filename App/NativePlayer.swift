@@ -18,6 +18,8 @@ final class NativePlayer: ObservableObject {
     @Published private(set) var playing = false
     @Published private(set) var waiting = false
     @Published var pictureInPictureActive = false
+    @Published private(set) var pictureInPictureStartCount = 0
+    private(set) var lastPictureInPictureStart: Date?
     @Published private(set) var time = 0.0
     @Published private(set) var duration: Double?
     @Published private(set) var error: String?
@@ -58,6 +60,11 @@ final class NativePlayer: ObservableObject {
     private var loadingAsset: AVURLAsset?
     var isOpen: Bool { mediaID != nil }
     var pictureInPictureSupported: Bool { AVPictureInPictureController.isPictureInPictureSupported() }
+    func pictureInPictureStarted() {
+        lastPictureInPictureStart = .now
+        pictureInPictureStartCount &+= 1
+        pictureInPictureActive = true
+    }
     var live: Bool { isOpen && duration == nil }
     var canNext: Bool { guard let id = mediaID, let i = queueIDs.firstIndex(of: id) else { return false }; return i + 1 < queueIDs.count }
     var canPrevious: Bool { guard let id = mediaID, let i = queueIDs.firstIndex(of: id) else { return false }; return i > 0 }
@@ -272,7 +279,7 @@ struct NativePlayerSurface: UIViewControllerRepresentable {
         weak var playback: NativePlayer?
         init(_ playback: NativePlayer) { self.playback = playback }
         func playerViewControllerDidStartPictureInPicture(_ playerViewController: AVPlayerViewController) {
-            playback?.pictureInPictureActive = true
+            playback?.pictureInPictureStarted()
         }
         func playerViewControllerDidStopPictureInPicture(_ playerViewController: AVPlayerViewController) {
             guard let playback else { return }

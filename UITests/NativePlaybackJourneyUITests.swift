@@ -102,21 +102,39 @@ final class NativePlaybackJourneyUITests: XCTestCase {
         try XCTSkipIf(capability == "pip_supported=false", "System-PiP wird von dieser Laufzeit nicht unterstützt. Pflichtreise NICHT AUSGEFÜHRT; auf unterstütztem Gerät erforderlich.")
         fullscreenAndReturn(app, status: status)
         app.buttons["native.toggle"].tap(); waitUntilPlaying(status)
-        let pip = requireSystemButton(".*(Picture in Picture|Bild.in.Bild|Start PiP).*", app: app)
-        let target = pip.frame
-        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: target.midX, dy: target.midY)).tap()
-        let enteredPiP = NSPredicate { _, _ in (status.value as? String)?.contains("pip=true") == true }
-        expectation(for: enteredPiP, evaluatedWith: nil); waitForExpectations(timeout: 10)
-        let beforeClock = seconds(try XCTUnwrap(status.value as? String)), beforeWall = Date()
+        func field(_ text: String, _ key: String) throws -> Double {
+            let value = try XCTUnwrap(text.components(separatedBy: ";").first(where: { $0.hasPrefix(key + "=") }))
+            return try XCTUnwrap(Double(value.dropFirst(key.count + 1)))
+        }
+        let ready = try XCTUnwrap(status.value as? String)
+        let startsBefore = try field(ready, "pip_starts")
+        let beforeClock = seconds(ready), beforeWall = Date()
+        // Exercise the supported automatic inline PiP behavior that users get
+        // when leaving the app. AVKit's own delegate is the sole event source.
         XCUIDevice.shared.press(.home)
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        XCTAssertTrue(springboard.wait(for: .runningForeground, timeout: 5))
+        let otherApp = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        otherApp.activate()
+        XCTAssertTrue(otherApp.wait(for: .runningForeground, timeout: 10))
+        Thread.sleep(forTimeInterval: 3)
+        let returningAt = Date()
         app.activate()
         XCTAssertTrue(status.waitForExistence(timeout: 10))
+        let returned = try XCTUnwrap(status.value as? String)
+        XCTAssertGreaterThan(try field(returned, "pip_starts"), startsBefore, "Actual AVKit PiP start callback required")
+        let startedAt = try field(returned, "pip_started_at")
+        XCTAssertGreaterThanOrEqual(startedAt, beforeWall.timeIntervalSince1970)
+        XCTAssertLessThanOrEqual(startedAt, returningAt.timeIntervalSince1970, "PiP must start during the real app switch")
+        if returned.contains("pip=true") {
+            // AVKit's inline placeholder restores the same player with a touch.
+            app.descendants(matching: .any).matching(identifier: "native.player").firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            let restored = NSPredicate { _, _ in (status.value as? String)?.contains("pip=false") == true }
+            expectation(for: restored, evaluatedWith: nil); waitForExpectations(timeout: 10)
+        }
         let after = try XCTUnwrap(status.value as? String)
         XCTAssertTrue(after.contains("playing=true"))
         let progress = seconds(after) - beforeClock
         XCTAssertGreaterThan(progress, 0.1, "Clock must advance across PiP/background; no restart fallback")
+        XCTAssertGreaterThanOrEqual(progress, Date().timeIntervalSince(beforeWall) - 2, "Playback must continue throughout the app switch")
         XCTAssertLessThanOrEqual(progress, Date().timeIntervalSince(beforeWall) + 2, "Unexpected seek or wrong clock")
         let identity = before.components(separatedBy: ";media=").last
         XCTAssertEqual(after.components(separatedBy: ";media=").last, identity)

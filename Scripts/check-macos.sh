@@ -61,6 +61,11 @@ for runtime in sorted(devices, reverse=True):
             sys.exit(0)
 sys.exit("Kein verfügbarer iPad-Simulator für native Vollbild-/PiP-/Queue-Reise.")
 ')"
+# Release the first disposable CI device before booting the iPad. Local users'
+# existing Simulator sessions are not shut down.
+if [[ "${CI:-}" == true && "$destination" == *id=* ]]; then
+  xcrun simctl shutdown "${destination##*id=}" || true
+fi
 echo "Native adaptive/fullscreen/PiP journeys: $ipad_destination"
 xcodebuild "${project_args[@]}" -scheme WebKWeb \
   -destination "$ipad_destination" -derivedDataPath build/DerivedData \
